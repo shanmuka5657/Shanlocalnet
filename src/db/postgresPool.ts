@@ -1,7 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import pg from 'pg';
+import { PGlite } from '@electric-sql/pglite';
+import { postgis } from '@electric-sql/pglite-postgis';
 
+const { Pool } = pg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -14,9 +18,6 @@ export interface MigrationFilePair {
   downSql: string;
 }
 
-/**
- * Loads all ordered Stage B.1 forward and rollback SQL migrations from src/db/migrations
- */
 export function loadMigrationFiles(): MigrationFilePair[] {
   const migrationsDir = path.resolve(__dirname, 'migrations');
   if (!fs.existsSync(migrationsDir)) {
@@ -43,14 +44,7 @@ export function loadMigrationFiles(): MigrationFilePair[] {
   });
 }
 
-/**
- * Canonical PostGIS query templates used by the PostgreSQL repository adapter.
- * Guaranteed longitude-first ordering: ST_MakePoint(longitude, latitude)
- */
 export const POSTGIS_QUERIES = {
-  /**
-   * Engine A: Organic feed query using GIST index on publishing_point + ST_DWithin in meters
-   */
   ENGINE_A_ORGANIC_FEED: `
     SELECT
       p.*,
@@ -81,10 +75,6 @@ export const POSTGIS_QUERIES = {
     LIMIT $6 OFFSET $7;
   `,
 
-  /**
-   * Engine B: Commercial & Advertisement feed query strictly capped at <= 40,000 meters (40 km)
-   * and requiring verified business & location origin.
-   */
   ENGINE_B_COMMERCIAL_CAMPAIGNS: `
     SELECT
       c.*,
@@ -124,10 +114,6 @@ export const POSTGIS_QUERIES = {
     ORDER BY distance_km ASC;
   `,
 
-  /**
-   * Crash-safe Outbox Worker Claim Query (§4.9)
-   * Uses FOR UPDATE SKIP LOCKED and reclaims expired worker leases cleanly.
-   */
   OUTBOX_CLAIM_BATCH: `
     WITH claimable AS (
       SELECT id
@@ -152,3 +138,201 @@ export const POSTGIS_QUERIES = {
     RETURNING o.*;
   `,
 };
+
+export interface IDatabaseClient {
+  query<T = any>(sql: string, params?: any[]): Promise<{ rows: T[]; rowCount?: number }>;
+  exec(sql: string): Promise<void>;
+  transaction<T>(fn: (tx: IDatabaseClient) => Promise<T>): Promise<T>;
+  close(): Promise<void>;
+  isLiveServer(): boolean;
+}
+
+class PgPoolClient implements IDatabaseClient {
+  private pool: pg.Pool;
+
+  constructor(pool: pg.Pool) {
+    this.pool = pool;
+  }
+
+  public async query<T = any>(sql: string, params?: any[]): Promise<{ rows: T[]; rowCount?: number }> {
+    const res = await this.pool.query(sql, params);
+    return { rows: res.rows, rowCount: res.rowCount ?? undefined };
+  }
+
+  public async exec(sql: string): Promise<void> {
+    await this.pool.query(sql);
+  }
+
+  public async transaction<T>(fn: (tx: IDatabaseClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const txClient: IDatabaseClient = {
+        query: async <R = any>(q: string, p?: any[]) => {
+          const r = await client.query(q, p);
+          return { rows: r.rows, rowCount: r.rowCount ?? undefined };
+        },
+        exec: async (s: string) => {
+          await client.query(s);
+        },
+        transaction: async () => {
+          throw new Error('Nested transactions not supported');
+        },
+        close: async () => {},
+        isLiveServer: () => true,
+      };
+      const result = await fn(txClient);
+      await client.query('COMMIT');
+      return result;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  public async close(): Promise<void> {
+    await this.pool.end();
+  }
+
+  public isLiveServer(): boolean {
+    return true;
+  }
+}
+
+class PGliteDatabaseClient implements IDatabaseClient {
+  private pglite: PGlite;
+
+  constructor(pglite: PGlite) {
+    this.pglite = pglite;
+  }
+
+  public async query<T = any>(sql: string, params?: any[]): Promise<{ rows: T[]; rowCount?: number }> {
+    const res = await this.pglite.query(sql, params);
+    return { rows: res.rows as T[], rowCount: res.rows.length };
+  }
+
+  public async exec(sql: string): Promise<void> {
+    await this.pglite.exec(sql);
+  }
+
+  public async transaction<T>(fn: (tx: IDatabaseClient) => Promise<T>): Promise<T> {
+    return await this.pglite.transaction(async (tx) => {
+      const txClient: IDatabaseClient = {
+        query: async <R = any>(q: string, p?: any[]) => {
+          const r = await tx.query(q, p);
+          return { rows: r.rows as R[], rowCount: r.rows.length };
+        },
+        exec: async (s: string) => {
+          await tx.exec(s);
+        },
+        transaction: async () => {
+          throw new Error('Nested transactions not supported');
+        },
+        close: async () => {},
+        isLiveServer: () => false,
+      };
+      return await fn(txClient);
+    });
+  }
+
+  public async close(): Promise<void> {
+    await this.pglite.close();
+  }
+
+  public isLiveServer(): boolean {
+    return false;
+  }
+}
+
+let activeClient: IDatabaseClient | null = null;
+let activePool: pg.Pool | null = null;
+
+export async function initDatabase(options?: { forceMemory?: boolean; customDataDir?: string }): Promise<IDatabaseClient> {
+  if (activeClient) {
+    return activeClient;
+  }
+
+  const databaseUrl = process.env.DATABASE_URL;
+
+  // Attempt real PostgreSQL 16 connection if DATABASE_URL is configured and not forced to memory
+  if (databaseUrl && !options?.forceMemory && !databaseUrl.includes('CHANGE_ME')) {
+    try {
+      const pool = new Pool({
+        connectionString: databaseUrl,
+        connectionTimeoutMillis: 4000,
+        idleTimeoutMillis: 30000,
+        max: 20,
+      });
+
+      // Probe connection with timeout
+      const probeRes = await pool.query('SELECT 1 as connected;');
+      if (probeRes.rows[0]?.connected === 1) {
+        activePool = pool;
+        activeClient = new PgPoolClient(pool);
+        console.log('[LocalNet Database] Connected to live PostgreSQL server via DATABASE_URL');
+        return activeClient;
+      }
+    } catch (err: any) {
+      console.warn(`[LocalNet Database] PostgreSQL connection to DATABASE_URL failed: ${err?.message}. Initializing persistent embedded PostGIS engine.`);
+    }
+  }
+
+  // Persistent PostGIS embedded storage across restarts
+  const dataDir = options?.customDataDir || path.resolve(process.cwd(), '.localnet_pgdata');
+  const pgliteInstance = new PGlite(dataDir, {
+    extensions: { postgis },
+  });
+
+  // Ensure PostGIS extension is ready
+  await pgliteInstance.exec('CREATE EXTENSION IF NOT EXISTS "postgis";');
+
+  activeClient = new PGliteDatabaseClient(pgliteInstance);
+  console.log(`[LocalNet Database] Embedded PostgreSQL 16 + PostGIS 3.4 engine active (Storage: ${dataDir})`);
+  return activeClient;
+}
+
+export function getDbClient(): IDatabaseClient {
+  if (!activeClient) {
+    throw new Error('Database client not initialized. Call initDatabase() first.');
+  }
+  return activeClient;
+}
+
+export async function checkDbHealth(): Promise<{
+  connected: boolean;
+  engine: string;
+  postgisVersion?: string;
+  version?: string;
+  error?: string;
+}> {
+  try {
+    const client = getDbClient();
+    const verRes = await client.query('SELECT version();');
+    const postgisRes = await client.query('SELECT PostGIS_Version();');
+    return {
+      connected: true,
+      engine: client.isLiveServer() ? 'PostgreSQL Pool (node-postgres)' : 'Embedded PostgreSQL + PostGIS (Persistent Disk)',
+      version: verRes.rows[0]?.version || 'PostgreSQL 16+',
+      postgisVersion: postgisRes.rows[0]?.postgis_version || 'PostGIS 3.4+',
+    };
+  } catch (err: any) {
+    return {
+      connected: false,
+      engine: 'disconnected',
+      error: err?.message || String(err),
+    };
+  }
+}
+
+export async function closePool(): Promise<void> {
+  if (activePool) {
+    await activePool.end();
+    activePool = null;
+  }
+  if (activeClient) {
+    await activeClient.close();
+    activeClient = null;
+  }
+}

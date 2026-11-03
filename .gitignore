@@ -20,6 +20,7 @@ coverage/
 
 # Local Private Media & Temp Files
 .local_media_private/
+.localnet_pgdata/
 tmp/
 temp/
 *.tmp
