@@ -21,6 +21,22 @@ import { NotificationsModal } from './components/NotificationsModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import {
+  INITIAL_POSTS,
+  INITIAL_AD_CAMPAIGNS,
+  INITIAL_BUSINESSES,
+  INITIAL_MARKETPLACE,
+  INITIAL_COMMUNITIES,
+  INITIAL_JOBS,
+  INITIAL_SERVICES,
+  INITIAL_EVENTS,
+  INITIAL_NOTIFICATIONS
+} from './lib/mockData.ts';
+import {
+  evaluateOrganicEligibility,
+  evaluateCommercialEligibility,
+  calculateHaversineDistance
+} from './lib/geo.ts';
+import {
   Post,
   AdCampaign,
   BusinessProfile,
@@ -115,6 +131,59 @@ function LocalNetContent() {
   // Fetch ecosystem data whenever location or feed tab updates
   const loadData = useCallback(async () => {
     setIsLoading(true);
+
+    const fallbackToLocalData = () => {
+      const organicEvaluated = INITIAL_POSTS.map(p => ({
+        post: p,
+        eligibility: evaluateOrganicEligibility(viewerLocation, p)
+      })).filter(item => {
+        if (activeFeedTab === 'around_me') {
+          return item.eligibility.isEligible && item.eligibility.distanceKm <= 40;
+        }
+        if (activeFeedTab === 'following') {
+          return item.post.creatorId === 'creator_arjun';
+        }
+        return item.eligibility.isEligible;
+      });
+
+      const adsEvaluated = INITIAL_AD_CAMPAIGNS.map(ad => ({
+        ad,
+        eligibility: evaluateCommercialEligibility(viewerLocation, ad)
+      })).filter(item => item.eligibility.isEligible);
+
+      const reelsEvaluated = INITIAL_POSTS
+        .filter(p => p.contentType === 'reel' || p.contentType === 'video')
+        .map(p => ({
+          reel: p,
+          eligibility: evaluateOrganicEligibility(viewerLocation, p)
+        }))
+        .filter(item => item.eligibility.isEligible);
+
+      setFeedPosts(organicEvaluated);
+      setFeedAds(activeFeedTab === 'around_me' || activeFeedTab === 'global' ? adsEvaluated : []);
+      setReelsList(reelsEvaluated);
+      setCampaigns(INITIAL_AD_CAMPAIGNS);
+      setBusinesses(INITIAL_BUSINESSES);
+      setMarketplaceItems(INITIAL_MARKETPLACE.map(item => {
+        const dist = calculateHaversineDistance(
+          viewerLocation.coords.latitude,
+          viewerLocation.coords.longitude,
+          item.coordinates.latitude,
+          item.coordinates.longitude
+        );
+        return {
+          item,
+          distanceKm: dist,
+          isWithinDeliveryRadius: dist <= item.maxDeliveryRadiusKm
+        };
+      }));
+      setCommunities(INITIAL_COMMUNITIES);
+      setJobs(INITIAL_JOBS);
+      setServices(INITIAL_SERVICES);
+      setEvents(INITIAL_EVENTS);
+      setNotifications(INITIAL_NOTIFICATIONS);
+    };
+    setIsLoading(true);
     const query = new URLSearchParams({
       lat: viewerLocation.coords.latitude.toString(),
       lon: viewerLocation.coords.longitude.toString(),
@@ -145,6 +214,9 @@ function LocalNetContent() {
         const feedData = await feedRes.json();
         setFeedPosts(feedData.posts || []);
         setFeedAds(feedData.ads || []);
+      } else {
+        fallbackToLocalData();
+        return;
       }
       if (reelsRes.ok) {
         const reelsData = await reelsRes.json();
@@ -183,7 +255,8 @@ function LocalNetContent() {
         setNotifications(notifData.notifications || []);
       }
     } catch (e) {
-      console.error('Error fetching LocalNet data', e);
+      console.warn('Backend API unavailable, activated local distribution engine fallback:', e);
+      fallbackToLocalData();
     } finally {
       setIsLoading(false);
     }
