@@ -121,6 +121,11 @@ async function startServer() {
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
 
+  app.get('/favicon.ico', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.sendFile(path.join(__dirname, 'public', 'favicon.svg'));
+  });
+
   // Helper to extract ViewerLocation from request query or body
   function extractViewerLocation(req: Request): ViewerLocation | null {
     const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;

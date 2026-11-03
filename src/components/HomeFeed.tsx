@@ -61,6 +61,14 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const [isMuted, setIsMuted] = useState(true);
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
 
+  // Dynamically update audio muted state across all playing HTML5 video elements
+  React.useEffect(() => {
+    document.querySelectorAll('video').forEach((v) => {
+      v.muted = isMuted;
+      v.volume = isMuted ? 0 : 1;
+    });
+  }, [isMuted]);
+
   const [activeAudit, setActiveAudit] = useState<{
     post?: Post | null;
     ad?: AdCampaign | null;
@@ -140,8 +148,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           <button
             onClick={() => onChangeFeedTab('global')}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'global'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
           >
             <Globe className="w-3.5 h-3.5 shrink-0" />
@@ -162,8 +170,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           <button
             onClick={() => onChangeFeedTab('around_me')}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'around_me'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
           >
             <MapPin className="w-3.5 h-3.5 shrink-0" />
@@ -174,8 +182,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           <button
             onClick={() => onChangeFeedTab('following')}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'following'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
           >
             <Users className="w-3.5 h-3.5 shrink-0" />
@@ -330,8 +338,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     <button
                       onClick={() => toggleFollow(post.creatorId)}
                       className={`px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold rounded-lg transition-colors ${isFollowing
-                          ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                          : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                        ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                        : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
                         }`}
                     >
                       {isFollowing ? 'Following' : 'Follow'}
@@ -340,8 +348,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     <button
                       onClick={() => setActiveAudit({ post, eligibility, ad: null })}
                       className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-semibold rounded-lg transition-colors border ${isWorldwide
-                          ? 'bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
-                          : 'bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        ? 'bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                        : 'bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                         }`}
                       title="Inspect geographical distribution audit"
                     >
@@ -424,9 +432,19 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setIsMuted(!isMuted);
+                              const newMuted = !isMuted;
+                              setIsMuted(newMuted);
+                              const v = document.getElementById(`feed-video-${post.id}`) as HTMLVideoElement;
+                              if (v) {
+                                v.muted = newMuted;
+                                v.volume = newMuted ? 0 : 1;
+                                if (!newMuted && v.paused) {
+                                  v.play().catch(err => console.warn('Unmute play error:', err));
+                                }
+                              }
                             }}
                             className="p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md transition-colors"
+                            title={isMuted ? "Unmute Audio" : "Mute Audio"}
                           >
                             {isMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
                           </button>
