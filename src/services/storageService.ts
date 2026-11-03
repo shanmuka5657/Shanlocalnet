@@ -177,13 +177,34 @@ export class LocalStorageAdapter implements IStorageAdapter {
     else if (ext === '.mp4') contentType = 'video/mp4';
     else if (ext === '.webm') contentType = 'video/webm';
 
-    if (rangeHeader) {
-      const parts = rangeHeader.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+    if (rangeHeader && rangeHeader.startsWith('bytes=')) {
+      const rawRange = rangeHeader.replace(/^bytes=/, '').trim();
+      let start: number;
+      let end: number;
 
-      if (isNaN(start) || start >= totalSize || end >= totalSize || start > end) {
-        return null;
+      if (rawRange.startsWith('-')) {
+        // Suffix range: bytes=-500000 (last 500,000 bytes, needed for MP4 moov atom)
+        const suffixLength = parseInt(rawRange.substring(1), 10);
+        if (isNaN(suffixLength) || suffixLength <= 0) {
+          return null;
+        }
+        start = Math.max(0, totalSize - suffixLength);
+        end = totalSize - 1;
+      } else {
+        const parts = rawRange.split('-');
+        start = parseInt(parts[0], 10);
+        if (isNaN(start) || start < 0 || start >= totalSize) {
+          return null;
+        }
+        if (parts[1] && parts[1].trim().length > 0) {
+          end = parseInt(parts[1], 10);
+          if (isNaN(end) || end < start) {
+            return null;
+          }
+          end = Math.min(end, totalSize - 1);
+        } else {
+          end = totalSize - 1;
+        }
       }
 
       const contentLength = end - start + 1;

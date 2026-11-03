@@ -353,16 +353,31 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 </div>
 
                 {/* Media Container: Full width, responsive aspect ratio */}
-                <div className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center">
+                <div
+                  className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center cursor-pointer group"
+                  onClick={() => {
+                    if (post.contentType === 'reel' || post.contentType === 'video') {
+                      const v = document.getElementById(`feed-video-${post.id}`) as HTMLVideoElement;
+                      if (v) {
+                        if (v.paused) {
+                          v.play().catch(err => console.warn('Play error:', err));
+                        } else {
+                          v.pause();
+                        }
+                      }
+                    }
+                  }}
+                >
                   {(post.contentType === 'reel' || post.contentType === 'video') ? (
                     post.mediaUrl && !videoErrors[post.id] ? (
-                      <div className="w-full h-full relative group">
+                      <div className="w-full h-full relative">
                         <video
+                          id={`feed-video-${post.id}`}
                           src={post.mediaUrl}
                           loop
                           muted={isMuted}
                           playsInline
-                          autoPlay={playingVideoId === post.id}
+                          preload="auto"
                           className="w-full h-full object-cover"
                           onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
                           onPlay={() => setPlayingVideoId(post.id)}
@@ -370,23 +385,33 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                             if (playingVideoId === post.id) setPlayingVideoId(null);
                           }}
                         />
+
+                        {/* Large center play button when paused */}
+                        {playingVideoId !== post.id && (
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none transition-all">
+                            <div className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-md flex items-center justify-center shadow-2xl ring-1 ring-white/40">
+                              <Play className="w-8 h-8 text-white ml-1 fill-white" />
+                            </div>
+                          </div>
+                        )}
+
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
 
                         <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-white pointer-events-auto">
                           <button
-                            onClick={() => {
-                              const v = document.querySelector(`video[src="${post.mediaUrl}"]`) as HTMLVideoElement;
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const v = document.getElementById(`feed-video-${post.id}`) as HTMLVideoElement;
                               if (v) {
                                 if (v.paused) {
                                   v.play().catch(() => setVideoErrors(prev => ({ ...prev, [post.id]: true })));
-                                  setPlayingVideoId(post.id);
                                 } else {
                                   v.pause();
-                                  setPlayingVideoId(null);
                                 }
                               }
                             }}
-                            className="p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md transition-colors"
+                            className="p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md transition-colors"
                           >
                             {playingVideoId === post.id ? (
                               <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
@@ -396,8 +421,12 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                           </button>
 
                           <button
-                            onClick={() => setIsMuted(!isMuted)}
-                            className="p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md transition-colors"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsMuted(!isMuted);
+                            }}
+                            className="p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md transition-colors"
                           >
                             {isMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
                           </button>
