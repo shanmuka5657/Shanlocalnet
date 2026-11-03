@@ -438,6 +438,7 @@ export async function runMediaUploadVerificationSuite(): Promise<{
     const feed = await postsRepo.getFeed({
       coords: { latitude: 15.8281, longitude: 78.0373 },
       isVerified: true,
+      verifiedTimestamp: Date.now(),
       cityName: 'Kurnool',
       stateName: 'Andhra Pradesh',
       country: 'India',
@@ -531,3 +532,4 @@ if (process.argv[1] && process.argv[1].includes('media_pipeline_verification')) 
       process.exit(1);
     });
 }
+

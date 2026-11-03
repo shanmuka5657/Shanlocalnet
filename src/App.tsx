@@ -19,6 +19,7 @@ import { LocationModal } from './components/LocationModal.tsx';
 import { CreateModal } from './components/CreateModal.tsx';
 import { NotificationsModal } from './components/NotificationsModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import {
   Post,
   AdCampaign,
@@ -335,8 +336,10 @@ function LocalNetContent() {
 
 export default function App() {
   return (
-    <LocationProvider>
-      <LocalNetContent />
-    </LocationProvider>
+    <ErrorBoundary>
+      <LocationProvider>
+        <LocalNetContent />
+      </LocationProvider>
+    </ErrorBoundary>
   );
 }

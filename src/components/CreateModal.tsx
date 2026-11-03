@@ -121,10 +121,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           },
           commercialMetadata: isCommercialMode
             ? {
-                businessName: 'Local Sponsor',
-                isPaidPromotion: true,
-                ctaText: 'Learn More'
-              }
+              businessName: 'Local Sponsor',
+              isPaidPromotion: true,
+              ctaText: 'Learn More'
+            }
             : undefined,
           tags
         })
@@ -155,7 +155,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92dvh]">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
@@ -200,11 +200,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
               <button
                 type="button"
                 onClick={() => setContentType('reel')}
-                className={`py-2 px-1 sm:px-3 rounded-xl border flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold transition-all ${
-                  contentType === 'reel'
+                className={`py-2 px-1 sm:px-3 rounded-xl border flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold transition-all ${contentType === 'reel'
                     ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200'
                     : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
+                  }`}
               >
                 <Film className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <span className="truncate">Vertical Reel</span>
@@ -213,11 +212,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
               <button
                 type="button"
                 onClick={() => setContentType('photo')}
-                className={`py-2 px-1 sm:px-3 rounded-xl border flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold transition-all ${
-                  contentType === 'photo'
+                className={`py-2 px-1 sm:px-3 rounded-xl border flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold transition-all ${contentType === 'photo'
                     ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200'
                     : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
+                  }`}
               >
                 <Camera className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                 <span className="truncate">Photo Post</span>
@@ -226,11 +224,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
               <button
                 type="button"
                 onClick={() => setContentType('text')}
-                className={`py-2 px-1 sm:px-3 rounded-xl border flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold transition-all ${
-                  contentType === 'text'
+                className={`py-2 px-1 sm:px-3 rounded-xl border flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold transition-all ${contentType === 'text'
                     ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200'
                     : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
+                  }`}
               >
                 <FileText className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span className="truncate">Text Story</span>
@@ -271,11 +268,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
                     setClassification('organic');
                     setIsPaidPromotion(false);
                   }}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    !isCommercialMode
+                  className={`p-2.5 rounded-xl border text-left transition-all ${!isCommercialMode
                       ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-1 ring-indigo-500'
                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600'
-                  }`}
+                    }`}
                 >
                   <span className="font-bold text-xs flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-indigo-600" />
@@ -292,11 +288,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
                     setClassification('commercial');
                     setIsPaidPromotion(true);
                   }}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    isCommercialMode
+                  className={`p-2.5 rounded-xl border text-left transition-all ${isCommercialMode
                       ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 ring-1 ring-amber-500'
                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600'
-                  }`}
+                    }`}
                 >
                   <span className="font-bold text-xs flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-600" />
@@ -395,11 +390,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
                     type="button"
                     key={s}
                     onClick={() => setScope(s)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
-                      scope === s
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${scope === s
                         ? 'bg-amber-600 text-white shadow-sm'
                         : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-400'
-                    }`}
+                      }`}
                   >
                     {s}
                   </button>
@@ -414,13 +408,12 @@ export const CreateModal: React.FC<CreateModalProps> = ({
                       key={s}
                       disabled={isDisabled}
                       onClick={() => !isDisabled && setScope(s)}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1 ${
-                        scope === s
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1 ${scope === s
                           ? 'bg-indigo-600 text-white shadow-sm'
                           : isDisabled
-                          ? 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 border border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-50'
-                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-400'
-                      }`}
+                            ? 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 border border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-50'
+                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-400'
+                        }`}
                       title={isDisabled ? 'Commercial content is strictly capped at 40 km under platform policy' : ''}
                     >
                       {isDisabled && <Lock className="w-3 h-3 text-slate-400" />}

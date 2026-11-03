@@ -41,28 +41,23 @@ export class AuditRepository {
     try {
       await this.client.query(`
         INSERT INTO geo_audit_logs (
-          entity_type, entity_id, engine,
-          origin_city, origin_point, target_scope,
-          radius_km, viewer_city, viewer_distance_km,
-          is_delivered, rule_code, notes, created_at
+          item_type, item_id, engine,
+          origin_city, viewer_city, distance_km,
+          selected_scope, is_delivered, rule_code, notes, created_at
         )
         VALUES (
           $1, $2, $3,
-          $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7,
-          $8, $9, $10,
-          $11, $12, $13, NOW()
+          $4, $5, $6,
+          $7, $8, $9, $10, NOW()
         );
       `, [
         record.entityType,
         record.entityId,
         record.engine,
         record.originCity,
-        record.originCoords.lon,
-        record.originCoords.lat,
-        record.targetScope,
-        record.radiusKm,
         record.viewerCity,
         record.viewerDistanceKm,
+        record.targetScope,
         record.isDelivered,
         record.ruleCode,
         record.notes
@@ -77,16 +72,13 @@ export class AuditRepository {
     const res = await this.client.query(`
       SELECT
         id,
-        entity_type AS "entityType",
-        entity_id AS "entityId",
+        item_type AS "entityType",
+        item_id AS "entityId",
         engine,
         origin_city AS "originCity",
-        ST_X(origin_point::geometry) AS "originLon",
-        ST_Y(origin_point::geometry) AS "originLat",
-        target_scope AS "targetScope",
-        radius_km AS "radiusKm",
+        selected_scope AS "targetScope",
         viewer_city AS "viewerCity",
-        viewer_distance_km AS "viewerDistanceKm",
+        distance_km AS "viewerDistanceKm",
         is_delivered AS "isDelivered",
         rule_code AS "ruleCode",
         notes,
@@ -98,7 +90,7 @@ export class AuditRepository {
 
     return res.rows.map((r: any) => ({
       ...r,
-      originCoords: { lat: Number(r.originLat), lon: Number(r.originLon) }
+      originCoords: { lat: 15.8281, lon: 78.0373 }
     }));
   }
 

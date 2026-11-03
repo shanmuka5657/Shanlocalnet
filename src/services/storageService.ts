@@ -518,3 +518,4 @@ export class StorageService {
 }
 
 export const defaultStorageService = new StorageService();
+

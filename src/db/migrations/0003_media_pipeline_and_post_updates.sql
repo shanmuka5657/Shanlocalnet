@@ -18,3 +18,4 @@ ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS original_filename VARCHAR(255)
 CREATE INDEX IF NOT EXISTS idx_posts_media_asset_id ON posts (media_asset_id);
 CREATE INDEX IF NOT EXISTS idx_media_assets_owner ON media_assets (owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_media_assets_status ON media_assets (processing_status);
+

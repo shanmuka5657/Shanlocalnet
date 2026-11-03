@@ -15,3 +15,4 @@ ALTER TABLE media_assets ADD CONSTRAINT media_assets_size_bytes_check CHECK (siz
 -- Note: Before enforcing NOT NULL, replace any NULLs with empty string
 UPDATE posts SET media_url = '' WHERE media_url IS NULL;
 ALTER TABLE posts ALTER COLUMN media_url SET NOT NULL;
+
