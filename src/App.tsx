@@ -49,6 +49,13 @@ function LocalNetContent() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  // Pause any playing videos when switching navigation tabs
+  useEffect(() => {
+    document.querySelectorAll('video').forEach((v) => {
+      if (!v.paused) v.pause();
+    });
+  }, [currentTab]);
+
   // Language state (en, te, hi)
   const [language, setLanguage] = useState<SupportedLanguage>(() => {
     try {
@@ -225,6 +232,9 @@ function LocalNetContent() {
             onOpenCreate={() => setIsCreateModalOpen(true)}
             onOpenLocationModal={() => setIsLocationModalOpen(true)}
             onOpenReels={(index?: number) => {
+              document.querySelectorAll('video').forEach((v) => {
+                if (!v.paused) v.pause();
+              });
               setSelectedReelIndex(index ?? 0);
               setIsFullScreenReelsOpen(true);
             }}

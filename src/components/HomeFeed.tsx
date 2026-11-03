@@ -69,6 +69,42 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     });
   }, [isMuted]);
 
+  // Pause all playing videos when switching feed tabs
+  React.useEffect(() => {
+    document.querySelectorAll('video').forEach((v) => {
+      if (!v.paused) v.pause();
+    });
+    setPlayingVideoId(null);
+  }, [activeFeedTab]);
+
+  // Single active video controller: ensures strictly one video plays at any time
+  const handleToggleVideo = (postId: string) => {
+    const targetVideo = document.getElementById(`feed-video-${postId}`) as HTMLVideoElement | null;
+    if (!targetVideo) return;
+
+    if (targetVideo.paused) {
+      // Pause ALL other video elements on the entire page immediately
+      document.querySelectorAll('video').forEach((v) => {
+        if (v !== targetVideo && !v.paused) {
+          v.pause();
+        }
+      });
+
+      targetVideo
+        .play()
+        .then(() => {
+          setPlayingVideoId(postId);
+        })
+        .catch((err) => {
+          console.warn('Play error:', err);
+          setVideoErrors((prev) => ({ ...prev, [postId]: true }));
+        });
+    } else {
+      targetVideo.pause();
+      setPlayingVideoId(null);
+    }
+  };
+
   const [activeAudit, setActiveAudit] = useState<{
     post?: Post | null;
     ad?: AdCampaign | null;
@@ -365,14 +401,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center cursor-pointer group"
                   onClick={() => {
                     if (post.contentType === 'reel' || post.contentType === 'video') {
-                      const v = document.getElementById(`feed-video-${post.id}`) as HTMLVideoElement;
-                      if (v) {
-                        if (v.paused) {
-                          v.play().catch(err => console.warn('Play error:', err));
-                        } else {
-                          v.pause();
-                        }
-                      }
+                      handleToggleVideo(post.id);
                     }
                   }}
                 >
@@ -388,7 +417,16 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                           preload="auto"
                           className="w-full h-full object-cover"
                           onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
-                          onPlay={() => setPlayingVideoId(post.id)}
+                          onPlay={(e) => {
+                            // DOM-level safety: pause all other video elements in the document
+                            const current = e.currentTarget;
+                            document.querySelectorAll('video').forEach((v) => {
+                              if (v !== current && !v.paused) {
+                                v.pause();
+                              }
+                            });
+                            setPlayingVideoId(post.id);
+                          }}
                           onPause={() => {
                             if (playingVideoId === post.id) setPlayingVideoId(null);
                           }}
@@ -410,14 +448,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const v = document.getElementById(`feed-video-${post.id}`) as HTMLVideoElement;
-                              if (v) {
-                                if (v.paused) {
-                                  v.play().catch(() => setVideoErrors(prev => ({ ...prev, [post.id]: true })));
-                                } else {
-                                  v.pause();
-                                }
-                              }
+                              handleToggleVideo(post.id);
                             }}
                             className="p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md transition-colors"
                           >
@@ -439,6 +470,12 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                                 v.muted = newMuted;
                                 v.volume = newMuted ? 0 : 1;
                                 if (!newMuted && v.paused) {
+                                  // Ensure other videos are paused if unmute triggers play
+                                  document.querySelectorAll('video').forEach((other) => {
+                                    if (other !== v && !other.paused) {
+                                      other.pause();
+                                    }
+                                  });
                                   v.play().catch(err => console.warn('Unmute play error:', err));
                                 }
                               }
