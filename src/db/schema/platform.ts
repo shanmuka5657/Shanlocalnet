@@ -119,3 +119,4 @@ export const privilegedOriginCorrectionTokens = pgTable('_privileged_origin_corr
   adminUserId: varchar('admin_user_id', { length: 128 }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
+
