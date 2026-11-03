@@ -1,0 +1,31 @@
+# Dependencies & Build Outputs
+node_modules/
+.next/
+build/
+dist/
+coverage/
+
+# Environment & Secrets (NEVER commit real secrets; keep .env.example)
+.env
+.env.local
+.env.*
+!.env.example
+
+# Private Keys & Certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# Local Private Media & Temp Files
+.local_media_private/
+tmp/
+temp/
+*.tmp
+*.swp
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

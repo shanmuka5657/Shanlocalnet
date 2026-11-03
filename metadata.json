@@ -1,0 +1,6 @@
+{
+  "name": "LocalNet",
+  "description": "Global Entertainment. Local Commerce. Geospatial social media platform with dual distribution engines.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

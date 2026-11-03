@@ -1,0 +1,294 @@
+import React, { useState } from 'react';
+import { useLocation } from '../context/LocationContext.tsx';
+import { SupportedLanguage } from '../types/index.ts';
+import { getTranslation } from '../lib/i18n.ts';
+import {
+  MapPin,
+  PlusCircle,
+  FlaskConical,
+  Sun,
+  Moon,
+  ShieldCheck,
+  ShieldAlert,
+  Languages,
+  Bell,
+  MoreVertical,
+  X,
+  Sparkles
+} from 'lucide-react';
+
+export type MainNavigationTab = 'home' | 'explore' | 'local' | 'profile' | 'lab';
+
+interface TopNavigationProps {
+  currentTab: MainNavigationTab;
+  onSelectTab: (tab: MainNavigationTab) => void;
+  onOpenCreate: () => void;
+  onOpenLocationModal: () => void;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  language: SupportedLanguage;
+  onSelectLanguage: (lang: SupportedLanguage) => void;
+  unreadNotificationsCount?: number;
+  onOpenNotifications: () => void;
+}
+
+export const TopNavigation: React.FC<TopNavigationProps> = ({
+  currentTab,
+  onSelectTab,
+  onOpenCreate,
+  onOpenLocationModal,
+  isDarkMode,
+  onToggleDarkMode,
+  language,
+  onSelectLanguage,
+  unreadNotificationsCount = 0,
+  onOpenNotifications
+}) => {
+  const { viewerLocation } = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const t = (key: string) => getTranslation(language, key);
+
+  const navLinks: { id: MainNavigationTab; label: string }[] = [
+    { id: 'home', label: t('navHome') },
+    { id: 'explore', label: t('navExplore') },
+    { id: 'local', label: t('navLocal') },
+    { id: 'profile', label: t('navProfile') }
+  ];
+
+  return (
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
+      <div className="w-full max-w-7xl mx-auto px-2.5 sm:px-4 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-1.5 sm:gap-4">
+        
+        {/* Left Zone: Brand Wordmark + Location Pill */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink">
+          <button
+            onClick={() => onSelectTab('home')}
+            className="text-left group cursor-pointer focus:outline-none shrink-0"
+          >
+            <span className="text-base sm:text-xl font-black tracking-tight text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+              Local<span className="text-amber-600 dark:text-amber-400">Net</span>
+            </span>
+          </button>
+
+          {/* Location Selector (Always visible, responsive truncation) */}
+          <button
+            onClick={onOpenLocationModal}
+            className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700 shrink min-w-0"
+            title="Change Location"
+          >
+            <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
+            <span className="font-semibold truncate max-w-[68px] min-[360px]:max-w-[85px] sm:max-w-[130px]">
+              {viewerLocation.cityName}
+            </span>
+            {viewerLocation.permissionState === 'granted' ? (
+              <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-500 shrink-0" />
+            ) : (
+              <ShieldAlert className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-500 shrink-0" />
+            )}
+          </button>
+        </div>
+
+        {/* Center Zone: Desktop Navigation Links */}
+        <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-sm font-medium">
+          {navLinks.map(link => {
+            const isActive = currentTab === link.id;
+            return (
+              <button
+                key={link.id}
+                onClick={() => onSelectTab(link.id)}
+                className={`whitespace-nowrap shrink-0 transition-colors py-1 relative ${
+                  isActive
+                    ? 'text-slate-900 dark:text-white font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {link.label}
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Right Zone: Controls (Responsive across all screens) */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          
+          {/* Desktop-only: Language Dropdown */}
+          <div className="hidden lg:relative lg:block group">
+            <button
+              className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              title="Change Language"
+            >
+              <Languages className="w-3.5 h-3.5 text-amber-500" />
+              <span className="uppercase font-mono text-[11px]">{language}</span>
+            </button>
+
+            <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1 z-50 min-w-[120px]">
+              <button
+                onClick={() => onSelectLanguage('en')}
+                className={`px-3 py-1.5 text-left text-xs transition-colors ${language === 'en' ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => onSelectLanguage('te')}
+                className={`px-3 py-1.5 text-left text-xs transition-colors ${language === 'te' ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                తెలుగు (Telugu)
+              </button>
+              <button
+                onClick={() => onSelectLanguage('hi')}
+                className={`px-3 py-1.5 text-left text-xs transition-colors ${language === 'hi' ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                हिन्दी (Hindi)
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop-only: Lab Trigger */}
+          <button
+            onClick={() => onSelectTab('lab')}
+            className={`hidden md:block p-2 rounded-xl text-xs font-medium transition-colors border ${
+              currentTab === 'lab'
+                ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+            title="Distribution Engine Lab"
+          >
+            <FlaskConical className="w-4 h-4" />
+          </button>
+
+          {/* Notifications Button (Visible on all viewports) */}
+          <button
+            onClick={onOpenNotifications}
+            className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 relative transition-colors"
+            title="Notifications"
+            aria-label="Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+            )}
+          </button>
+
+          {/* Desktop-only: Theme Switcher */}
+          <button
+            onClick={onToggleDarkMode}
+            className="hidden sm:block p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+          </button>
+
+          {/* Primary Action: + Create */}
+          <button
+            onClick={onOpenCreate}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+          >
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden min-[360px]:inline">{t('navCreate')}</span>
+          </button>
+
+          {/* Mobile Overflow Menu Button (Houses Language, Theme, and Lab) */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-1.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 transition-colors"
+            aria-label="Open secondary menu"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+
+      {/* Mobile Overflow Drawer / Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-3 space-y-3 animate-fade-in shadow-lg">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span>Settings & Tools</span>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Language Selector in Drawer */}
+          <div className="space-y-1">
+            <span className="text-[11px] text-slate-500 font-medium">Language / భాష:</span>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                onClick={() => {
+                  onSelectLanguage('en');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`py-1 text-xs font-semibold rounded-lg border ${
+                  language === 'en'
+                    ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => {
+                  onSelectLanguage('te');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`py-1 text-xs font-semibold rounded-lg border ${
+                  language === 'te'
+                    ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                తెలుగు
+              </button>
+              <button
+                onClick={() => {
+                  onSelectLanguage('hi');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`py-1 text-xs font-semibold rounded-lg border ${
+                  language === 'hi'
+                    ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                हिन्दी
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Actions Row */}
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+            <button
+              onClick={() => {
+                onToggleDarkMode();
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex items-center justify-center gap-2 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200"
+            >
+              {isDarkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
+              <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                onSelectTab('lab');
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex items-center justify-center gap-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-xs font-bold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900"
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span>Engine Lab</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+    </header>
+  );
+};

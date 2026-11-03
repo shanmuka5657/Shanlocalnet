@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  postgres-postgis:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: localnet-postgres-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-localnet_dev_superuser_only}
+      POSTGRES_DB: localnet
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - localnet_pgdata:/var/lib/postgresql/data
+      - ./src/db/migrations/0001_roles_and_extensions.sql:/docker-entrypoint-initdb.d/01_roles_and_extensions.sql:ro
+      - ./src/db/migrations/0002_corrected_postgis_schema.sql:/docker-entrypoint-initdb.d/02_corrected_postgis_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d localnet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  localnet_pgdata:
+    name: localnet_permanent_pgdata
