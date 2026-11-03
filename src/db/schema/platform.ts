@@ -35,6 +35,8 @@ export const mediaAssets = pgTable('media_assets', {
     .references(() => users.id, { onDelete: 'cascade' }),
   bucketCategory: varchar('bucket_category', { length: 32 }).notNull(),
   s3Key: text('s3_key').notNull().unique(),
+  storageProvider: varchar('storage_provider', { length: 32 }).notNull().default('local'),
+  originalFilename: varchar('original_filename', { length: 255 }),
   cloudfrontUrl: text('cloudfront_url'),
   mimeType: varchar('mime_type', { length: 64 }).notNull(),
   magicBytesVerified: boolean('magic_bytes_verified').notNull().default(false),

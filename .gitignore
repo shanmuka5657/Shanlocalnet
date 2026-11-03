@@ -19,6 +19,7 @@ coverage/
 *.crt
 
 # Local Private Media & Temp Files
+uploads/
 .local_media_private/
 .localnet_pgdata/
 tmp/

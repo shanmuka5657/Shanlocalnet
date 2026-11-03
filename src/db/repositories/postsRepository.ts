@@ -2,6 +2,16 @@ import { IDatabaseClient } from '../postgresPool.ts';
 import { Post, EligibilityResult, ViewerLocation, AudienceScope } from '../../types/index.ts';
 import { calculateHaversineDistance, evaluateOrganicEligibility } from '../../lib/geo.ts';
 
+const VALID_SCOPES = ['5km', '10km', '25km', '40km', 'city', 'state', 'country', 'worldwide'];
+
+function normalizeDbScope(scope?: string): string {
+  if (!scope) return 'worldwide';
+  if (VALID_SCOPES.includes(scope)) return scope;
+  if (scope === '30km') return '40km';
+  if (scope === '15km' || scope === '20km') return '25km';
+  return 'worldwide';
+}
+
 export class PostsRepository {
   private client: IDatabaseClient;
 
@@ -17,7 +27,7 @@ export class PostsRepository {
     const city = post.publishingLocation?.cityName || 'Kurnool';
     const state = post.publishingLocation?.state || 'Andhra Pradesh';
     const country = post.publishingLocation?.country || 'India';
-    const scope = post.audienceDistribution?.scope || 'worldwide';
+    const scope = normalizeDbScope(post.audienceDistribution?.scope);
     const classification = post.classification || 'organic';
     const engine = post.audienceDistribution?.engine || (classification === 'organic' ? 'ORGANIC_ENTERTAINMENT' : 'COMMERCIAL_ADVERTISEMENT');
     const maxRadiusMeters = post.audienceDistribution?.maxRadiusKm ? post.audienceDistribution.maxRadiusKm * 1000 : null;
@@ -32,7 +42,7 @@ export class PostsRepository {
     const res = await this.client.query(`
       INSERT INTO posts (
         id, creator_id, content_type, classification, engine,
-        title, description, media_url, media_thumbnail, media_gradient,
+        title, description, media_asset_id, media_url, media_thumbnail, media_gradient,
         aspect_ratio, video_duration_seconds, tags,
         publishing_point, publishing_city, publishing_state, publishing_country, publishing_country_code,
         origin_verified, audience_scope, max_radius_meters, target_country,
@@ -41,14 +51,14 @@ export class PostsRepository {
       VALUES (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9, $10,
-        $11, $12, $13,
-        ST_SetSRID(ST_MakePoint($14, $15), 4326)::geography, $16, $17, $18, 'IN',
-        $19, $20, $21, $22,
-        $23, 'approved', NOW(), NOW()
+        $11, $12, $13, $14,
+        ST_SetSRID(ST_MakePoint($15, $16), 4326)::geography, $17, $18, $19, 'IN',
+        $20, $21, $22, $23,
+        $24, 'approved', NOW(), NOW()
       )
       RETURNING
         id, creator_id, content_type, classification, engine,
-        title, description, media_url, media_thumbnail, media_gradient,
+        title, description, media_asset_id, media_url, media_thumbnail, media_gradient,
         aspect_ratio, video_duration_seconds, tags,
         ST_X(publishing_point::geometry) AS lon,
         ST_Y(publishing_point::geometry) AS lat,
@@ -64,11 +74,12 @@ export class PostsRepository {
       engine,
       post.title || 'Untitled Post',
       post.description || '',
-      post.mediaUrl || '/videos/reel_dance.mp4',
+      post.mediaAssetId || null,
+      post.mediaUrl || null,
       post.mediaThumbnail || '',
       post.mediaGradient || 'from-amber-600 via-rose-600 to-indigo-900',
       post.aspectRatio || '9:16',
-      post.videoDurationSeconds || 20,
+      post.videoDurationSeconds || (post.contentType === 'reel' || post.contentType === 'video' ? 20 : null),
       JSON.stringify(post.tags || []),
       lon,
       lat,
@@ -246,7 +257,8 @@ export class PostsRepository {
       classification: r.classification,
       title: r.title,
       description: r.description,
-      mediaUrl: r.media_url,
+      mediaAssetId: r.media_asset_id || undefined,
+      mediaUrl: r.media_url || undefined,
       mediaThumbnail: r.media_thumbnail || '',
       mediaGradient: r.media_gradient || 'from-amber-600 via-rose-600 to-indigo-900',
       aspectRatio: r.aspect_ratio || '9:16',

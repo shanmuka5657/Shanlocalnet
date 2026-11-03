@@ -358,69 +358,79 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
                 {/* Media Container: Full width, responsive aspect ratio */}
                 <div className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center">
-                  {(post.contentType === 'reel' || post.contentType === 'video') && !videoErrors[post.id] && (post.mediaUrl?.endsWith('.mp4') || post.mediaUrl?.endsWith('.webm') || post.mediaUrl?.includes('/videos/')) ? (
-                    <div className="w-full h-full relative group">
-                      <video
-                        src={post.mediaUrl}
-                        loop
-                        muted={isMuted}
-                        playsInline
-                        autoPlay={playingVideoId === post.id}
-                        className="w-full h-full object-cover"
-                        onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
-                        onPlay={() => setPlayingVideoId(post.id)}
-                        onPause={() => {
-                          if (playingVideoId === post.id) setPlayingVideoId(null);
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
-
-                      <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-white pointer-events-auto">
-                        <button
-                          onClick={() => {
-                            const v = document.querySelector(`video[src="${post.mediaUrl}"]`) as HTMLVideoElement;
-                            if (v) {
-                              if (v.paused) {
-                                v.play().catch(() => setVideoErrors(prev => ({ ...prev, [post.id]: true })));
-                                setPlayingVideoId(post.id);
-                              } else {
-                                v.pause();
-                                setPlayingVideoId(null);
-                              }
-                            }
+                  {(post.contentType === 'reel' || post.contentType === 'video') ? (
+                    post.mediaUrl && !videoErrors[post.id] ? (
+                      <div className="w-full h-full relative group">
+                        <video
+                          src={post.mediaUrl}
+                          loop
+                          muted={isMuted}
+                          playsInline
+                          autoPlay={playingVideoId === post.id}
+                          className="w-full h-full object-cover"
+                          onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
+                          onPlay={() => setPlayingVideoId(post.id)}
+                          onPause={() => {
+                            if (playingVideoId === post.id) setPlayingVideoId(null);
                           }}
-                          className="p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md transition-colors"
-                        >
-                          {playingVideoId === post.id ? (
-                            <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                          ) : (
-                            <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white ml-0.5" />
-                          )}
-                        </button>
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
 
-                        <button
-                          onClick={() => setIsMuted(!isMuted)}
-                          className="p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md transition-colors"
-                        >
-                          {isMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
-                        </button>
+                        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-white pointer-events-auto">
+                          <button
+                            onClick={() => {
+                              const v = document.querySelector(`video[src="${post.mediaUrl}"]`) as HTMLVideoElement;
+                              if (v) {
+                                if (v.paused) {
+                                  v.play().catch(() => setVideoErrors(prev => ({ ...prev, [post.id]: true })));
+                                  setPlayingVideoId(post.id);
+                                } else {
+                                  v.pause();
+                                  setPlayingVideoId(null);
+                                }
+                              }
+                            }}
+                            className="p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md transition-colors"
+                          >
+                            {playingVideoId === post.id ? (
+                              <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white ml-0.5" />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => setIsMuted(!isMuted)}
+                            className="p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md transition-colors"
+                          >
+                            {isMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (post.contentType === 'reel' || post.contentType === 'video') && (videoErrors[post.id] || !post.mediaUrl?.includes('/videos/')) ? (
-                    <div className={`w-full h-full bg-gradient-to-br ${post.mediaGradient || 'from-amber-600 via-rose-700 to-indigo-950'} flex flex-col items-center justify-center p-4 text-center text-white relative`}>
-                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 animate-pulse">
-                        <Play className="w-6 h-6 text-white ml-0.5" />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-br ${post.mediaGradient || 'from-amber-600 via-rose-700 to-indigo-950'} flex flex-col items-center justify-center p-4 text-center text-white relative`}>
+                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 animate-pulse">
+                          <Play className="w-6 h-6 text-white ml-0.5" />
+                        </div>
+                        <p className="font-bold text-xs sm:text-sm line-clamp-1 max-w-xs">{post.title}</p>
+                        <span className="text-[10px] text-white/70 mt-0.5">{post.creatorName}</span>
                       </div>
-                      <p className="font-bold text-xs sm:text-sm line-clamp-1 max-w-xs">{post.title}</p>
-                      <span className="text-[10px] text-white/70 mt-0.5">{post.creatorName}</span>
-                    </div>
-                  ) : (
+                    )
+                  ) : post.mediaUrl ? (
                     <img
                       src={post.mediaUrl}
                       alt={post.title}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-6 text-center text-white relative">
+                      <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mb-3">
+                        <FileText className="w-6 h-6 text-amber-400" />
+                      </div>
+                      <p className="font-bold text-sm sm:text-base max-w-sm line-clamp-2">{post.title}</p>
+                      <p className="text-xs text-slate-300 mt-2 max-w-xs line-clamp-3 leading-relaxed">{post.description}</p>
+                    </div>
                   )}
 
                   {post.commercialMetadata?.isPaidPromotion && (

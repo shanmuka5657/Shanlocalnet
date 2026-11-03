@@ -107,6 +107,25 @@ export interface PostModeration {
   reclassifiedFromOrganic?: boolean;
 }
 
+export interface MediaAsset {
+  id: string;
+  ownerUserId: string;
+  bucketCategory: 'avatars' | 'posts_images' | 'videos_original' | 'videos_processed' | 'business_media' | 'temp_uploads';
+  s3Key: string;
+  storageProvider: 'local' | 's3';
+  originalFilename?: string;
+  cloudfrontUrl?: string;
+  mimeType: string;
+  magicBytesVerified: boolean;
+  sizeBytes: number;
+  durationSeconds?: number;
+  width?: number;
+  height?: number;
+  processingStatus: 'pending' | 'processing' | 'ready' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Post {
   id: string;
   creatorId: string;
@@ -118,7 +137,8 @@ export interface Post {
   classification: PostClassification;
   title: string;
   description: string;
-  mediaUrl: string;
+  mediaAssetId?: string;
+  mediaUrl?: string;
   mediaThumbnail?: string;
   mediaGradient?: string;
   aspectRatio?: '9:16' | '1:1' | '4:3' | '16:9';

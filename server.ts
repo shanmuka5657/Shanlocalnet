@@ -62,13 +62,23 @@ import {
 } from './src/db/postgresPool.ts';
 import { MigrationRunner } from './src/db/migrationRunner.ts';
 import { seedDatabase } from './src/db/seeder.ts';
+import multer from 'multer';
 import { UsersRepository } from './src/db/repositories/usersRepository.ts';
 import { PostsRepository } from './src/db/repositories/postsRepository.ts';
+import { MediaAssetsRepository } from './src/db/repositories/mediaAssetsRepository.ts';
 import { BusinessesRepository } from './src/db/repositories/businessesRepository.ts';
 import { CampaignsRepository } from './src/db/repositories/campaignsRepository.ts';
 import { MarketplaceRepository } from './src/db/repositories/marketplaceRepository.ts';
 import { CommunityRepository } from './src/db/repositories/communityRepository.ts';
 import { AuditRepository, GeoDecisionRecord } from './src/db/repositories/auditRepository.ts';
+import {
+  defaultStorageService,
+  validateMagicBytes,
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_VIDEO_SIZE_BYTES,
+  ALLOWED_IMAGE_MIMES,
+  ALLOWED_VIDEO_MIMES
+} from './src/services/storageService.ts';
 import { runRealDatabaseVerificationSuite } from './src/db/stage_b1_live_verification.ts';
 import { runStageB1VerificationSuite } from './src/db/stage_b1_verification.ts';
 
@@ -93,11 +103,19 @@ async function startServer() {
   // Initialize repositories
   const usersRepo = new UsersRepository(db);
   const postsRepo = new PostsRepository(db);
+  const mediaRepo = new MediaAssetsRepository(db);
   const bizRepo = new BusinessesRepository(db);
   const campRepo = new CampaignsRepository(db);
   const mktRepo = new MarketplaceRepository(db);
   const commRepo = new CommunityRepository(db);
   const auditRepo = new AuditRepository(db);
+
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 100 * 1024 * 1024 // 100 MB max for video uploads
+    }
+  });
 
   const app = express();
   app.use(express.json());
@@ -195,13 +213,222 @@ async function startServer() {
   });
 
   // -------------------------------------------------------------------------
-  // 3. POST CREATION WITH COMMERCIAL BYPASS INSPECTION & POSTGRES PERSISTENCE
+  // MEDIA UPLOAD & ASSET MANAGEMENT PIPELINE (PHASE 2)
+  // -------------------------------------------------------------------------
+
+  // 1. Presigned Upload URL generation (S3 or local upload dispatch)
+  app.post('/api/media/presign-upload', async (req: Request, res: Response) => {
+    try {
+      const { filename, mimeType, sizeBytes, category = 'posts_images' } = req.body;
+      if (!filename || !mimeType || !sizeBytes) {
+        return res.status(400).json({ error: 'filename, mimeType, and sizeBytes are required.' });
+      }
+
+      const presign = await defaultStorageService.getPresignedUpload(
+        category,
+        filename,
+        mimeType,
+        Number(sizeBytes)
+      );
+
+      // Create a pending asset record in media_assets
+      const asset = await mediaRepo.createAsset({
+        ownerUserId: 'current_user_1',
+        bucketCategory: category as any,
+        s3Key: presign.key,
+        storageProvider: defaultStorageService.getProviderName(),
+        originalFilename: filename,
+        cloudfrontUrl: presign.publicUrl,
+        mimeType,
+        sizeBytes: Number(sizeBytes),
+        processingStatus: 'pending',
+        magicBytesVerified: false
+      });
+
+      res.status(200).json({
+        uploadUrl: presign.uploadUrl,
+        key: presign.key,
+        headers: presign.headers,
+        publicUrl: presign.publicUrl,
+        mediaAssetId: asset.id,
+        storageProvider: defaultStorageService.getProviderName()
+      });
+    } catch (err: any) {
+      console.error('[Presign Error]:', err);
+      res.status(400).json({ error: err.message || 'Failed to generate presigned upload URL' });
+    }
+  });
+
+  // 2. Direct binary / multipart upload (used for local storage & fallback)
+  app.post('/api/media/upload', upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded in form field "file".' });
+      }
+
+      const category = (req.body.category || 'posts_images') as any;
+      const originalFilename = req.file.originalname || `upload_${Date.now()}`;
+      const declaredMime = req.file.mimetype;
+
+      // Validate magic bytes
+      const validation = validateMagicBytes(req.file.buffer);
+      if (!validation.valid) {
+        return res.status(400).json({
+          error: `File signature validation failed: ${validation.error}`,
+          code: 'INVALID_MAGIC_BYTES'
+        });
+      }
+
+      const detectedMime = validation.detectedMime || declaredMime;
+
+      // Save file through storage service
+      const saveResult = await defaultStorageService.saveUploadedFile(
+        category,
+        originalFilename,
+        req.file.buffer,
+        detectedMime
+      );
+
+      // Store in media_assets table
+      const asset = await mediaRepo.createAsset({
+        ownerUserId: 'current_user_1',
+        bucketCategory: category,
+        s3Key: saveResult.key,
+        storageProvider: defaultStorageService.getProviderName(),
+        originalFilename,
+        cloudfrontUrl: saveResult.publicUrl,
+        mimeType: detectedMime,
+        sizeBytes: saveResult.sizeBytes,
+        magicBytesVerified: true,
+        processingStatus: 'ready'
+      });
+
+      res.status(201).json({
+        message: 'File successfully uploaded and verified.',
+        mediaAsset: asset,
+        publicUrl: saveResult.publicUrl
+      });
+    } catch (err: any) {
+      console.error('[Upload Error]:', err);
+      res.status(400).json({ error: err.message || 'File upload failed.' });
+    }
+  });
+
+  // 3. Confirm S3 direct client upload
+  app.post('/api/media/confirm', async (req: Request, res: Response) => {
+    try {
+      const { mediaAssetId, key, width, height, durationSeconds } = req.body;
+      if (!mediaAssetId && !key) {
+        return res.status(400).json({ error: 'mediaAssetId or key is required.' });
+      }
+
+      const asset = mediaAssetId
+        ? await mediaRepo.getAssetById(mediaAssetId)
+        : await mediaRepo.getAssetByKey(key);
+
+      if (!asset) {
+        return res.status(404).json({ error: 'Media asset not found.' });
+      }
+
+      const meta = await defaultStorageService.getAdapter().getFileMetadata(asset.s3Key);
+      if (!meta.exists) {
+        return res.status(400).json({ error: 'Uploaded object was not found in storage.' });
+      }
+
+      const confirmedAsset = await mediaRepo.confirmAsset(asset.id, {
+        processingStatus: 'ready',
+        magicBytesVerified: true,
+        durationSeconds: durationSeconds ? Number(durationSeconds) : undefined,
+        width: width ? Number(width) : undefined,
+        height: height ? Number(height) : undefined
+      });
+
+      res.status(200).json({
+        confirmed: true,
+        mediaAsset: confirmedAsset
+      });
+    } catch (err: any) {
+      console.error('[Confirm Error]:', err);
+      res.status(500).json({ error: err.message || 'Failed to confirm media upload.' });
+    }
+  });
+
+  // 4. Controlled file stream endpoint with HTTP 206 Partial Content support for video seeking
+  app.get('/api/media/file/*', async (req: Request, res: Response) => {
+    try {
+      // Extract key after /api/media/file/
+      const fullUrl = req.originalUrl || req.url;
+      const key = fullUrl.replace(/^\/api\/media\/file\/?/, '').split('?')[0];
+      if (!key) {
+        return res.status(400).json({ error: 'Invalid file key' });
+      }
+
+      const decodedKey = decodeURIComponent(key);
+      const range = req.headers.range;
+      const streamResult = await defaultStorageService.getStream(decodedKey, range);
+
+      if (!streamResult) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      res.setHeader('Content-Type', streamResult.contentType);
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      if (streamResult.statusCode === 206) {
+        res.status(206);
+        res.setHeader('Content-Range', streamResult.contentRange!);
+        res.setHeader('Content-Length', streamResult.contentLength);
+      } else {
+        res.status(200);
+        res.setHeader('Content-Length', streamResult.totalSize);
+      }
+
+      streamResult.stream.pipe(res);
+    } catch (err: any) {
+      console.error('[Stream Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error streaming media' });
+      }
+    }
+  });
+
+  // 5. Get media asset metadata
+  app.get('/api/media/:id', async (req: Request, res: Response) => {
+    try {
+      const asset = await mediaRepo.getAssetById(req.params.id);
+      if (!asset) {
+        return res.status(404).json({ error: 'Media asset not found.' });
+      }
+      res.status(200).json(asset);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 6. Delete media asset
+  app.delete('/api/media/:id', async (req: Request, res: Response) => {
+    try {
+      const asset = await mediaRepo.getAssetById(req.params.id);
+      if (!asset) {
+        return res.status(404).json({ error: 'Media asset not found' });
+      }
+      await defaultStorageService.delete(asset.s3Key);
+      await mediaRepo.deleteAsset(asset.id);
+      res.status(200).json({ success: true, message: 'Media asset deleted.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 3. POST CREATION WITH AUTHENTICATED MEDIA ASSETS & COMMERCIAL INSPECTION
   // -------------------------------------------------------------------------
   app.post('/api/posts/create', async (req: Request, res: Response) => {
     try {
       const {
         title,
         description,
+        mediaAssetId,
         mediaUrl,
         contentType,
         classification,
@@ -250,6 +477,19 @@ async function startServer() {
 
       const currentUser = await usersRepo.getProfile('current_user_1');
 
+      // Resolve media asset if provided
+      let resolvedMediaUrl: string | undefined = mediaUrl || undefined;
+      let resolvedDuration: number | undefined = req.body.videoDurationSeconds;
+      let resolvedAspectRatio = req.body.aspectRatio || (contentType === 'reel' ? '9:16' : '4:3');
+
+      if (mediaAssetId) {
+        const asset = await mediaRepo.getAssetById(mediaAssetId);
+        if (asset) {
+          resolvedMediaUrl = asset.cloudfrontUrl || defaultStorageService.getPublicUrl(asset.s3Key);
+          if (asset.durationSeconds) resolvedDuration = asset.durationSeconds;
+        }
+      }
+
       const postToCreate: Partial<Post> = {
         creatorId: currentUser?.id || 'current_user_1',
         creatorName: currentUser?.name || 'LocalNet Creator',
@@ -260,10 +500,11 @@ async function startServer() {
         classification: isCommercial ? 'sponsored_creator' : 'organic',
         title,
         description,
-        mediaUrl: mediaUrl || (contentType === 'reel' ? '/videos/reel_dance.mp4' : 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80'),
+        mediaAssetId: mediaAssetId || undefined,
+        mediaUrl: resolvedMediaUrl,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
-        aspectRatio: contentType === 'reel' ? '9:16' : '4:3',
-        videoDurationSeconds: contentType === 'reel' ? 20 : undefined,
+        aspectRatio: resolvedAspectRatio,
+        videoDurationSeconds: resolvedDuration,
         publishingLocation: {
           latitude: Number(publishingLocation.latitude),
           longitude: Number(publishingLocation.longitude),

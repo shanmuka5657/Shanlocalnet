@@ -15,6 +15,7 @@ import {
   Lock,
   Sparkles
 } from 'lucide-react';
+import { MediaUploader, UploadedMediaData } from './MediaUploader.tsx';
 
 interface CreateModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
   const [classification, setClassification] = useState<PostClassification>('organic');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedMediaData | null>(null);
   const [tagInput, setTagInput] = useState('entertainment, viral');
   const [isPaidPromotion, setIsPaidPromotion] = useState(false);
   const [scope, setScope] = useState<AudienceScope>('worldwide');
@@ -78,6 +80,18 @@ export const CreateModal: React.FC<CreateModalProps> = ({
     setServerError(null);
     setSuccessMsg(null);
 
+    if (contentType === 'reel' && !uploadedMedia) {
+      setServerError('Please select and upload a video file for your reel before publishing.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (contentType === 'photo' && !uploadedMedia) {
+      setServerError('Please select and upload a photo before publishing, or switch to Text Story.');
+      setIsSubmitting(false);
+      return;
+    }
+
     const tags = tagInput.split(',').map(t => t.trim()).filter(Boolean);
     const radiusNumber = parseScopeToKm(scope, customRadiusKm);
 
@@ -89,7 +103,10 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           title,
           description,
           contentType,
-          mediaUrl: contentType === 'reel' ? '/videos/reel_dance.mp4' : 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
+          mediaAssetId: uploadedMedia?.mediaAssetId || undefined,
+          mediaUrl: uploadedMedia?.publicUrl || undefined,
+          aspectRatio: uploadedMedia?.aspectRatio || (contentType === 'reel' ? '9:16' : '4:3'),
+          videoDurationSeconds: uploadedMedia?.videoDurationSeconds,
           classification: isCommercialMode ? 'sponsored_creator' : 'organic',
           isPaidPromotion: isCommercialMode,
           scope,
@@ -219,6 +236,28 @@ export const CreateModal: React.FC<CreateModalProps> = ({
                 <span className="truncate">Text Story</span>
               </button>
             </div>
+
+            {/* Media Uploader Section */}
+            {contentType !== 'text' ? (
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {contentType === 'reel' ? 'Upload Reel Video (MP4 / WebM)' : 'Upload Photo (JPEG / PNG / WebP)'}
+                </label>
+                <MediaUploader
+                  contentType={contentType}
+                  onMediaUploaded={(data) => {
+                    setUploadedMedia(data);
+                    setServerError(null);
+                  }}
+                  onMediaCleared={() => setUploadedMedia(null)}
+                />
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>Text stories do not require media files. You can publish text updates and announcements directly.</span>
+              </div>
+            )}
 
             {/* Classification Toggle */}
             <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2">

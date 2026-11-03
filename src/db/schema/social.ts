@@ -46,7 +46,7 @@ export const posts = pgTable('posts', {
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description').notNull(),
   mediaAssetId: uuid('media_asset_id').references(() => mediaAssets.id, { onDelete: 'set null' }),
-  mediaUrl: text('media_url').notNull(),
+  mediaUrl: text('media_url'),
   mediaThumbnail: text('media_thumbnail'),
   mediaGradient: varchar('media_gradient', { length: 120 }),
   aspectRatio: varchar('aspect_ratio', { length: 10 }).notNull().default('9:16'),

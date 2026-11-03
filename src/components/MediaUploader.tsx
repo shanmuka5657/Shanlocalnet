@@ -1,0 +1,430 @@
+import React, { useState, useRef, useCallback } from 'react';
+import { UploadCloud, FileVideo, Image as ImageIcon, X, AlertCircle, CheckCircle, RefreshCw, Play, Film } from 'lucide-react';
+
+export interface UploadedMediaData {
+  mediaAssetId: string;
+  publicUrl: string;
+  mimeType: string;
+  sizeBytes: number;
+  aspectRatio: string;
+  videoDurationSeconds?: number;
+  originalFilename?: string;
+}
+
+interface MediaUploaderProps {
+  contentType: 'video' | 'reel' | 'photo' | 'multi_photo' | 'text' | 'story' | 'community_update';
+  onMediaUploaded: (data: UploadedMediaData) => void;
+  onMediaCleared: () => void;
+  initialMediaUrl?: string;
+}
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB
+const MAX_VIDEO_DURATION_SEC = 120; // 2 minutes
+
+export const MediaUploader: React.FC<MediaUploaderProps> = ({
+  contentType,
+  onMediaUploaded,
+  onMediaCleared,
+  initialMediaUrl
+}) => {
+  const [dragActive, setDragActive] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(initialMediaUrl || null);
+  const [isVideo, setIsVideo] = useState<boolean>(contentType === 'reel' || contentType === 'video');
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
+    initialMediaUrl ? 'ready' : 'idle'
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mediaMeta, setMediaMeta] = useState<{
+    width?: number;
+    height?: number;
+    duration?: number;
+    aspectRatio?: string;
+    sizeMb?: string;
+  } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
+  const isReelMode = contentType === 'reel';
+  const acceptedTypes = isReelMode
+    ? 'video/mp4,video/webm'
+    : contentType === 'photo'
+    ? 'image/jpeg,image/png,image/webp'
+    : 'image/jpeg,image/png,image/webp,video/mp4,video/webm';
+
+  const determineAspectRatio = (w: number, h: number): string => {
+    const ratio = w / h;
+    if (ratio <= 0.65) return '9:16';
+    if (ratio >= 0.9 && ratio <= 1.1) return '1:1';
+    if (ratio >= 1.2 && ratio <= 1.45) return '4:3';
+    return '16:9';
+  };
+
+  const handleFileValidation = async (selectedFile: File) => {
+    setErrorMessage(null);
+    setStatus('validating');
+
+    const fileIsVideo = selectedFile.type.startsWith('video/') || selectedFile.name.match(/\.(mp4|webm)$/i) !== null;
+    setIsVideo(fileIsVideo);
+
+    // 1. Size Validation
+    if (fileIsVideo) {
+      if (selectedFile.size > MAX_VIDEO_SIZE) {
+        setStatus('error');
+        setErrorMessage(
+          `Video file size (${(selectedFile.size / 1024 / 1024).toFixed(1)} MB) exceeds the 100 MB limit.`
+        );
+        return;
+      }
+    } else {
+      if (selectedFile.size > MAX_IMAGE_SIZE) {
+        setStatus('error');
+        setErrorMessage(
+          `Image file size (${(selectedFile.size / 1024 / 1024).toFixed(1)} MB) exceeds the 10 MB limit.`
+        );
+        return;
+      }
+    }
+
+    const objectUrl = URL.createObjectURL(selectedFile);
+    setPreviewUrl(objectUrl);
+    setFile(selectedFile);
+
+    // 2. Metadata Inspection (Dimensions & Duration)
+    if (fileIsVideo) {
+      const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.src = objectUrl;
+
+      tempVideo.onloadedmetadata = () => {
+        const duration = Math.round(tempVideo.duration);
+        const width = tempVideo.videoWidth;
+        const height = tempVideo.videoHeight;
+        const aspectRatio = determineAspectRatio(width, height);
+
+        if (duration > MAX_VIDEO_DURATION_SEC) {
+          setStatus('error');
+          setErrorMessage(
+            `Video duration (${duration}s) exceeds the maximum allowed duration of ${MAX_VIDEO_DURATION_SEC} seconds (2 mins).`
+          );
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+
+        setMediaMeta({
+          width,
+          height,
+          duration,
+          aspectRatio,
+          sizeMb: (selectedFile.size / 1024 / 1024).toFixed(1)
+        });
+
+        // Trigger real upload
+        executeUpload(selectedFile, { width, height, duration, aspectRatio });
+      };
+
+      tempVideo.onerror = () => {
+        setStatus('error');
+        setErrorMessage('Failed to decode video file. Format may be corrupt or unsupported.');
+      };
+    } else {
+      const tempImg = new Image();
+      tempImg.src = objectUrl;
+      tempImg.onload = () => {
+        const width = tempImg.naturalWidth;
+        const height = tempImg.naturalHeight;
+        const aspectRatio = determineAspectRatio(width, height);
+
+        setMediaMeta({
+          width,
+          height,
+          aspectRatio,
+          sizeMb: (selectedFile.size / 1024 / 1024).toFixed(1)
+        });
+
+        // Trigger real upload
+        executeUpload(selectedFile, { width, height, aspectRatio });
+      };
+
+      tempImg.onerror = () => {
+        setStatus('error');
+        setErrorMessage('Failed to decode image file. Format may be corrupt or unsupported.');
+      };
+    }
+  };
+
+  const executeUpload = (
+    fileToUpload: File,
+    meta: { width?: number; height?: number; duration?: number; aspectRatio: string }
+  ) => {
+    setStatus('uploading');
+    setUploadProgress(0);
+
+    const formData = new FormData();
+    formData.append('file', fileToUpload);
+    formData.append('category', isVideo ? 'videos_original' : 'posts_images');
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 95);
+        setUploadProgress(percent);
+      }
+    });
+
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === XMLHttpRequest.DONE) {
+        if (xhr.status === 200 || xhr.status === 201) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            setUploadProgress(100);
+            setStatus('ready');
+
+            const uploadedData: UploadedMediaData = {
+              mediaAssetId: response.mediaAsset.id,
+              publicUrl: response.publicUrl,
+              mimeType: response.mediaAsset.mimeType,
+              sizeBytes: response.mediaAsset.sizeBytes,
+              aspectRatio: meta.aspectRatio,
+              videoDurationSeconds: meta.duration,
+              originalFilename: fileToUpload.name
+            };
+
+            onMediaUploaded(uploadedData);
+          } catch {
+            setStatus('error');
+            setErrorMessage('Server returned an unparseable response.');
+          }
+        } else {
+          setStatus('error');
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            setErrorMessage(errJson.error || 'File upload rejected by server.');
+          } catch {
+            setErrorMessage(`Upload failed with server HTTP status ${xhr.status}`);
+          }
+        }
+      }
+    };
+
+    xhr.onerror = () => {
+      setStatus('error');
+      setErrorMessage('Network connection lost during file upload.');
+    };
+
+    xhr.open('POST', '/api/media/upload');
+    xhr.send(formData);
+  };
+
+  const handleClear = useCallback(() => {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setFile(null);
+    setPreviewUrl(null);
+    setMediaMeta(null);
+    setStatus('idle');
+    setUploadProgress(0);
+    setErrorMessage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    onMediaCleared();
+  }, [previewUrl, onMediaCleared]);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileValidation(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileValidation(e.target.files[0]);
+    }
+  };
+
+  return (
+    <div className="w-full space-y-2.5">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={acceptedTypes}
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2 animate-fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <span className="font-semibold">Media Upload Error:</span>
+            <p className="mt-0.5">{errorMessage}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-rose-500 hover:text-rose-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Upload Dropzone (When No File Selected) */}
+      {!previewUrl && (
+        <div
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+            dragActive
+              ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/20 scale-[0.99]'
+              : 'border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500/50 bg-slate-50/50 dark:bg-slate-800/40'
+          }`}
+        >
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-inner">
+              {isReelMode ? (
+                <FileVideo className="w-6 h-6" />
+              ) : contentType === 'photo' ? (
+                <ImageIcon className="w-6 h-6" />
+              ) : (
+                <UploadCloud className="w-6 h-6" />
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                Click to browse or drag & drop {isReelMode ? 'a reel video' : 'a photo or video'}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                {isReelMode
+                  ? 'MP4, WebM (Max 100 MB, up to 120s)'
+                  : 'JPEG, PNG, WebP (Max 10 MB) or MP4, WebM (Max 100 MB)'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media Preview & Active Upload Status */}
+      {previewUrl && (
+        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 shadow-md">
+          <div className="relative flex items-center justify-center max-h-72 bg-black/40 overflow-hidden">
+            {isVideo ? (
+              <video
+                ref={videoPreviewRef}
+                src={previewUrl}
+                controls
+                playsInline
+                className="max-h-72 w-auto object-contain mx-auto"
+              />
+            ) : (
+              <img
+                src={previewUrl}
+                alt="Upload preview"
+                className="max-h-72 w-auto object-contain mx-auto"
+              />
+            )}
+
+            {/* Overlaid Badges */}
+            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/70 text-white backdrop-blur-md flex items-center gap-1">
+                {isVideo ? <Film className="w-3 h-3 text-amber-400" /> : <ImageIcon className="w-3 h-3 text-indigo-400" />}
+                {isVideo ? 'Video' : 'Photo'}
+              </span>
+
+              {mediaMeta?.aspectRatio && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 text-slate-300 backdrop-blur-md">
+                  {mediaMeta.aspectRatio}
+                </span>
+              )}
+
+              {mediaMeta?.duration && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 text-amber-300 backdrop-blur-md flex items-center gap-0.5">
+                  <Play className="w-2.5 h-2.5 fill-current" />
+                  {mediaMeta.duration}s
+                </span>
+              )}
+            </div>
+
+            {/* Top Right Action Buttons */}
+            <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={status === 'uploading'}
+                title="Replace Media"
+                className="p-1.5 rounded-full bg-black/70 hover:bg-black/90 text-white backdrop-blur-md transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                title="Remove Media"
+                className="p-1.5 rounded-full bg-rose-600/80 hover:bg-rose-700 text-white backdrop-blur-md transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Upload Progress Bar & Verification State */}
+          <div className="p-3 bg-slate-900 border-t border-slate-800">
+            {status === 'uploading' && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-300">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />
+                    Uploading and validating signature...
+                  </span>
+                  <span className="font-bold text-amber-400">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-amber-500 to-rose-500 h-1.5 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {status === 'ready' && (
+              <div className="flex items-center justify-between text-[11px] text-emerald-400">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Binary signature verified & stored
+                </span>
+                {mediaMeta?.sizeMb && (
+                  <span className="text-slate-400 text-[10px]">{mediaMeta.sizeMb} MB</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
