@@ -194,7 +194,7 @@ function LocalNetContent() {
 
   return (
     <div className={`w-full max-w-full min-h-screen min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-amber-500/20 selection:text-amber-900 ${isFullScreenReelsOpen ? 'p-0 m-0 overflow-hidden' : 'pb-20 md:pb-0 overflow-x-hidden'}`}>
-      
+
       {/* Top Bar Navigation (Hidden during full-screen Reels playback) */}
       {!isFullScreenReelsOpen && (
         <TopNavigation
@@ -213,7 +213,7 @@ function LocalNetContent() {
 
       {/* Main View Container */}
       <main className={isFullScreenReelsOpen ? "w-full h-full p-0 m-0" : "w-full max-w-7xl mx-auto flex-1 px-0 sm:px-2 md:px-4"}>
-        
+
         {/* 1. HOME FEED (Screen 2: Global, Around Me, Following + Shorts Carousel) */}
         {currentTab === 'home' && !isFullScreenReelsOpen && (
           <HomeFeed
