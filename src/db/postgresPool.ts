@@ -261,7 +261,8 @@ export async function initDatabase(options?: { forceMemory?: boolean; customData
     try {
       const pool = new Pool({
         connectionString: databaseUrl,
-        connectionTimeoutMillis: 4000,
+        connectionTimeoutMillis: 15000,
+        ssl: { rejectUnauthorized: false },
         idleTimeoutMillis: 30000,
         max: 20,
       });
@@ -336,3 +337,4 @@ export async function closePool(): Promise<void> {
     activeClient = null;
   }
 }
+
