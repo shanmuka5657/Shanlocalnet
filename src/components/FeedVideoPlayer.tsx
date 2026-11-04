@@ -49,6 +49,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const [doubleTapHeart, setDoubleTapHeart] = useState<{ x: number; y: number } | null>(null);
   const [centerIconFlash, setCenterIconFlash] = useState<'play' | 'pause' | null>(null);
   const [skipAnimation, setSkipAnimation] = useState<'backward' | 'forward' | null>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const isPreviewRef = useRef(false);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTapRef = useRef<number>(0);
@@ -58,17 +60,57 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   useEffect(() => {
     if (!videoRef.current) return;
     if (isCurrentlyPlaying) {
+      setIsPreviewPlaying(false);
+      isPreviewRef.current = false;
       if (videoRef.current.paused) {
         videoRef.current.play().catch(() => {
           onPauseRequest();
         });
       }
     } else {
-      if (!videoRef.current.paused) {
+      if (!videoRef.current.paused && !isPreviewRef.current) {
         videoRef.current.pause();
       }
     }
   }, [isCurrentlyPlaying, onPauseRequest]);
+
+  // YouTube-style: Auto-play 5-second muted promo preview when video comes into viewport
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && !isCurrentlyPlaying) {
+          // Video is on screen -> auto-play 5-second promo preview
+          if (videoRef.current && videoRef.current.paused) {
+            videoRef.current.muted = true;
+            setIsMuted(true);
+            videoRef.current.currentTime = 0;
+            videoRef.current
+              .play()
+              .then(() => {
+                setIsPreviewPlaying(true);
+                isPreviewRef.current = true;
+              })
+              .catch(() => {});
+          }
+        } else if (!entry.isIntersecting && isPreviewRef.current) {
+          // Scrolled off screen -> pause preview and reset
+          if (videoRef.current && !videoRef.current.paused) {
+            videoRef.current.pause();
+            videoRef.current.currentTime = 0;
+          }
+          setIsPreviewPlaying(false);
+          isPreviewRef.current = false;
+        }
+      },
+      { threshold: 0.65 }
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [isCurrentlyPlaying]);
 
   // Handle Fullscreen state change events
   useEffect(() => {
@@ -111,7 +153,14 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   // Video time & duration updates
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
-    setCurrentTime(videoRef.current.currentTime);
+    const cur = videoRef.current.currentTime;
+    setCurrentTime(cur);
+
+    // YouTube 5-second promo preview loop
+    if (isPreviewRef.current && cur >= 5.0) {
+      videoRef.current.currentTime = 0;
+    }
+
     if (!duration && videoRef.current.duration) {
       setDuration(videoRef.current.duration);
     }
@@ -129,6 +178,19 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const togglePlayPause = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!videoRef.current) return;
+
+    if (isPreviewPlaying || isPreviewRef.current) {
+      // Tap on promo preview -> immediately start full video with unmuted audio!
+      setIsPreviewPlaying(false);
+      isPreviewRef.current = false;
+      onPlayRequest();
+      videoRef.current.muted = false;
+      setIsMuted(false);
+      setCenterIconFlash('play');
+      setTimeout(() => setCenterIconFlash(null), 600);
+      resetControlsTimer();
+      return;
+    }
 
     if (videoRef.current.paused) {
       onPlayRequest();
@@ -352,8 +414,30 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onMouseMove={resetControlsTimer}
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => isCurrentlyPlaying && setShowControls(false)}
+      onMouseEnter={() => {
+        setShowControls(true);
+        if (!isCurrentlyPlaying && videoRef.current && videoRef.current.paused) {
+          videoRef.current.muted = true;
+          setIsMuted(true);
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().then(() => {
+            setIsPreviewPlaying(true);
+            isPreviewRef.current = true;
+          }).catch(() => {});
+        }
+      }}
+      onMouseLeave={() => {
+        if (isCurrentlyPlaying) {
+          setShowControls(false);
+        } else if (isPreviewPlaying || isPreviewRef.current) {
+          if (videoRef.current) {
+            videoRef.current.pause();
+            videoRef.current.currentTime = 0;
+          }
+          setIsPreviewPlaying(false);
+          isPreviewRef.current = false;
+        }
+      }}
       className={`group/player relative w-full bg-black overflow-hidden select-none outline-none ${
         isFullscreen
           ? 'fixed inset-0 z-50 h-screen w-screen flex items-center justify-center'
@@ -430,7 +514,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       )}
 
       {/* Large Center Play Button when Paused */}
-      {!isCurrentlyPlaying && !isBuffering && (
+      {!isCurrentlyPlaying && !isBuffering && !isPreviewPlaying && (
         <div
           onClick={togglePlayPause}
           className="absolute inset-0 z-10 flex items-center justify-center bg-black/35 backdrop-blur-[1px] cursor-pointer group-hover/player:bg-black/25 transition-all"
@@ -438,6 +522,21 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-red-600/90 hover:bg-red-600 active:scale-95 text-white flex items-center justify-center shadow-2xl ring-4 ring-white/30 backdrop-blur-md transition-all">
             <Play className="w-8 h-8 sm:w-9 sm:h-9 fill-white ml-1" />
           </div>
+        </div>
+      )}
+
+      {/* 5-Second Promo Preview Badge (YouTube Style) */}
+      {isPreviewPlaying && !isCurrentlyPlaying && (
+        <div className="absolute top-3 left-3 z-30 flex items-center gap-2 pointer-events-none animate-fade-in">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/80 backdrop-blur-md border border-rose-500/40 text-white shadow-xl">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            <span className="text-[11px] font-bold tracking-wider uppercase font-mono text-rose-400">
+              Promo • {Math.min(5, Math.floor(currentTime) + 1)}s/5s
+            </span>
+          </div>
+          <span className="text-[10px] font-semibold text-white/95 bg-black/70 px-2.5 py-1 rounded-full backdrop-blur-sm border border-white/10 hidden sm:inline">
+            Tap to watch full video with sound
+          </span>
         </div>
       )}
 

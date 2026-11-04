@@ -261,6 +261,20 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               <div
                 key={item.reel.id}
                 onClick={() => onOpenReels(idx)}
+                onMouseEnter={(e) => {
+                  const v = e.currentTarget.querySelector('video');
+                  if (v) {
+                    v.currentTime = 0;
+                    v.play().catch(() => {});
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const v = e.currentTarget.querySelector('video');
+                  if (v) {
+                    v.pause();
+                    v.currentTime = 0.5;
+                  }
+                }}
                 className="group relative flex-shrink-0 w-28 sm:w-32 aspect-[9/16] rounded-xl overflow-hidden bg-slate-950 cursor-pointer snap-start shadow-md hover:scale-[1.02] active:scale-95 transition-all"
               >
                 {/* Media Preview */}
@@ -269,6 +283,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     src={item.reel.mediaThumbnail}
                     alt={item.reel.title}
                     referrerPolicy="no-referrer"
+                    onTimeUpdate={(e) => {
+                      if (e.currentTarget.currentTime >= 5.0) {
+                        e.currentTarget.currentTime = 0;
+                      }
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : item.reel.mediaUrl && !item.reel.mediaUrl.endsWith('.jpg') ? (
