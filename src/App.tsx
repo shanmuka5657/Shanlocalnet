@@ -36,6 +36,7 @@ import {
   evaluateCommercialEligibility,
   calculateHaversineDistance
 } from './lib/geo.ts';
+import { getStoredUserPosts, saveStoredUserPost } from './lib/engagementStorage.ts';
 import {
   Post,
   AdCampaign,
@@ -132,6 +133,34 @@ function LocalNetContent() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
 
+    const mergeWithStoredUserPosts = (
+      posts: { post: Post; eligibility: EligibilityResult }[],
+      reels: { reel: Post; eligibility: EligibilityResult }[]
+    ) => {
+      const userPosts = getStoredUserPosts();
+      if (userPosts.length === 0) return { posts, reels };
+
+      const existingPostIds = new Set(posts.map(p => p.post.id));
+      const newPostEntries: { post: Post; eligibility: EligibilityResult }[] = [];
+      const newReelEntries: { reel: Post; eligibility: EligibilityResult }[] = [];
+
+      for (const up of userPosts) {
+        if (!existingPostIds.has(up.id)) {
+          const el = evaluateOrganicEligibility(viewerLocation, up);
+          newPostEntries.push({ post: up, eligibility: el });
+          if (up.contentType === 'reel' || up.contentType === 'video') {
+            newReelEntries.push({ reel: up, eligibility: el });
+          }
+        }
+      }
+
+      const existingReelIds = new Set(reels.map(r => r.reel.id));
+      return {
+        posts: [...newPostEntries, ...posts],
+        reels: [...newReelEntries.filter(r => !existingReelIds.has(r.reel.id)), ...reels]
+      };
+    };
+
     const fallbackToLocalData = () => {
       const organicEvaluated = INITIAL_POSTS.map(p => ({
         post: p,
@@ -159,9 +188,10 @@ function LocalNetContent() {
         }))
         .filter(item => item.eligibility.isEligible);
 
-      setFeedPosts(organicEvaluated);
+      const merged = mergeWithStoredUserPosts(organicEvaluated, reelsEvaluated);
+      setFeedPosts(merged.posts);
       setFeedAds(activeFeedTab === 'around_me' || activeFeedTab === 'global' ? adsEvaluated : []);
-      setReelsList(reelsEvaluated);
+      setReelsList(merged.reels);
       setCampaigns(INITIAL_AD_CAMPAIGNS);
       setBusinesses(INITIAL_BUSINESSES);
       setMarketplaceItems(INITIAL_MARKETPLACE.map(item => {
@@ -205,9 +235,10 @@ function LocalNetContent() {
 
       if (initRes.ok && isJson) {
         const data = await initRes.json();
-        setFeedPosts(data.posts || []);
+        const merged = mergeWithStoredUserPosts(data.posts || [], data.reels || []);
+        setFeedPosts(merged.posts);
         setFeedAds(data.ads || []);
-        setReelsList(data.reels || []);
+        setReelsList(merged.reels);
         setCampaigns(data.campaigns || []);
         setBusinesses(data.businesses || []);
         setMarketplaceItems(data.marketplace || []);
@@ -239,6 +270,7 @@ function LocalNetContent() {
 
   const handlePostCreated = (newPost?: Post) => {
     if (newPost) {
+      saveStoredUserPost(newPost);
       const eligibility = evaluateOrganicEligibility(viewerLocation, newPost);
       setFeedPosts(prev => [{ post: newPost, eligibility }, ...prev.filter(p => p.post.id !== newPost.id)]);
       if (newPost.contentType === 'reel' || newPost.contentType === 'video') {

@@ -25,6 +25,24 @@ import {
   FileText,  Bell,  Plus,  MoreVertical} from 'lucide-react';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 import { FeedVideoPlayer } from './FeedVideoPlayer.tsx';
+import {
+  FeedComment,
+  getStoredLikes,
+  setStoredLike,
+  getAllStoredComments,
+  addStoredComment,
+  toggleStoredCommentLike,
+  getStoredViews,
+  getPostViewCount,
+  incrementStoredView,
+  getStoredAdViews,
+  getAdViewCount,
+  incrementStoredAdView,
+  syncLikeWithServer,
+  syncCommentWithServer,
+  syncViewWithServer,
+  syncAdViewWithServer
+} from '../lib/engagementStorage.ts';
 import { ShareModal } from './ShareModal.tsx';
 
 interface HomeFeedProps {
@@ -52,7 +70,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 }) => {
   const { viewerLocation } = useLocation();
 
-  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>(() => getStoredLikes());
+  const [postViews, setPostViews] = useState<Record<string, number>>(() => getStoredViews());
+  const [adViews, setAdViews] = useState<Record<string, number>>(() => getStoredAdViews());
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
   const [followingCreators, setFollowingCreators] = useState<Record<string, boolean>>({
     creator_arjun: true
@@ -96,6 +116,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         .play()
         .then(() => {
           setPlayingVideoId(postId);
+          recordVideoPlayView(postId);
         })
         .catch((err) => {
           console.warn('Play error:', err);
@@ -113,41 +134,28 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     eligibility: EligibilityResult | null;
   } | null>(null);
 
-  interface FeedComment {
-    id: string;
-    author: string;
-    authorAvatar: string;
-    text: string;
-    likes: number;
-    hasLiked?: boolean;
-    time: string;
-    replyTo?: string;
-  }
-
-  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
+    const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [replyingToCommentId, setReplyingToCommentId] = useState<{ id: string; author: string } | null>(null);
-  const [postComments, setPostComments] = useState<Record<string, FeedComment[]>>({
-    post_kurnool_dance_worldwide: [
-      { id: 'c1', author: 'Suresh Kumar', authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80', text: 'Proud of Kurnool! Amazing moves at the fort 🔥', likes: 14, time: '2h ago' },
-      { id: 'c2', author: 'Charlotte H.', authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80', text: 'Watching this all the way from London! Love the beats.', likes: 8, time: '1h ago' }
-    ],
-    post_hyderabad_tech_comedy_worldwide: [
-      { id: 'c3', author: 'Vikram J.', authorAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=100&q=80', text: 'Literally had this happen in today sprint demo 😂', likes: 21, time: '3h ago' },
-      { id: 'c4', author: 'Anita Rao', authorAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=100&q=80', text: 'Relatable for every engineer in Hitec City and beyond!', likes: 12, time: '45m ago' }
-    ]
-  });
+  const [postComments, setPostComments] = useState<Record<string, FeedComment[]>>(() => getAllStoredComments());
+
+  const recordVideoPlayView = (postId: string) => {
+    incrementStoredView(postId);
+    setPostViews(getStoredViews());
+    syncViewWithServer(postId);
+  };
+
+  const recordAdImpression = (adId: string) => {
+    incrementStoredAdView(adId);
+    setAdViews(getStoredAdViews());
+    syncAdViewWithServer(adId);
+  };
   const [newCommentText, setNewCommentText] = useState('');
 
   const toggleCommentLike = (postId: string, commentId: string) => {
+    const updated = toggleStoredCommentLike(postId, commentId);
     setPostComments(prev => ({
       ...prev,
-      [postId]: (prev[postId] || []).map(c => {
-        if (c.id === commentId) {
-          const hasLiked = !c.hasLiked;
-          return { ...c, hasLiked, likes: c.likes + (hasLiked ? 1 : -1) };
-        }
-        return c;
-      })
+      [postId]: updated
     }));
   };
   const [showShareToast, setShowShareToast] = useState<string | null>(null);
@@ -155,7 +163,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const t = (key: string) => getTranslation(language, key);
 
   const toggleLike = (postId: string) => {
-    setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+    const current = likedPosts[postId] ?? false;
+    const next = !current;
+    setLikedPosts(prev => ({ ...prev, [postId]: next }));
+    setStoredLike(postId, next);
+    syncLikeWithServer(postId);
   };
 
   const toggleSave = (postId: string) => {
@@ -172,21 +184,30 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   const handleAddComment = (postId: string) => {
     if (!newCommentText.trim()) return;
+    const commentText = newCommentText.trim();
+    const replyAuthor = replyingToCommentId?.author;
+    const formattedText = replyingToCommentId ? `@${replyAuthor} ${commentText}` : commentText;
+
     const newEntry: FeedComment = {
       id: `c_${Date.now()}`,
       author: 'You (Local Viewer)',
       authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
-      text: replyingToCommentId ? `@${replyingToCommentId.author} ${newCommentText.trim()}` : newCommentText.trim(),
+      text: formattedText,
       likes: 0,
       time: 'Just now',
-      replyTo: replyingToCommentId?.id
+      replyTo: replyingToCommentId?.id,
+      createdAt: new Date().toISOString()
     };
+
+    const updated = addStoredComment(postId, newEntry);
     setPostComments(prev => ({
       ...prev,
-      [postId]: [...(prev[postId] || []), newEntry]
+      [postId]: updated
     }));
     setNewCommentText('');
     setReplyingToCommentId(null);
+
+    syncCommentWithServer(postId, formattedText, replyingToCommentId?.id);
   };
 
   // Build combined stream with ads injected into the feed
@@ -489,7 +510,10 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     <FeedVideoPlayer
                       post={post}
                       isCurrentlyPlaying={playingVideoId === post.id}
-                      onPlayRequest={() => setPlayingVideoId(post.id)}
+                      onPlayRequest={() => {
+                        setPlayingVideoId(post.id);
+                        recordVideoPlayView(post.id);
+                      }}
                       onPauseRequest={() => {
                         if (playingVideoId === post.id) setPlayingVideoId(null);
                       }}

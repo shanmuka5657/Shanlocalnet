@@ -248,6 +248,133 @@ export class PostsRepository {
     return this.mapRowToPost(res.rows[0]);
   }
 
+  public async toggleLike(
+    postId: string,
+    userId = 'current_user_1'
+  ): Promise<{ liked: boolean; likesCount: number }> {
+    await this.client.query(`
+      INSERT INTO users (id, email, active_role, is_suspended)
+      VALUES ($1, $2, 'viewer', FALSE)
+      ON CONFLICT (id) DO NOTHING;
+    `, [userId, `${userId}@localnet.in`]);
+
+    const check = await this.client.query(
+      'SELECT 1 FROM post_likes WHERE user_id = $1 AND post_id = $2;',
+      [userId, postId]
+    );
+
+    let liked = false;
+    if (check.rows && check.rows.length > 0) {
+      await this.client.query(
+        'DELETE FROM post_likes WHERE user_id = $1 AND post_id = $2;',
+        [userId, postId]
+      );
+      await this.client.query(
+        'UPDATE posts SET likes_count = GREATEST(0, likes_count - 1), updated_at = NOW() WHERE id = $1;',
+        [postId]
+      );
+      liked = false;
+    } else {
+      await this.client.query(
+        'INSERT INTO post_likes (user_id, post_id, created_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING;',
+        [userId, postId]
+      );
+      await this.client.query(
+        'UPDATE posts SET likes_count = likes_count + 1, updated_at = NOW() WHERE id = $1;',
+        [postId]
+      );
+      liked = true;
+    }
+
+    const res = await this.client.query('SELECT likes_count FROM posts WHERE id = $1;', [postId]);
+    const likesCount = Number(res.rows?.[0]?.likes_count ?? (liked ? 1 : 0));
+    return { liked, likesCount };
+  }
+
+  public async addComment(
+    postId: string,
+    userId = 'current_user_1',
+    body: string
+  ): Promise<any> {
+    await this.client.query(`
+      INSERT INTO users (id, email, active_role, is_suspended)
+      VALUES ($1, $2, 'viewer', FALSE)
+      ON CONFLICT (id) DO NOTHING;
+    `, [userId, `${userId}@localnet.in`]);
+
+    const res = await this.client.query(`
+      INSERT INTO post_comments (post_id, user_id, body, created_at)
+      VALUES ($1, $2, $3, NOW())
+      RETURNING id, post_id, user_id, body, created_at;
+    `, [postId, userId, body]);
+
+    await this.client.query(
+      'UPDATE posts SET comments_count = comments_count + 1, updated_at = NOW() WHERE id = $1;',
+      [postId]
+    );
+
+    const row = res.rows[0];
+    return {
+      id: row.id,
+      postId: row.post_id,
+      author: 'You (Local Viewer)',
+      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
+      text: row.body,
+      likes: 0,
+      time: 'Just now',
+      createdAt: row.created_at
+    };
+  }
+
+  public async getComments(postId: string): Promise<any[]> {
+    const res = await this.client.query(`
+      SELECT
+        pc.id,
+        pc.post_id,
+        pc.user_id,
+        pc.body AS text,
+        pc.created_at,
+        COALESCE(up.display_name, 'You (Local Viewer)') AS author,
+        COALESCE(up.avatar_url, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80') AS author_avatar
+      FROM post_comments pc
+      LEFT JOIN users u ON u.id = pc.user_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE pc.post_id = $1 AND pc.deleted_at IS NULL
+      ORDER BY pc.created_at ASC;
+    `, [postId]);
+
+    return (res.rows || []).map((r: any) => ({
+      id: r.id,
+      author: r.author,
+      authorAvatar: r.author_avatar,
+      text: r.text,
+      likes: 0,
+      time: 'Just now',
+      createdAt: r.created_at
+    }));
+  }
+
+  public async recordView(
+    postId: string,
+    userId = 'current_user_1',
+    city = 'Kurnool'
+  ): Promise<{ viewsCount: number }> {
+    try {
+      await this.client.query(`
+        INSERT INTO reel_views (post_id, viewer_user_id, watch_duration_ms, viewer_city, created_at)
+        VALUES ($1, $2, 3000, $3, NOW());
+      `, [postId, userId, city]);
+    } catch {}
+
+    await this.client.query(
+      'UPDATE posts SET views_count = views_count + 1, updated_at = NOW() WHERE id = $1;',
+      [postId]
+    );
+
+    const res = await this.client.query('SELECT views_count FROM posts WHERE id = $1;', [postId]);
+    return { viewsCount: Number(res.rows?.[0]?.views_count ?? 1) };
+  }
+
   private mapRowToPost(r: any, fallback?: Partial<Post>): Post {
     const tags = Array.isArray(r.tags) ? r.tags : typeof r.tags === 'string' ? JSON.parse(r.tags) : [];
     return {

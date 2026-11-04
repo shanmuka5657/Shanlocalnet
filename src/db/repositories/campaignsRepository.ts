@@ -166,6 +166,20 @@ export class CampaignsRepository {
     return res.rows.map((r: any) => this.mapRowToCampaign(r));
   }
 
+  public async recordImpression(campaignId: string): Promise<number> {
+    try {
+      await this.client.query(`
+        UPDATE campaigns
+        SET impressions_count = impressions_count + 1, updated_at = NOW()
+        WHERE id = $1;
+      `, [campaignId]);
+      const res = await this.client.query('SELECT impressions_count FROM campaigns WHERE id = $1;', [campaignId]);
+      return Number(res.rows?.[0]?.impressions_count ?? 1);
+    } catch {
+      return 1;
+    }
+  }
+
   private mapRowToCampaign(r: any): AdCampaign {
     const budgetTotal = Number(r.budget_total_paise || 200000) / 100;
     const budgetSpent = Number(r.budget_spent_paise || 0) / 100;

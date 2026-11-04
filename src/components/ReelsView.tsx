@@ -22,8 +22,21 @@ import {
   Plus,
   Maximize,
   Minimize,
-  Bell
+  Bell,
+  Eye
 } from 'lucide-react';
+import {
+  FeedComment,
+  getStoredLikes,
+  setStoredLike,
+  getAllStoredComments,
+  addStoredComment,
+  getPostViewCount,
+  incrementStoredView,
+  syncLikeWithServer,
+  syncCommentWithServer,
+  syncViewWithServer
+} from '../lib/engagementStorage.ts';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 import { ShareModal } from './ShareModal.tsx';
 
@@ -47,7 +60,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   );
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
-  const [likedReels, setLikedReels] = useState<Record<string, boolean>>({});
+  const [likedReels, setLikedReels] = useState<Record<string, boolean>>(() => getStoredLikes());
   const [savedReels, setSavedReels] = useState<Record<string, boolean>>({});
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({ creator_arjun: true });
   const [showShareToast, setShowShareToast] = useState(false);
@@ -109,20 +122,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // Comments state per reel
-  const [commentsMap, setCommentsMap] = useState<Record<string, { author: string; text: string; time: string }[]>>({
-    post_kurnool_dance_worldwide: [
-      { author: 'Suresh Kumar', text: 'Konda Reddy Fort dance moves are next level! 🔥', time: '2h ago' },
-      { author: 'Ananya Sharma', text: 'Watching from Mumbai! Rayalaseema folk beats are incredible.', time: '5h ago' }
-    ],
-    post_hyderabad_tech_comedy_worldwide: [
-      { author: 'Rahul Varma', text: 'This happens in our Hitec City sprint demo every Monday 😂', time: '1h ago' },
-      { author: 'David M.', text: 'Global relatable dev humor right here from London!', time: '3h ago' }
-    ],
-    post_mumbai_streetfood_worldwide: [
-      { author: 'Priya Reddy', text: 'Craving Pav Bhaji now! Amazing cinematography.', time: '4h ago' }
-    ]
-  });
+    const [commentsMap, setCommentsMap] = useState<Record<string, FeedComment[]>>(() => getAllStoredComments());
   const [newCommentInput, setNewCommentInput] = useState('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -135,6 +135,14 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const activeReelData = reels[currentIndex];
   const activeReel = activeReelData?.reel;
   const activeEligibility = activeReelData?.eligibility;
+
+  // Record reel view
+  useEffect(() => {
+    if (activeReel?.id) {
+      incrementStoredView(activeReel.id);
+      syncViewWithServer(activeReel.id);
+    }
+  }, [activeReel?.id]);
 
   // Sync background audio track playback
   useEffect(() => {
@@ -259,6 +267,8 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     if (timeSinceLastTap < 300 && activeReel) {
       // Double tap -> Like with animated heart
       setLikedReels(prev => ({ ...prev, [activeReel.id]: true }));
+      setStoredLike(activeReel.id, true);
+      syncLikeWithServer(activeReel.id);
       const rect = e.currentTarget.getBoundingClientRect();
       setDoubleTapHeart({
         id: activeReel.id,
@@ -290,7 +300,11 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   };
 
   const toggleLike = (id: string) => {
-    setLikedReels(prev => ({ ...prev, [id]: !prev[id] }));
+    const current = likedReels[id] ?? false;
+    const next = !current;
+    setLikedReels(prev => ({ ...prev, [id]: next }));
+    setStoredLike(id, next);
+    syncLikeWithServer(id);
   };
 
   const toggleSave = (id: string) => {
@@ -307,16 +321,23 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
   const handleAddComment = () => {
     if (!newCommentInput.trim() || !activeReel) return;
-    const newComment = {
-      author: 'You (LocalNet Viewer)',
-      text: newCommentInput.trim(),
-      time: 'Just now'
+    const text = newCommentInput.trim();
+    const newComment: FeedComment = {
+      id: `c_${Date.now()}`,
+      author: 'You (Local Viewer)',
+      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
+      text,
+      likes: 0,
+      time: 'Just now',
+      createdAt: new Date().toISOString()
     };
+    const updated = addStoredComment(activeReel.id, newComment);
     setCommentsMap(prev => ({
       ...prev,
-      [activeReel.id]: [newComment, ...(prev[activeReel.id] || [])]
+      [activeReel.id]: updated
     }));
     setNewCommentInput('');
+    syncCommentWithServer(activeReel.id, text);
   };
 
   if (!activeReel) {
@@ -344,6 +365,9 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const isSaved = savedReels[activeReel.id] ?? activeReel.hasSaved;
   const isFollowing = followingMap[activeReel.creatorId];
   const activeComments = commentsMap[activeReel.id] || [];
+  const commentsCount = Math.max(activeReel.stats.comments, activeComments.length);
+  const effectiveLikes = (activeReel.stats.likes || 0) + (isLiked ? 1 : 0);
+  const effectiveViews = getPostViewCount(activeReel.id, activeReel.stats.views || 0);
 
   const hasVideoError = videoErrors[activeReel.id] || !activeReel.mediaUrl || activeReel.mediaUrl.endsWith('.jpg') || activeReel.mediaUrl.endsWith('.png');
 
@@ -537,9 +561,19 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
               <MessageCircle className="w-6 h-6 text-white" />
             </div>
             <span className="text-[10px] font-mono tabular-nums font-semibold drop-shadow">
-              {activeComments.length}
+              {commentsCount.toLocaleString()}
             </span>
           </button>
+
+          {/* Views */}
+          <div className="flex flex-col items-center gap-0.5" title="Total verified views">
+            <div className="p-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 transition-colors">
+              <Eye className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-[10px] font-mono tabular-nums font-semibold drop-shadow">
+              {effectiveViews.toLocaleString()}
+            </span>
+          </div>
 
           {/* Share */}
           <button
@@ -695,7 +729,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="font-bold text-sm flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-amber-400" />
-                Comments ({activeComments.length})
+                Comments ({commentsCount})
               </h3>
               <button
                 onClick={() => setShowCommentsDrawer(false)}

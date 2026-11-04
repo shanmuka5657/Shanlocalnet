@@ -671,6 +671,70 @@ async function startServer() {
   });
 
   // -------------------------------------------------------------------------
+  // 3.1 ENGAGEMENT: LIKES, COMMENTS & VIEWS BACKEND PERSISTENCE
+  // -------------------------------------------------------------------------
+  app.post('/api/posts/:id/like', async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.id;
+      const userId = (req.body?.userId as string) || 'current_user_1';
+      const result = await postsRepo.toggleLike(postId, userId);
+      res.json(result);
+    } catch (err: any) {
+      console.error('[Like Error]:', err);
+      res.status(500).json({ error: 'Failed to update like status', details: err?.message });
+    }
+  });
+
+  app.get('/api/posts/:id/comments', async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.id;
+      const comments = await postsRepo.getComments(postId);
+      res.json({ comments });
+    } catch (err: any) {
+      console.error('[Comments Fetch Error]:', err);
+      res.status(500).json({ error: 'Failed to retrieve comments', details: err?.message });
+    }
+  });
+
+  app.post('/api/posts/:id/comment', async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.id;
+      const { text, userId } = req.body;
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({ error: 'Comment text cannot be empty' });
+      }
+      const comment = await postsRepo.addComment(postId, userId || 'current_user_1', text.trim());
+      res.status(201).json({ success: true, comment });
+    } catch (err: any) {
+      console.error('[Add Comment Error]:', err);
+      res.status(500).json({ error: 'Failed to add comment', details: err?.message });
+    }
+  });
+
+  app.post('/api/posts/:id/view', async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.id;
+      const viewer = extractViewerLocation(req);
+      const result = await postsRepo.recordView(postId, 'current_user_1', viewer?.cityName || 'Kurnool');
+      res.json(result);
+    } catch (err: any) {
+      console.error('[View Record Error]:', err);
+      res.status(500).json({ error: 'Failed to record view', details: err?.message });
+    }
+  });
+
+  app.post('/api/ads/:id/view', async (req: Request, res: Response) => {
+    try {
+      const adId = req.params.id;
+      const impressions = await campRepo.recordImpression(adId);
+      res.json({ success: true, impressions });
+    } catch (err: any) {
+      console.error('[Ad View Record Error]:', err);
+      res.status(500).json({ error: 'Failed to record ad impression', details: err?.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // 4. BUSINESS ADVERTISING CAMPAIGN CREATION (STRICT 40 KM ENFORCEMENT)
   // -------------------------------------------------------------------------
   app.post('/api/campaigns/create', async (req: Request, res: Response) => {

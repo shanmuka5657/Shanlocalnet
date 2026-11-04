@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { AudioTrackPickerModal } from './AudioTrackPickerModal.tsx';
 import { MediaUploader, UploadedMediaData } from './MediaUploader.tsx';
+import { saveStoredUserPost } from '../lib/engagementStorage.ts';
 
 interface CreateModalProps {
   isOpen: boolean;
@@ -141,6 +142,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         moderation: { status: 'approved' }
       };
       INITIAL_POSTS.unshift(localPost);
+      saveStoredUserPost(localPost);
       setSuccessMsg('Published successfully!');
       onPostCreated(localPost);
       setTimeout(() => {
@@ -234,6 +236,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           moderation: { status: 'approved' }
         };
         INITIAL_POSTS.unshift(localPost);
+      saveStoredUserPost(localPost);
         setSuccessMsg('Published successfully!');
         onPostCreated();
         setTimeout(() => {
@@ -278,6 +281,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           moderation: { status: 'approved' }
         };
         INITIAL_POSTS.unshift(createdPost);
+        saveStoredUserPost(createdPost);
         setSuccessMsg(
           isCommercialMode
             ? 'Commercial post published! Capped at max 40 km.'
@@ -326,6 +330,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         moderation: { status: 'approved' }
       };
       INITIAL_POSTS.unshift(localPost);
+      saveStoredUserPost(localPost);
       setSuccessMsg('Published successfully!');
       onPostCreated(localPost);
       setTimeout(() => {
