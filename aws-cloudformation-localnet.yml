@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'LocalNet Production Direct S3 Media Storage (No CloudFront Required)'
+Description: 'LocalNet Production Direct S3 Media Storage with AmazonS3FullAccess'
 
 Parameters:
   EnvironmentName:
@@ -51,34 +51,15 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub 'arn:aws:s3:::${LocalNetMediaBucket}/*'
 
-  # 3. Dedicated IAM User for LocalNet Backend App
+  # 3. Dedicated IAM User for LocalNet Backend App with AmazonS3FullAccess
   LocalNetAppUser:
     Type: AWS::IAM::User
     Properties:
       UserName: !Sub 'localnet-app-backend-${EnvironmentName}'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
 
-  # 4. Least-Privilege IAM Policy for S3 Uploads & Asset Management
-  LocalNetAppPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: LocalNetS3StoragePolicy
-      Users:
-        - !Ref LocalNetAppUser
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-              - s3:PutObject
-              - s3:GetObject
-              - s3:DeleteObject
-              - s3:HeadObject
-              - s3:ListBucket
-            Resource:
-              - !Sub 'arn:aws:s3:::${LocalNetMediaBucket}'
-              - !Sub 'arn:aws:s3:::${LocalNetMediaBucket}/*'
-
-  # 5. Generate Access Key for the App User
+  # 4. Generate Access Key for the App User
   LocalNetAppAccessKey:
     Type: AWS::IAM::AccessKey
     Properties:
