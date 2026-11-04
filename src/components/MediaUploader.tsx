@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { UploadCloud, FileVideo, Image as ImageIcon, X, AlertCircle, CheckCircle, RefreshCw, Play, Pause, Film, Sparkles, Camera, Upload, Scissors, Clock } from 'lucide-react';
 
 export interface UploadedMediaData {
@@ -45,6 +45,19 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [trimEnd, setTrimEnd] = useState<number>(0);
   const [isTrimPreviewing, setIsTrimPreviewing] = useState<boolean>(false);
 
+
+  const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
+    initialMediaUrl ? 'ready' : 'idle'
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mediaMeta, setMediaMeta] = useState<{
+    width?: number;
+    height?: number;
+    duration?: number;
+    aspectRatio?: string;
+    sizeMb?: string;
+  } | null>(null);
+
   // Automatically propagate trim range changes to parent
   useEffect(() => {
     if (file && isVideo && (videoDuration > 0 || (mediaMeta?.duration || 0) > 0)) {
@@ -62,17 +75,6 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
       });
     }
   }, [trimStart, trimEnd]);
-  const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
-    initialMediaUrl ? 'ready' : 'idle'
-  );
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [mediaMeta, setMediaMeta] = useState<{
-    width?: number;
-    height?: number;
-    duration?: number;
-    aspectRatio?: string;
-    sizeMb?: string;
-  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
@@ -309,8 +311,6 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     const applyClientFallback = () => {
       setUploadProgress(100);
       setStatus('ready');
-              if (mediaAssetId) setServerAssetId(mediaAssetId);
-              if (publicUrl) setServerPublicUrl(publicUrl);
 
       const uploadedData: UploadedMediaData = {
         mediaAssetId: serverAssetId || undefined,
@@ -427,8 +427,8 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             if (response && response.mediaAsset) {
               setUploadProgress(100);
               setStatus('ready');
-              if (mediaAssetId) setServerAssetId(mediaAssetId);
-              if (publicUrl) setServerPublicUrl(publicUrl);
+              if (response.mediaAsset?.id) setServerAssetId(response.mediaAsset.id);
+              if (response.publicUrl) setServerPublicUrl(response.publicUrl);
 
               const uploadedData: UploadedMediaData = {
                 mediaAssetId: response.mediaAsset.id,

@@ -93,10 +93,10 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   console.log('[LocalNet Server] Initializing PostgreSQL 16 + PostGIS 3.4 database connection...');
   const db: IDatabaseClient = await initDatabase();
+  const migrationRunner = new MigrationRunner(db);
 
   // Run migrations and initial seed data in local runtime (skip on Vercel cold starts)
   if (!process.env.VERCEL) {
-    const migrationRunner = new MigrationRunner(db);
     console.log('[LocalNet Server] Checking and applying database migrations...');
     const migrationResult = await migrationRunner.runMigrations();
     console.log(`[LocalNet Server] Migrations verified: ${migrationResult.appliedCount} applied.`);

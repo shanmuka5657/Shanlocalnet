@@ -329,7 +329,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   };
 
   // Video Stage Click: handles Single Tap (play/pause) & Double Tap (Rewind, Forward, or Like)
-  const handleStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleStageClick = (e: React.MouseEvent<HTMLElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickWidth = rect.width;

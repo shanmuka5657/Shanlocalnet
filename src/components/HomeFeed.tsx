@@ -318,11 +318,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     src={item.reel.mediaThumbnail}
                     alt={item.reel.title}
                     referrerPolicy="no-referrer"
-                    onTimeUpdate={(e) => {
-                      if (e.currentTarget.currentTime >= 5.0) {
-                        e.currentTarget.currentTime = 0;
-                      }
-                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : item.reel.mediaUrl && !item.reel.mediaUrl.endsWith('.jpg') ? (

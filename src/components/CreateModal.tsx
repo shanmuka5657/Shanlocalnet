@@ -436,7 +436,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
               </div>
 
             {/* Background Audio Selection Bar (Reel / Video) */}
-            {(contentType === 'reel' || contentType === 'video') && (
+            {(contentType === 'reel') && (
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2 text-left">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
