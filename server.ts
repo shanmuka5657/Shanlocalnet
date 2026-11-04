@@ -197,7 +197,7 @@ async function startServer() {
         };
       });
 
-      res.setHeader('Cache-Control', 'public, s-maxage=3, stale-while-revalidate=8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.json({
         posts: eligiblePosts,
         ads: tab === 'around_me' || tab === 'global' ? eligibleAds : [],

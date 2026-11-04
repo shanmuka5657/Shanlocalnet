@@ -285,7 +285,8 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         sizeBytes: fileToUpload.size,
         aspectRatio: meta.aspectRatio,
         videoDurationSeconds: meta.duration,
-        originalFilename: fileToUpload.name
+        originalFilename: fileToUpload.name,
+        thumbnailUrl: capturedThumbnail || (meta as any).thumbnailUrl || undefined
       };
 
       onMediaUploaded(uploadedData);
@@ -347,7 +348,8 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 sizeBytes: fileToUpload.size,
                 aspectRatio: meta.aspectRatio,
                 videoDurationSeconds: meta.duration,
-                originalFilename: fileToUpload.name
+                originalFilename: fileToUpload.name,
+                thumbnailUrl: capturedThumbnail || (meta as any).thumbnailUrl || undefined
               });
             } else {
               applyClientFallback();

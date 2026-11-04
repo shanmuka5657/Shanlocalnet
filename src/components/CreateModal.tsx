@@ -21,7 +21,7 @@ import { MediaUploader, UploadedMediaData } from './MediaUploader.tsx';
 interface CreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPostCreated: () => void;
+  onPostCreated: (createdPost?: Post) => void;
 }
 
 export const CreateModal: React.FC<CreateModalProps> = ({
@@ -134,7 +134,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
       };
       INITIAL_POSTS.unshift(localPost);
       setSuccessMsg('Published successfully!');
-      onPostCreated();
+      onPostCreated(localPost);
       setTimeout(() => {
         onClose();
       }, 1000);
@@ -230,12 +230,49 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         }, 1200);
         return;
       } else {
+        const createdPost: Post = data.post || {
+          id: `post_${Date.now()}`,
+          creatorId: 'current_user_1',
+          creatorName: 'Arjun Rayalaseema',
+          creatorHandle: '@arjun_grooves',
+          creatorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          creatorVerified: true,
+          contentType,
+          classification: isCommercialMode ? 'sponsored_creator' : 'organic',
+          title,
+          description,
+          mediaUrl: uploadedMedia?.publicUrl || '',
+          mediaThumbnail: uploadedMedia?.thumbnailUrl || '',
+          mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
+          aspectRatio: uploadedMedia?.aspectRatio || (contentType === 'reel' ? '9:16' : '16:9'),
+          videoDurationSeconds: uploadedMedia?.videoDurationSeconds,
+          publishingLocation: {
+            latitude: viewerLocation.coords.latitude,
+            longitude: viewerLocation.coords.longitude,
+            cityName: viewerLocation.cityName,
+            state: viewerLocation.stateName,
+            country: viewerLocation.country,
+            isVerified: viewerLocation.isVerified,
+            publishedAt: new Date().toISOString()
+          },
+          audienceDistribution: {
+            engine: isCommercialMode ? 'COMMERCIAL_ADVERTISEMENT' : 'ORGANIC_ENTERTAINMENT',
+            scope,
+            maxRadiusKm: radiusNumber,
+            targetCountry: viewerLocation.countryCode
+          },
+          tags,
+          createdAt: new Date().toISOString(),
+          stats: { likes: 0, comments: 0, shares: 0, saves: 0, views: 0 },
+          moderation: { status: 'approved' }
+        };
+        INITIAL_POSTS.unshift(createdPost);
         setSuccessMsg(
           isCommercialMode
             ? 'Commercial post published! Capped at max 40 km.'
             : 'Organic entertainment published with selected distribution!'
         );
-        onPostCreated();
+        onPostCreated(createdPost);
         setTimeout(() => {
           onClose();
         }, 1200);
@@ -279,7 +316,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
       };
       INITIAL_POSTS.unshift(localPost);
       setSuccessMsg('Published successfully!');
-      onPostCreated();
+      onPostCreated(localPost);
       setTimeout(() => {
         onClose();
       }, 1200);

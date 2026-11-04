@@ -197,8 +197,10 @@ function LocalNetContent() {
     });
 
     try {
-      // 1. Single unified ecosystem call (instant load, no lambda queuing)
-      const initRes = await fetch(`/api/init?${query.toString()}`);
+      // 1. Single unified ecosystem call (instant load, no lambda queuing, no-cache)
+      const initRes = await fetch(`/api/init?${query.toString()}&_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       const isJson = initRes.headers.get('content-type')?.includes('application/json');
 
       if (initRes.ok && isJson) {
@@ -233,6 +235,17 @@ function LocalNetContent() {
 
   const handleMarkAllNotificationsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handlePostCreated = (newPost?: Post) => {
+    if (newPost) {
+      const eligibility = evaluateOrganicEligibility(viewerLocation, newPost);
+      setFeedPosts(prev => [{ post: newPost, eligibility }, ...prev.filter(p => p.post.id !== newPost.id)]);
+      if (newPost.contentType === 'reel' || newPost.contentType === 'video') {
+        setReelsList(prev => [{ reel: newPost, eligibility }, ...prev.filter(r => r.reel.id !== newPost.id)]);
+      }
+    }
+    loadData();
   };
 
   return (
@@ -356,7 +369,7 @@ function LocalNetContent() {
       <CreateModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onPostCreated={loadData}
+        onPostCreated={handlePostCreated}
       />
 
       {/* Notifications Drawer Modal */}
