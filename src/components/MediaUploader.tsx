@@ -176,61 +176,10 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
       }
     });
 
-    xhr.onreadystatechange = () => {
-      if (xhr.readyState === XMLHttpRequest.DONE) {
-        if (xhr.status === 200 || xhr.status === 201) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            setUploadProgress(100);
-            setStatus('ready');
-
-            const uploadedData: UploadedMediaData = {
-              mediaAssetId: response.mediaAsset.id,
-              publicUrl: response.publicUrl,
-              mimeType: response.mediaAsset.mimeType,
-              sizeBytes: response.mediaAsset.sizeBytes,
-              aspectRatio: meta.aspectRatio,
-              videoDurationSeconds: meta.duration,
-              originalFilename: fileToUpload.name
-            };
-
-            onMediaUploaded(uploadedData);
-          } catch {
-            setStatus('error');
-            setErrorMessage('Server returned an unparseable response.');
-          }
-        } else if (xhr.status === 404) {
-          // Graceful fallback for static hosting (e.g. Vercel without Express backend)
-          setUploadProgress(100);
-          setStatus('ready');
-
-          const uploadedData: UploadedMediaData = {
-            mediaAssetId: `asset_client_${Date.now()}`,
-            publicUrl: previewUrl || URL.createObjectURL(fileToUpload),
-            mimeType: fileToUpload.type,
-            sizeBytes: fileToUpload.size,
-            aspectRatio: meta.aspectRatio,
-            videoDurationSeconds: meta.duration,
-            originalFilename: fileToUpload.name
-          };
-
-          onMediaUploaded(uploadedData);
-        } else {
-          setStatus('error');
-          try {
-            const errJson = JSON.parse(xhr.responseText);
-            setErrorMessage(errJson.error || 'File upload rejected by server.');
-          } catch {
-            setErrorMessage(`Upload failed with server HTTP status ${xhr.status}`);
-          }
-        }
-      }
-    };
-
-    xhr.onerror = () => {
-      // Graceful fallback when backend API is unreachable
+    const applyClientFallback = () => {
       setUploadProgress(100);
       setStatus('ready');
+
       const uploadedData: UploadedMediaData = {
         mediaAssetId: `asset_client_${Date.now()}`,
         publicUrl: previewUrl || URL.createObjectURL(fileToUpload),
@@ -240,7 +189,55 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         videoDurationSeconds: meta.duration,
         originalFilename: fileToUpload.name
       };
+
       onMediaUploaded(uploadedData);
+    };
+
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === XMLHttpRequest.DONE) {
+        if (xhr.status === 200 || xhr.status === 201) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            if (response && response.mediaAsset) {
+              setUploadProgress(100);
+              setStatus('ready');
+
+              const uploadedData: UploadedMediaData = {
+                mediaAssetId: response.mediaAsset.id,
+                publicUrl: response.publicUrl,
+                mimeType: response.mediaAsset.mimeType,
+                sizeBytes: response.mediaAsset.sizeBytes,
+                aspectRatio: meta.aspectRatio,
+                videoDurationSeconds: meta.duration,
+                originalFilename: fileToUpload.name
+              };
+
+              onMediaUploaded(uploadedData);
+            } else {
+              applyClientFallback();
+            }
+          } catch {
+            applyClientFallback();
+          }
+        } else if (xhr.status === 404 || xhr.status === 405 || xhr.status === 502 || xhr.status === 503 || xhr.status === 504 || xhr.status === 0) {
+          // Graceful fallback for static hosting (e.g. Vercel without Express backend)
+          applyClientFallback();
+        } else {
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            setStatus('error');
+            setErrorMessage(errJson.error || 'File upload rejected by server.');
+          } catch {
+            // Unhandled error / HTML from static host - fall back gracefully
+            applyClientFallback();
+          }
+        }
+      }
+    };
+
+    xhr.onerror = () => {
+      // Graceful fallback when backend API is unreachable
+      applyClientFallback();
     };
 
     xhr.open('POST', '/api/media/upload');

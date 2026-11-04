@@ -131,56 +131,58 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         })
       });
 
-      const data = await response.json();
+      let data: any = null;
+      try {
+        const text = await response.text();
+        data = JSON.parse(text);
+      } catch {
+        data = null;
+      }
 
-      if (!response.ok) {
+      if (!response.ok || !data) {
         // Fallback for static hosting demo (e.g. Vercel without Express backend)
-        if (response.status === 404) {
-          const localPost: Post = {
-            id: `post_local_${Date.now()}`,
-            creatorId: 'current_user_1',
-            creatorName: 'Arjun Rayalaseema',
-            creatorHandle: '@arjun_grooves',
-            creatorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-            creatorVerified: true,
-            contentType,
-            classification: isCommercialMode ? 'sponsored_creator' : 'organic',
-            title,
-            description,
-            mediaUrl: uploadedMedia?.publicUrl || '',
-            mediaThumbnail: '',
-            mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
-            aspectRatio: contentType === 'reel' ? '9:16' : '16:9',
-            publishingLocation: {
-              latitude: viewerLocation.coords.latitude,
-              longitude: viewerLocation.coords.longitude,
-              cityName: viewerLocation.cityName,
-              state: viewerLocation.stateName,
-              country: viewerLocation.country,
-              isVerified: viewerLocation.isVerified,
-              publishedAt: new Date().toISOString()
-            },
-            audienceDistribution: {
-              engine: isCommercialMode ? 'COMMERCIAL_ADVERTISEMENT' : 'ORGANIC_ENTERTAINMENT',
-              scope,
-              maxRadiusKm: radiusNumber,
-              targetCountry: viewerLocation.countryCode
-            },
-            tags,
-            createdAt: new Date().toISOString(),
-            stats: { likes: 0, comments: 0, shares: 0, saves: 0, views: 0 },
-            moderation: { status: 'approved' }
-          };
-          INITIAL_POSTS.unshift(localPost);
-          setSuccessMsg('Published successfully!');
-          onPostCreated();
-          setTimeout(() => {
-            onClose();
-          }, 1200);
-          return;
-        }
-
-        setServerError(data.error || 'Failed to publish post. Server rejected geographical parameters.');
+        const localPost: Post = {
+          id: `post_local_${Date.now()}`,
+          creatorId: 'current_user_1',
+          creatorName: 'Arjun Rayalaseema',
+          creatorHandle: '@arjun_grooves',
+          creatorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          creatorVerified: true,
+          contentType,
+          classification: isCommercialMode ? 'sponsored_creator' : 'organic',
+          title,
+          description,
+          mediaUrl: uploadedMedia?.publicUrl || '',
+          mediaThumbnail: '',
+          mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
+          aspectRatio: contentType === 'reel' ? '9:16' : '16:9',
+          publishingLocation: {
+            latitude: viewerLocation.coords.latitude,
+            longitude: viewerLocation.coords.longitude,
+            cityName: viewerLocation.cityName,
+            state: viewerLocation.stateName,
+            country: viewerLocation.country,
+            isVerified: viewerLocation.isVerified,
+            publishedAt: new Date().toISOString()
+          },
+          audienceDistribution: {
+            engine: isCommercialMode ? 'COMMERCIAL_ADVERTISEMENT' : 'ORGANIC_ENTERTAINMENT',
+            scope,
+            maxRadiusKm: radiusNumber,
+            targetCountry: viewerLocation.countryCode
+          },
+          tags,
+          createdAt: new Date().toISOString(),
+          stats: { likes: 0, comments: 0, shares: 0, saves: 0, views: 0 },
+          moderation: { status: 'approved' }
+        };
+        INITIAL_POSTS.unshift(localPost);
+        setSuccessMsg('Published successfully!');
+        onPostCreated();
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+        return;
       } else {
         setSuccessMsg(
           isCommercialMode

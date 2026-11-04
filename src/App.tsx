@@ -210,7 +210,8 @@ function LocalNetContent() {
           fetch('/api/notifications')
         ]);
 
-      if (feedRes.ok) {
+      const isJson = feedRes.headers.get('content-type')?.includes('application/json');
+      if (feedRes.ok && isJson) {
         const feedData = await feedRes.json();
         setFeedPosts(feedData.posts || []);
         setFeedAds(feedData.ads || []);
