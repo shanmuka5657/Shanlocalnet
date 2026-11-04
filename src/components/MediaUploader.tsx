@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { UploadCloud, FileVideo, Image as ImageIcon, X, AlertCircle, CheckCircle, RefreshCw, Play, Film } from 'lucide-react';
+import { UploadCloud, FileVideo, Image as ImageIcon, X, AlertCircle, CheckCircle, RefreshCw, Play, Film, Sparkles, Camera, Upload } from 'lucide-react';
 
 export interface UploadedMediaData {
   mediaAssetId: string;
@@ -36,6 +36,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [coverTimestamp, setCoverTimestamp] = useState<number>(0.5);
   const [capturedThumbnail, setCapturedThumbnail] = useState<string>('');
+  const [videoDuration, setVideoDuration] = useState<number>(0);
   const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
     initialMediaUrl ? 'ready' : 'idle'
   );
@@ -50,6 +51,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const customThumbInputRef = useRef<HTMLInputElement>(null);
 
   const isReelMode = contentType === 'reel';
   const acceptedTypes = isReelMode
@@ -66,23 +68,25 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     return '16:9';
   };
 
-  const handleCoverScrub = (time: number) => {
-    setCoverTimestamp(time);
+  const handleCaptureFrame = (targetTime?: number) => {
     if (!videoPreviewRef.current) return;
-    videoPreviewRef.current.currentTime = time;
+    const vid = videoPreviewRef.current;
+    if (typeof targetTime === 'number') {
+      setCoverTimestamp(targetTime);
+      vid.currentTime = targetTime;
+    }
 
-    const onSeeked = () => {
-      if (!videoPreviewRef.current) return;
+    const doCapture = () => {
       try {
         const canvas = document.createElement('canvas');
         const targetW = 480;
-        const targetH = Math.round((targetW * (videoPreviewRef.current.videoHeight || 360)) / (videoPreviewRef.current.videoWidth || 480));
+        const targetH = Math.round((targetW * (vid.videoHeight || 360)) / (vid.videoWidth || 480));
         canvas.width = targetW;
         canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(videoPreviewRef.current, 0, 0, targetW, targetH);
-          const newThumb = canvas.toDataURL('image/jpeg', 0.8);
+          ctx.drawImage(vid, 0, 0, targetW, targetH);
+          const newThumb = canvas.toDataURL('image/jpeg', 0.85);
           setCapturedThumbnail(newThumb);
           if (file) {
             onMediaUploaded({
@@ -91,19 +95,46 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               mimeType: file.type,
               sizeBytes: file.size,
               aspectRatio: mediaMeta?.aspectRatio || '9:16',
-              videoDurationSeconds: mediaMeta?.duration,
+              videoDurationSeconds: videoDuration || mediaMeta?.duration,
               originalFilename: file.name,
               thumbnailUrl: newThumb
             });
           }
         }
       } catch (err) {
-        console.warn('Cover scrub error:', err);
+        console.warn('Capture frame error:', err);
       }
-      videoPreviewRef.current?.removeEventListener('seeked', onSeeked);
     };
 
-    videoPreviewRef.current.addEventListener('seeked', onSeeked);
+    if (typeof targetTime === 'number') {
+      vid.addEventListener('seeked', doCapture, { once: true });
+    } else {
+      doCapture();
+    }
+  };
+
+  const handleCustomThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const thumbFile = e.target.files?.[0];
+    if (!thumbFile) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCapturedThumbnail(reader.result);
+        if (file) {
+          onMediaUploaded({
+            mediaAssetId: `asset_${Date.now()}`,
+            publicUrl: previewUrl || '',
+            mimeType: file.type,
+            sizeBytes: file.size,
+            aspectRatio: mediaMeta?.aspectRatio || '9:16',
+            videoDurationSeconds: videoDuration || mediaMeta?.duration,
+            originalFilename: file.name,
+            thumbnailUrl: reader.result
+          });
+        }
+      }
+    };
+    reader.readAsDataURL(thumbFile);
   };
 
   const handleFileValidation = async (selectedFile: File) => {
@@ -500,6 +531,19 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 controls
                 playsInline
                 className="max-h-72 w-auto object-contain mx-auto"
+                onLoadedMetadata={(e) => {
+                  const d = e.currentTarget.duration;
+                  if (d && !isNaN(d) && isFinite(d) && d > 0) {
+                    setVideoDuration(d);
+                    setMediaMeta(prev => ({
+                      ...prev,
+                      duration: Math.round(d),
+                      width: e.currentTarget.videoWidth || prev?.width,
+                      height: e.currentTarget.videoHeight || prev?.height
+                    }));
+                    handleCaptureFrame(Math.min(0.5, d / 2));
+                  }
+                }}
               />
             ) : (
               <img
@@ -522,10 +566,10 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 </span>
               )}
 
-              {mediaMeta?.duration && (
+              {Boolean(mediaMeta?.duration || videoDuration) && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 text-amber-300 backdrop-blur-md flex items-center gap-0.5">
                   <Play className="w-2.5 h-2.5 fill-current" />
-                  {mediaMeta.duration}s
+                  {Math.max(1, Math.round(mediaMeta?.duration || videoDuration))}s
                 </span>
               )}
             </div>
@@ -553,37 +597,88 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           </div>
 
           {/* Interactive Video Cover Frame Selector (YouTube / Instagram Style) */}
-          {isVideo && mediaMeta?.duration && mediaMeta.duration > 0 && (
-            <div className="p-3 bg-slate-900 border-t border-slate-800 space-y-2 text-left w-full">
+          {Boolean(isVideo) && (
+            <div className="p-3.5 bg-slate-900 border-t border-slate-800 space-y-3 text-left w-full">
               <div className="flex items-center justify-between text-xs text-white">
                 <span className="font-bold flex items-center gap-1.5 text-amber-400">
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-4 h-4" />
                   Choose Cover Frame
                 </span>
                 <span className="font-mono text-slate-400 text-[11px]">
-                  {Math.floor(coverTimestamp / 60)}:{Math.floor(coverTimestamp % 60) < 10 ? '0' : ''}{Math.floor(coverTimestamp % 60)} / {Math.floor(mediaMeta.duration / 60)}:{Math.floor(mediaMeta.duration % 60) < 10 ? '0' : ''}{Math.floor(mediaMeta.duration % 60)}
+                  {Math.floor(coverTimestamp / 60)}:{Math.floor(coverTimestamp % 60) < 10 ? '0' : ''}{Math.floor(coverTimestamp % 60)} / {Math.floor((videoDuration || mediaMeta?.duration || 1) / 60)}:{Math.floor((videoDuration || mediaMeta?.duration || 1) % 60) < 10 ? '0' : ''}{Math.floor((videoDuration || mediaMeta?.duration || 1) % 60)}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
-                {capturedThumbnail && (
-                  <img
-                    src={capturedThumbnail}
-                    alt="Cover frame"
-                    className="w-10 h-14 rounded-lg object-cover border-2 border-amber-500 shadow-md shrink-0"
-                  />
+              <div className="flex items-start sm:items-center gap-3">
+                {capturedThumbnail ? (
+                  <div className="relative group shrink-0">
+                    <img
+                      src={capturedThumbnail}
+                      alt="Cover frame"
+                      className="w-14 h-20 rounded-xl object-cover border-2 border-amber-500 shadow-lg shadow-amber-500/20"
+                    />
+                    <div className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[10px] text-white font-medium">
+                      Cover
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-14 h-20 rounded-xl bg-slate-800 border-2 border-dashed border-slate-700 flex flex-col items-center justify-center shrink-0 text-slate-500">
+                    <ImageIcon className="w-5 h-5 mb-1" />
+                    <span className="text-[9px]">Cover</span>
+                  </div>
                 )}
-                <div className="flex-1 space-y-1">
+
+                <div className="flex-1 space-y-2 min-w-0">
                   <input
                     type="range"
                     min="0"
-                    max={mediaMeta.duration}
+                    max={Math.max(1, videoDuration || mediaMeta?.duration || 10)}
                     step="0.1"
                     value={coverTimestamp}
-                    onChange={(e) => handleCoverScrub(parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-slate-700 accent-amber-500 rounded-lg cursor-pointer"
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      handleCaptureFrame(val);
+                    }}
+                    className="w-full h-2 bg-slate-700 accent-amber-500 rounded-lg cursor-pointer"
                   />
-                  <p className="text-[10px] text-slate-400">Drag to choose your video thumbnail cover before publishing</p>
+
+                  {/* Quick Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = videoPreviewRef.current?.currentTime || 0;
+                        setCoverTimestamp(current);
+                        handleCaptureFrame();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-semibold flex items-center gap-1.5 transition-colors border border-amber-500/30"
+                      title="Grab currently paused video frame"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Grab Current Frame
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => customThumbInputRef.current?.click()}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium flex items-center gap-1.5 transition-colors border border-slate-700"
+                      title="Upload an image from your device as cover"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Custom Image
+                    </button>
+                    <input
+                      ref={customThumbInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleCustomThumbnailUpload}
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-slate-400">
+                    Scrub the slider or pause video above and click &quot;Grab Current Frame&quot; to pick thumbnail cover.
+                  </p>
                 </div>
               </div>
             </div>
