@@ -65,6 +65,36 @@ function LocalNetContent() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  // Deep link handler: ?post=xxx or ?reel=xxx + OpenGraph dynamic title updates
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const deepPostId = params.get('post') || params.get('reel');
+      if (deepPostId) {
+        const reelIdx = reelsList.findIndex(r => r.id === deepPostId);
+        if (reelIdx !== -1) {
+          setSelectedReelIndex(reelIdx);
+          setIsFullScreenReelsOpen(true);
+          const matchedReel = reelsList[reelIdx];
+          if (matchedReel) {
+            document.title = `${matchedReel.title} — LocalNet`;
+          }
+        } else {
+          const feedMatch = feedPosts.find(p => p.post.id === deepPostId);
+          if (feedMatch) {
+            document.title = `${feedMatch.post.title} — LocalNet`;
+            setTimeout(() => {
+              const el = document.getElementById(`feed-post-${deepPostId}`);
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 500);
+          }
+        }
+      }
+    } catch {}
+  }, [reelsList, feedPosts]);
+
   // Pause any playing videos when switching navigation tabs
   useEffect(() => {
     document.querySelectorAll('video').forEach((v) => {

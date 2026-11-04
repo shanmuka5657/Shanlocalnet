@@ -12,7 +12,8 @@ import {
   Heart,
   Loader2,
   RotateCcw,
-  RotateCw
+  RotateCw,
+  Music
 } from 'lucide-react';
 
 interface FeedVideoPlayerProps {
@@ -602,6 +603,12 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           showControls ? 'opacity-100' : 'opacity-0'
         }`}
       >
+        {post.audioTrack && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md border border-white/20 text-white text-[11px] font-medium shadow mr-2 max-w-[160px] truncate">
+            <Music className="w-3 h-3 text-amber-400 shrink-0" />
+            <span className="truncate">{post.audioTrack.title}</span>
+          </div>
+        )}
         {onOpenReels && (
           <button
             type="button"

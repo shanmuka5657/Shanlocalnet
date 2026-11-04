@@ -126,6 +126,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const [newCommentInput, setNewCommentInput] = useState('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const backgroundAudioRef = useRef<HTMLAudioElement>(null);
   const touchStartY = useRef<number | null>(null);
   const touchStartTime = useRef<number>(0);
   const lastWheelTime = useRef<number>(0);
@@ -134,6 +135,18 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const activeReelData = reels[currentIndex];
   const activeReel = activeReelData?.reel;
   const activeEligibility = activeReelData?.eligibility;
+
+  // Sync background audio track playback
+  useEffect(() => {
+    if (backgroundAudioRef.current) {
+      if (isPlaying && !isMuted && activeReel?.audioTrack?.audioUrl) {
+        backgroundAudioRef.current.currentTime = 0;
+        backgroundAudioRef.current.play().catch(() => {});
+      } else {
+        backgroundAudioRef.current.pause();
+      }
+    }
+  }, [currentIndex, isPlaying, isMuted, activeReel?.audioTrack?.audioUrl]);
 
   // Auto-play / reset on index change
   useEffect(() => {
@@ -346,6 +359,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
         
         {/* Active Video Player or Audio Visualizer */}
         {!hasVideoError ? (
+          <>
           <video
             ref={videoRef}
             src={activeReel.mediaUrl}
@@ -369,6 +383,16 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
             className="w-full h-full object-cover cursor-pointer"
           />
+          {activeReel?.audioTrack?.audioUrl && (
+            <audio
+              ref={backgroundAudioRef}
+              src={activeReel.audioTrack.audioUrl}
+              loop
+              muted={isMuted}
+              preload="metadata"
+            />
+          )}
+          </>
         ) : (
           <div
             onClick={handleVideoTap}
@@ -585,12 +609,24 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
           {/* Audio Track Indicator with Rotating Vinyl Disc */}
           <div className="flex items-center gap-2 pt-1 pointer-events-auto">
-            <div className="flex items-center gap-1.5 text-[11px] text-white/80 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 max-w-[200px] truncate">
-              <Music className="w-3 h-3 text-amber-400 shrink-0" />
-              <span className="truncate">Original Audio · {activeReel.creatorName}</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-white/90 bg-white/15 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 max-w-[240px] truncate shadow-sm">
+              <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="truncate font-medium">
+                {activeReel.audioTrack
+                  ? `${activeReel.audioTrack.title} · ${activeReel.audioTrack.artist}`
+                  : `Original Audio · ${activeReel.creatorName}`}
+              </span>
             </div>
-            <div className="w-6 h-6 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center animate-spin [animation-duration:4s]">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <div className="w-6 h-6 rounded-full bg-slate-900 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0 animate-spin [animation-duration:4s] shadow-md">
+              {activeReel.audioTrack?.coverUrl ? (
+                <img
+                  src={activeReel.audioTrack.coverUrl}
+                  alt={activeReel.audioTrack.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+              )}
             </div>
           </div>
         </div>

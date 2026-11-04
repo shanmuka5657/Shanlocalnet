@@ -463,6 +463,63 @@ async function startServer() {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // OPENGRAPH & SOCIAL CRAWLER PREVIEWS (/p/:postId)
+  // Generates server-rendered rich preview cards for WhatsApp, Twitter, FB, Telegram
+  // -------------------------------------------------------------------------
+  app.get('/p/:postId', async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.postId;
+      let matchedPost: any = null;
+      try {
+        const feedItems = await postsRepo.getFeed(null, 'global', 100);
+        const found = feedItems.find(f => f.post.id === postId);
+        if (found) matchedPost = found.post;
+      } catch {}
+
+      if (!matchedPost) {
+        matchedPost = INITIAL_POSTS.find(p => p.id === postId) || null;
+      }
+
+      const title = matchedPost ? `${matchedPost.title} — LocalNet` : 'LocalNet — Global Entertainment. Local Commerce.';
+      const desc = matchedPost?.description || 'Hyperlocal 40km commerce and global social entertainment on LocalNet.';
+      const img = matchedPost?.mediaThumbnail || (matchedPost?.mediaUrl && !matchedPost.mediaUrl.endsWith('.mp4') ? matchedPost.mediaUrl : 'https://shanlocalnet.vercel.app/favicon.svg');
+      const redirectUrl = `https://shanlocalnet.vercel.app/?post=${encodeURIComponent(postId)}`;
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+  <meta name="description" content="${desc}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${desc}" />
+  <meta property="og:image" content="${img}" />
+  <meta property="og:url" content="${redirectUrl}" />
+  <meta property="og:type" content="video.other" />
+  <meta property="og:site_name" content="LocalNet" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${desc}" />
+  <meta name="twitter:image" content="${img}" />
+  <meta http-equiv="refresh" content="0; url=${redirectUrl}" />
+</head>
+<body style="background:#090d16; color:white; font-family:sans-serif; text-align:center; padding:60px 20px;">
+  <div style="max-width:400px; margin:0 auto; background:#111827; padding:24px; border-radius:20px; border:1px solid #1f2937;">
+    <h2 style="font-size:18px; margin-bottom:8px;">${title}</h2>
+    <p style="font-size:13px; color:#9ca3af; margin-bottom:16px;">${desc}</p>
+    <a href="${redirectUrl}" style="display:inline-block; background:#f59e0b; color:#0f172a; font-weight:bold; padding:10px 20px; border-radius:12px; text-decoration:none;">Open in LocalNet</a>
+  </div>
+  <script>window.location.replace("${redirectUrl}");</script>
+</body>
+</html>`);
+    } catch {
+      res.redirect('/');
+    }
+  });
+
   // 5. Get media asset metadata
   app.get('/api/media/:id', async (req: Request, res: Response) => {
     try {
@@ -579,6 +636,7 @@ async function startServer() {
         videoDurationSeconds: resolvedDuration,
         trimStartSeconds: req.body.trimStartSeconds ? Number(req.body.trimStartSeconds) : undefined,
         trimEndSeconds: req.body.trimEndSeconds ? Number(req.body.trimEndSeconds) : undefined,
+        audioTrack: req.body.audioTrack || undefined,
         publishingLocation: {
           latitude: Number(publishingLocation.latitude),
           longitude: Number(publishingLocation.longitude),

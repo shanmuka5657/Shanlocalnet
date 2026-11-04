@@ -126,6 +126,17 @@ export interface MediaAsset {
   updatedAt: string;
 }
 
+export interface AudioTrackMetadata {
+  id: string;
+  title: string;
+  artist: string;
+  category: 'trending' | 'regional' | 'folk' | 'acoustic' | 'ambient';
+  audioUrl?: string;
+  durationSeconds?: number;
+  coverUrl?: string;
+  useCount?: number;
+}
+
 export interface Post {
   id: string;
   creatorId: string;
@@ -145,6 +156,7 @@ export interface Post {
   videoDurationSeconds?: number;
   trimStartSeconds?: number;
   trimEndSeconds?: number;
+  audioTrack?: AudioTrackMetadata;
   publishingLocation: PublishingLocation;
   audienceDistribution: AudienceDistribution;
   commercialMetadata?: CommercialMetadata;

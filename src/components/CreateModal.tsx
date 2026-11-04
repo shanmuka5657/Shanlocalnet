@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from '../context/LocationContext.tsx';
-import { AudienceScope, PostClassification, Post } from '../types/index.ts';
+import { AudienceScope, PostClassification, Post, AudioTrackMetadata } from '../types/index.ts';
 import { inspectContentForCommercialPromotion, parseScopeToKm } from '../lib/geo.ts';
 import { INITIAL_POSTS } from '../lib/mockData.ts';
 import {
@@ -14,8 +14,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lock,
-  Sparkles
+  Sparkles,
+  Music,
+  Disc3
 } from 'lucide-react';
+import { AudioTrackPickerModal } from './AudioTrackPickerModal.tsx';
 import { MediaUploader, UploadedMediaData } from './MediaUploader.tsx';
 
 interface CreateModalProps {
@@ -36,6 +39,8 @@ export const CreateModal: React.FC<CreateModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [uploadedMedia, setUploadedMedia] = useState<UploadedMediaData | null>(null);
+  const [selectedAudioTrack, setSelectedAudioTrack] = useState<AudioTrackMetadata | null>(null);
+  const [isAudioPickerOpen, setIsAudioPickerOpen] = useState(false);
   const [tagInput, setTagInput] = useState('entertainment, viral');
   const [isPaidPromotion, setIsPaidPromotion] = useState(false);
   const [scope, setScope] = useState<AudienceScope>('worldwide');
@@ -112,6 +117,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         mediaThumbnail: uploadedMedia?.thumbnailUrl || '',
         trimStartSeconds: uploadedMedia?.trimStartSeconds,
         trimEndSeconds: uploadedMedia?.trimEndSeconds,
+        audioTrack: selectedAudioTrack || undefined,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: contentType === 'reel' ? '9:16' : '16:9',
         publishingLocation: {
@@ -158,6 +164,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           videoDurationSeconds: uploadedMedia?.videoDurationSeconds,
           trimStartSeconds: uploadedMedia?.trimStartSeconds,
           trimEndSeconds: uploadedMedia?.trimEndSeconds,
+          audioTrack: selectedAudioTrack || undefined,
           classification: isCommercialMode ? 'sponsored_creator' : 'organic',
           isPaidPromotion: isCommercialMode,
           scope,
@@ -413,6 +420,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
 
             {/* Media Uploader Section */}
             {contentType !== 'text' ? (
+              <>
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {contentType === 'reel' ? 'Upload Reel Video (MP4 / WebM)' : 'Upload Photo (JPEG / PNG / WebP)'}
@@ -426,6 +434,65 @@ export const CreateModal: React.FC<CreateModalProps> = ({
                   onMediaCleared={() => setUploadedMedia(null)}
                 />
               </div>
+
+            {/* Background Audio Selection Bar (Reel / Video) */}
+            {(contentType === 'reel' || contentType === 'video') && (
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2 text-left">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Music className="w-4 h-4 text-amber-500" />
+                    Reel Background Music
+                  </span>
+                  {selectedAudioTrack && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAudioPickerOpen(true)}
+                      className="text-amber-600 dark:text-amber-400 font-semibold hover:underline text-[11px]"
+                    >
+                      Change Track
+                    </button>
+                  )}
+                </div>
+
+                {selectedAudioTrack ? (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-500/30">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={selectedAudioTrack.coverUrl}
+                        alt={selectedAudioTrack.title}
+                        className="w-10 h-10 rounded-lg object-cover shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {selectedAudioTrack.title}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {selectedAudioTrack.artist} · {selectedAudioTrack.durationSeconds}s
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAudioTrack(null)}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 transition-colors ml-2 shrink-0"
+                      title="Remove background track (keep original video sound)"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsAudioPickerOpen(true)}
+                    className="w-full py-2.5 px-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-400 bg-white/50 dark:bg-slate-900/50 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+                  >
+                    <Disc3 className="w-4 h-4 text-amber-500" />
+                    <span>Choose Trending or Regional Background Audio</span>
+                  </button>
+                )}
+              </div>
+            )}
+              </>
             ) : (
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -635,6 +702,13 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         </div>
 
       </div>
+
+      <AudioTrackPickerModal
+        isOpen={isAudioPickerOpen}
+        onClose={() => setIsAudioPickerOpen(false)}
+        selectedTrack={selectedAudioTrack}
+        onSelectTrack={setSelectedAudioTrack}
+      />
     </div>
   );
 };
