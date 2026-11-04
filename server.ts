@@ -91,16 +91,17 @@ async function startServer() {
   console.log('[LocalNet Server] Initializing PostgreSQL 16 + PostGIS 3.4 database connection...');
   const db: IDatabaseClient = await initDatabase();
 
-  // Run migrations automatically
-  const migrationRunner = new MigrationRunner(db);
-  console.log('[LocalNet Server] Checking and applying database migrations...');
-  const migrationResult = await migrationRunner.runMigrations();
-  console.log(`[LocalNet Server] Migrations verified: ${migrationResult.appliedCount} applied.`);
+  // Run migrations and initial seed data in local runtime (skip on Vercel cold starts)
+  if (!process.env.VERCEL) {
+    const migrationRunner = new MigrationRunner(db);
+    console.log('[LocalNet Server] Checking and applying database migrations...');
+    const migrationResult = await migrationRunner.runMigrations();
+    console.log(`[LocalNet Server] Migrations verified: ${migrationResult.appliedCount} applied.`);
 
-  // Seed default data if database tables are unpopulated
-  console.log('[LocalNet Server] Verifying initial seed data...');
-  await seedDatabase(db);
-  console.log('[LocalNet Server] Database seeding verified.');
+    console.log('[LocalNet Server] Verifying initial seed data...');
+    await seedDatabase(db);
+    console.log('[LocalNet Server] Database seeding verified.');
+  }
 
   // Initialize repositories
   const usersRepo = new UsersRepository(db);
@@ -161,6 +162,57 @@ async function startServer() {
       permissionState
     };
   }
+
+  // -------------------------------------------------------------------------
+  // 0. UNIFIED FAST ECOSYSTEM BOOTSTRAP (1 Request Replaces 10 Separate Calls)
+  // -------------------------------------------------------------------------
+  app.get('/api/init', async (req: Request, res: Response) => {
+    try {
+      const viewer = extractViewerLocation(req);
+      const tab = ((req.query.tab as string) || 'global') as 'global' | 'around_me' | 'following';
+
+      const [eligiblePosts, eligibleAds, eligibleReels, rawBusinesses, rawMarketplace, rawCommunities] = await Promise.all([
+        postsRepo.getFeed(viewer, tab, 30, 0),
+        campRepo.getCommercialFeed(viewer),
+        postsRepo.getReels(viewer, 30),
+        bizRepo.listAll().catch(() => INITIAL_BUSINESSES),
+        mktRepo.listListings(viewer?.coords.longitude, viewer?.coords.latitude).catch(() => []),
+        commRepo.listCommunities().catch(() => INITIAL_COMMUNITIES)
+      ]);
+
+      const marketplace = rawMarketplace && rawMarketplace.length > 0 ? rawMarketplace : INITIAL_MARKETPLACE.map(item => {
+        const dist = viewer ? calculateHaversineDistance(
+          viewer.coords.latitude,
+          viewer.coords.longitude,
+          item.coordinates.latitude,
+          item.coordinates.longitude
+        ) : 0;
+        return {
+          item,
+          distanceKm: dist,
+          isWithinDeliveryRadius: dist <= item.maxDeliveryRadiusKm
+        };
+      });
+
+      res.setHeader('Cache-Control', 'public, s-maxage=3, stale-while-revalidate=8');
+      res.json({
+        posts: eligiblePosts,
+        ads: tab === 'around_me' || tab === 'global' ? eligibleAds : [],
+        reels: eligibleReels,
+        campaigns: eligibleAds.map(a => a.ad),
+        businesses: rawBusinesses && rawBusinesses.length > 0 ? rawBusinesses : INITIAL_BUSINESSES,
+        marketplace,
+        communities: rawCommunities && rawCommunities.length > 0 ? rawCommunities : INITIAL_COMMUNITIES,
+        jobs: INITIAL_JOBS,
+        services: INITIAL_SERVICES,
+        events: INITIAL_EVENTS,
+        notifications: INITIAL_NOTIFICATIONS
+      });
+    } catch (err: any) {
+      console.error('[Init Error]:', err);
+      res.status(500).json({ error: 'Failed to initialize ecosystem data', details: err?.message });
+    }
+  });
 
   // -------------------------------------------------------------------------
   // 1. DYNAMIC FEED (Unified Engine A & Engine B backed by PostGIS)

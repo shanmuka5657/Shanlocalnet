@@ -197,71 +197,32 @@ function LocalNetContent() {
     });
 
     try {
-      const [feedRes, reelsRes, campRes, bizRes, mktRes, commRes, jobsRes, srvRes, evtRes, notifRes] =
-        await Promise.all([
-          fetch(`/api/feed?${query.toString()}`),
-          fetch(`/api/reels?${query.toString()}`),
-          fetch('/api/campaigns'),
-          fetch('/api/businesses'),
-          fetch(`/api/marketplace?${query.toString()}`),
-          fetch('/api/communities'),
-          fetch('/api/jobs'),
-          fetch('/api/services'),
-          fetch('/api/events'),
-          fetch('/api/notifications')
-        ]);
+      // 1. Single unified ecosystem call (instant load, no lambda queuing)
+      const initRes = await fetch(`/api/init?${query.toString()}`);
+      const isJson = initRes.headers.get('content-type')?.includes('application/json');
 
-      const isJson = feedRes.headers.get('content-type')?.includes('application/json');
-      if (feedRes.ok && isJson) {
-        const feedData = await feedRes.json();
-        setFeedPosts(feedData.posts || []);
-        setFeedAds(feedData.ads || []);
-      } else {
-        fallbackToLocalData();
+      if (initRes.ok && isJson) {
+        const data = await initRes.json();
+        setFeedPosts(data.posts || []);
+        setFeedAds(data.ads || []);
+        setReelsList(data.reels || []);
+        setCampaigns(data.campaigns || []);
+        setBusinesses(data.businesses || []);
+        setMarketplaceItems(data.marketplace || []);
+        setCommunities(data.communities || []);
+        setJobs(data.jobs || []);
+        setServices(data.services || []);
+        setEvents(data.events || []);
+        setNotifications(data.notifications || []);
+        setIsLoading(false);
         return;
       }
-      if (reelsRes.ok) {
-        const reelsData = await reelsRes.json();
-        setReelsList(reelsData.reels || []);
-      }
-      if (campRes.ok) {
-        const campData = await campRes.json();
-        setCampaigns(campData.campaigns || []);
-      }
-      if (bizRes.ok) {
-        const bizData = await bizRes.json();
-        setBusinesses(bizData.businesses || []);
-      }
-      if (mktRes.ok) {
-        const mktData = await mktRes.json();
-        setMarketplaceItems(mktData.marketplace || []);
-      }
-      if (commRes.ok) {
-        const commData = await commRes.json();
-        setCommunities(commData.communities || []);
-      }
-      if (jobsRes.ok) {
-        const jobsData = await jobsRes.json();
-        setJobs(jobsData.jobs || []);
-      }
-      if (srvRes.ok) {
-        const srvData = await srvRes.json();
-        setServices(srvData.services || []);
-      }
-      if (evtRes.ok) {
-        const evtData = await evtRes.json();
-        setEvents(evtData.events || []);
-      }
-      if (notifRes.ok) {
-        const notifData = await notifRes.json();
-        setNotifications(notifData.notifications || []);
-      }
-    } catch (e) {
-      console.warn('Backend API unavailable, activated local distribution engine fallback:', e);
-      fallbackToLocalData();
-    } finally {
-      setIsLoading(false);
+    } catch {
+      // Graceful fallback to local data if serverless cold-start times out
     }
+
+    fallbackToLocalData();
+    setIsLoading(false);
   }, [viewerLocation, activeFeedTab]);
 
   useEffect(() => {
