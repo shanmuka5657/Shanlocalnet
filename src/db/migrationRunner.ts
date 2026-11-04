@@ -33,7 +33,8 @@ export class MigrationRunner {
   }
 
   public computeChecksum(content: string): string {
-    return crypto.createHash('sha256').update(content.trim()).digest('hex');
+    const normalized = content.replace(/\r\n/g, '\n').trim();
+    return crypto.createHash('sha256').update(normalized).digest('hex');
   }
 
   public async getStatus(): Promise<MigrationStatus[]> {
@@ -90,13 +91,21 @@ export class MigrationRunner {
 
       if (checkRes.rows && checkRes.rows.length > 0) {
         const storedChecksum = checkRes.rows[0].checksum;
-        if (storedChecksum !== currentChecksum) {
-          throw new Error(
-            `Migration checksum mismatch for "${file.name}". Stored: ${storedChecksum}, Current: ${currentChecksum}. Aborting to protect database integrity.`
-          );
+        const crlfChecksum = crypto.createHash('sha256').update(file.upSql.replace(/\r?\n/g, '\r\n').trim()).digest('hex');
+        const lfChecksum = crypto.createHash('sha256').update(file.upSql.replace(/\r\n/g, '\n').trim()).digest('hex');
+
+        // Cross-platform compatibility check (Windows CRLF vs Linux LF)
+        if (storedChecksum === currentChecksum || storedChecksum === crlfChecksum || storedChecksum === lfChecksum) {
+          if (storedChecksum !== currentChecksum) {
+            await this.client.query('UPDATE _localnet_migrations SET checksum = $1 WHERE name = $2;', [currentChecksum, file.name]);
+          }
+          result.migrations.push({ name: file.name, status: 'skipped' });
+          continue;
         }
-        result.migrations.push({ name: file.name, status: 'skipped' });
-        continue;
+
+        throw new Error(
+          `Migration checksum mismatch for "${file.name}". Stored: ${storedChecksum}, Current: ${currentChecksum}. Aborting to protect database integrity.`
+        );
       }
 
       // Execute migration
