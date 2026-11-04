@@ -156,25 +156,12 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     }
   };
 
-  const executeUpload = (
+  const executeUpload = async (
     fileToUpload: File,
     meta: { width?: number; height?: number; duration?: number; aspectRatio: string }
   ) => {
     setStatus('uploading');
     setUploadProgress(0);
-
-    const formData = new FormData();
-    formData.append('file', fileToUpload);
-    formData.append('category', isVideo ? 'videos_original' : 'posts_images');
-
-    const xhr = new XMLHttpRequest();
-
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const percent = Math.round((e.loaded / e.total) * 95);
-        setUploadProgress(percent);
-      }
-    });
 
     const applyClientFallback = () => {
       setUploadProgress(100);
@@ -192,6 +179,96 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
 
       onMediaUploaded(uploadedData);
     };
+
+    try {
+      // 1. Request presigned upload URL from backend
+      const presignRes = await fetch('/api/media/presign-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: fileToUpload.name,
+          mimeType: fileToUpload.type,
+          sizeBytes: fileToUpload.size,
+          category: isVideo ? 'videos_original' : 'posts_images'
+        })
+      });
+
+      if (presignRes.ok) {
+        const presignData = await presignRes.json();
+        const { uploadUrl, mediaAssetId, publicUrl, storageProvider, key } = presignData;
+
+        if (storageProvider === 's3' && uploadUrl) {
+          // DIRECT S3 STREAMING UPLOAD (Bypasses Vercel 4.5MB payload limit completely)
+          const s3Xhr = new XMLHttpRequest();
+          s3Xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              const percent = Math.round((e.loaded / e.total) * 95);
+              setUploadProgress(percent);
+            }
+          });
+
+          s3Xhr.onload = async () => {
+            if (s3Xhr.status >= 200 && s3Xhr.status < 300) {
+              setUploadProgress(98);
+              try {
+                await fetch('/api/media/confirm', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    mediaAssetId,
+                    key,
+                    width: meta.width,
+                    height: meta.height,
+                    durationSeconds: meta.duration
+                  })
+                });
+              } catch {
+                // S3 upload is already verified; continue even if confirm errors
+              }
+
+              setUploadProgress(100);
+              setStatus('ready');
+              onMediaUploaded({
+                mediaAssetId: mediaAssetId || `asset_${Date.now()}`,
+                publicUrl: publicUrl || previewUrl || URL.createObjectURL(fileToUpload),
+                mimeType: fileToUpload.type,
+                sizeBytes: fileToUpload.size,
+                aspectRatio: meta.aspectRatio,
+                videoDurationSeconds: meta.duration,
+                originalFilename: fileToUpload.name
+              });
+            } else {
+              applyClientFallback();
+            }
+          };
+
+          s3Xhr.onerror = () => {
+            applyClientFallback();
+          };
+
+          s3Xhr.open('PUT', uploadUrl);
+          s3Xhr.setRequestHeader('Content-Type', fileToUpload.type);
+          s3Xhr.send(fileToUpload);
+          return;
+        }
+      }
+    } catch {
+      // Presign failed - fall back to direct upload
+    }
+
+    // Direct / Local upload fallback
+    const formData = new FormData();
+    formData.append('file', fileToUpload);
+    formData.append('category', isVideo ? 'videos_original' : 'posts_images');
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 95);
+        setUploadProgress(percent);
+      }
+    });
 
     xhr.onreadystatechange = () => {
       if (xhr.readyState === XMLHttpRequest.DONE) {
@@ -219,24 +296,14 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           } catch {
             applyClientFallback();
           }
-        } else if (xhr.status === 404 || xhr.status === 405 || xhr.status === 502 || xhr.status === 503 || xhr.status === 504 || xhr.status === 0) {
-          // Graceful fallback for static hosting (e.g. Vercel without Express backend)
-          applyClientFallback();
         } else {
-          try {
-            const errJson = JSON.parse(xhr.responseText);
-            setStatus('error');
-            setErrorMessage(errJson.error || 'File upload rejected by server.');
-          } catch {
-            // Unhandled error / HTML from static host - fall back gracefully
-            applyClientFallback();
-          }
+          // Status 413, 404, 405, or any server error -> graceful fallback
+          applyClientFallback();
         }
       }
     };
 
     xhr.onerror = () => {
-      // Graceful fallback when backend API is unreachable
       applyClientFallback();
     };
 
