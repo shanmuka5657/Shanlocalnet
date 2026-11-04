@@ -11,6 +11,9 @@
  * - Hyperlocal Digital Ecosystem: Marketplace, Businesses, Communities, Jobs, Services, Events
  */
 
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
+
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';

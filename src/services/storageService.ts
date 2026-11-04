@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
+
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
