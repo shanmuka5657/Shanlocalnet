@@ -69,23 +69,32 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   };
 
   const handleCaptureFrame = (targetTime?: number) => {
-    if (!videoPreviewRef.current) return;
     const vid = videoPreviewRef.current;
+    if (!vid) return;
+
     if (typeof targetTime === 'number') {
       setCoverTimestamp(targetTime);
-      vid.currentTime = targetTime;
+      try {
+        vid.currentTime = targetTime;
+      } catch (e) {
+        console.warn('Set currentTime error:', e);
+      }
     }
 
     const doCapture = () => {
+      const v = videoPreviewRef.current;
+      if (!v) return;
       try {
+        const vw = v.videoWidth || 480;
+        const vh = v.videoHeight || 360;
         const canvas = document.createElement('canvas');
         const targetW = 480;
-        const targetH = Math.round((targetW * (vid.videoHeight || 360)) / (vid.videoWidth || 480));
+        const targetH = Math.round((targetW * vh) / vw);
         canvas.width = targetW;
         canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(vid, 0, 0, targetW, targetH);
+          ctx.drawImage(v, 0, 0, targetW, targetH);
           const newThumb = canvas.toDataURL('image/jpeg', 0.85);
           setCapturedThumbnail(newThumb);
           if (file) {
@@ -532,14 +541,18 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 playsInline
                 className="max-h-72 w-auto object-contain mx-auto"
                 onLoadedMetadata={(e) => {
-                  const d = e.currentTarget.duration;
+                  const target = e.currentTarget;
+                  if (!target) return;
+                  const d = target.duration;
+                  const vw = target.videoWidth || 0;
+                  const vh = target.videoHeight || 0;
                   if (d && !isNaN(d) && isFinite(d) && d > 0) {
                     setVideoDuration(d);
                     setMediaMeta(prev => ({
                       ...prev,
                       duration: Math.round(d),
-                      width: e.currentTarget.videoWidth || prev?.width,
-                      height: e.currentTarget.videoHeight || prev?.height
+                      width: vw || prev?.width,
+                      height: vh || prev?.height
                     }));
                     handleCaptureFrame(Math.min(0.5, d / 2));
                   }
