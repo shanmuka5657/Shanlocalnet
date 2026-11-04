@@ -25,6 +25,7 @@ import {
   Bell
 } from 'lucide-react';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
+import { ShareModal } from './ShareModal.tsx';
 
 interface ReelsViewProps {
   reels: { reel: Post; eligibility: EligibilityResult }[];
@@ -50,6 +51,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const [savedReels, setSavedReels] = useState<Record<string, boolean>>({});
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({ creator_arjun: true });
   const [showShareToast, setShowShareToast] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
@@ -284,9 +286,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   };
 
   const handleShare = () => {
-    navigator.clipboard?.writeText(window.location.href);
-    setShowShareToast(true);
-    setTimeout(() => setShowShareToast(false), 2500);
+    setIsShareModalOpen(true);
   };
 
   const handleAddComment = () => {

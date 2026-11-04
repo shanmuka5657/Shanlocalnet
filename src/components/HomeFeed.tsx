@@ -25,6 +25,7 @@ import {
   FileText,  Bell,  Plus,  MoreVertical} from 'lucide-react';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 import { FeedVideoPlayer } from './FeedVideoPlayer.tsx';
+import { ShareModal } from './ShareModal.tsx';
 
 interface HomeFeedProps {
   posts: { post: Post; eligibility: EligibilityResult }[];
@@ -58,6 +59,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   });
 
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [shareModalPost, setShareModalPost] = useState<Post | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
 
@@ -139,24 +141,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     setFollowingCreators(prev => ({ ...prev, [creatorId]: !prev[creatorId] }));
   };
 
-  const handleShare = async (title: string, description?: string) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${title} | LocalNet`,
-          text: description || title,
-          url: window.location.href
-        });
-        setShowShareToast(`Shared "${title}"`);
-        setTimeout(() => setShowShareToast(null), 3000);
-        return;
-      } catch {
-        // Dismissed share
-      }
-    }
-    navigator.clipboard?.writeText(window.location.href);
-    setShowShareToast(`Link copied! Ready to share on WhatsApp or Instagram`);
-    setTimeout(() => setShowShareToast(null), 3000);
+  const handleShare = (post: Post) => {
+    setShareModalPost(post);
   };
 
   const handleAddComment = (postId: string) => {
@@ -341,6 +327,16 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         </button>
       </div>
 
+      {shareModalPost && (
+        <ShareModal
+          isOpen={Boolean(shareModalPost)}
+          onClose={() => setShareModalPost(null)}
+          title={shareModalPost.title}
+          description={shareModalPost.description}
+          postId={shareModalPost.id}
+        />
+      )}
+
       {/* Share Toast */}
       {showShareToast && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg border border-slate-700 animate-fade-in flex items-center gap-2 max-w-[90vw] truncate">
@@ -512,7 +508,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleShare(post.title, post.description)}
+                        onClick={() => handleShare(post)}
                         className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                       >
                         <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
