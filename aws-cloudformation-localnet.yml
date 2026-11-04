@@ -1,0 +1,154 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'LocalNet Production Media Storage Infrastructure (Private S3 + CloudFront OAC + IAM User)'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: 'prod'
+    Description: 'Deployment environment name (e.g. dev, prod)'
+
+Resources:
+  # 1. Private S3 Bucket for Media Storage
+  LocalNetMediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'localnet-media-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - 'http://localhost:3000'
+              - 'https://*.vercel.app'
+              - '*'
+            MaxAge: 3600
+
+  # 2. CloudFront Origin Access Control (OAC)
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'localnet-oac-${EnvironmentName}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # 3. CloudFront CDN Distribution for Ultra-Fast Global Video/Image Delivery
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: 'LocalNet Media CDN Delivery'
+        HttpVersion: http2and3
+        Origins:
+          - Id: S3MediaOrigin
+            DomainName: !GetAtt LocalNetMediaBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: S3MediaOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Headers:
+              - Origin
+              - Access-Control-Request-Headers
+              - Access-Control-Request-Method
+            Cookies:
+              Forward: none
+          Compress: true
+
+  # 4. S3 Bucket Policy allowing CloudFront OAC Read Access
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LocalNetMediaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipalReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub 'arn:aws:s3:::${LocalNetMediaBucket}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # 5. Dedicated IAM User for LocalNet Backend App
+  LocalNetAppUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub 'localnet-app-backend-${EnvironmentName}'
+
+  # 6. Least-Privilege IAM Policy for S3 Uploads & Asset Management
+  LocalNetAppPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LocalNetS3StoragePolicy
+      Users:
+        - !Ref LocalNetAppUser
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+              - s3:HeadObject
+              - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${LocalNetMediaBucket}'
+              - !Sub 'arn:aws:s3:::${LocalNetMediaBucket}/*'
+
+  # 7. Generate Access Key for the App User
+  LocalNetAppAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref LocalNetAppUser
+
+Outputs:
+  S3BucketName:
+    Description: 'AWS S3 Bucket Name for LocalNet'
+    Value: !Ref LocalNetMediaBucket
+
+  AWSRegion:
+    Description: 'AWS Region'
+    Value: !Ref 'AWS::Region'
+
+  CloudFrontURL:
+    Description: 'CloudFront CDN Public URL'
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+
+  AccessKeyId:
+    Description: 'AWS_ACCESS_KEY_ID to put in .env'
+    Value: !Ref LocalNetAppAccessKey
+
+  SecretAccessKey:
+    Description: 'AWS_SECRET_ACCESS_KEY to put in .env'
+    Value: !GetAtt LocalNetAppAccessKey.SecretAccessKey
