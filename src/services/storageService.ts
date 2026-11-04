@@ -411,14 +411,15 @@ export class StorageService {
   private adapter: IStorageAdapter;
 
   constructor(config?: Partial<StorageConfig>) {
-    const provider = (config?.provider || process.env.STORAGE_PROVIDER || 'local').toLowerCase() as 'local' | 's3';
+    const provider = (config?.provider || process.env.STORAGE_PROVIDER || process.env.MEDIA_STORAGE_DRIVER || 'local').toLowerCase() as 'local' | 's3';
     const baseUrl = config?.baseUrl || process.env.PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`;
     const localUploadDir = config?.localUploadDir || process.env.LOCAL_UPLOAD_DIR || 'uploads';
+    const s3Bucket = process.env.AWS_S3_BUCKET || process.env.AWS_S3_PRIVATE_BUCKET;
 
-    if (provider === 's3' && process.env.AWS_S3_BUCKET) {
+    if (provider === 's3' && s3Bucket) {
       this.adapter = new S3StorageAdapter({
-        bucket: process.env.AWS_S3_BUCKET,
-        region: process.env.AWS_REGION || 'ap-south-1',
+        bucket: s3Bucket,
+        region: process.env.AWS_REGION || 'ap-southeast-2',
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         endpoint: process.env.AWS_ENDPOINT,
