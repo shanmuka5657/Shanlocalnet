@@ -363,7 +363,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       {/* Video Element */}
       <video
         ref={videoRef}
-        src={post.mediaUrl}
+        src={post.mediaThumbnail ? post.mediaUrl : `${post.mediaUrl}#t=0.5`}
         poster={post.mediaThumbnail || undefined}
         loop
         muted={isMuted}

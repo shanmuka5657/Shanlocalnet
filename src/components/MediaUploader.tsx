@@ -9,6 +9,7 @@ export interface UploadedMediaData {
   aspectRatio: string;
   videoDurationSeconds?: number;
   originalFilename?: string;
+  thumbnailUrl?: string;
 }
 
 interface MediaUploaderProps {
@@ -122,8 +123,34 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           sizeMb: (selectedFile.size / 1024 / 1024).toFixed(1)
         });
 
-        // Trigger real upload
-        executeUpload(selectedFile, { width, height, duration, aspectRatio });
+        // Seek to 0.5s to capture thumbnail canvas frame
+        tempVideo.currentTime = Math.min(0.5, (duration || 1) / 2);
+      };
+
+      tempVideo.onseeked = () => {
+        let capturedThumb = '';
+        try {
+          const canvas = document.createElement('canvas');
+          const targetW = 480;
+          const targetH = Math.round((targetW * (tempVideo.videoHeight || 360)) / (tempVideo.videoWidth || 480));
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(tempVideo, 0, 0, targetW, targetH);
+            capturedThumb = canvas.toDataURL('image/jpeg', 0.8);
+          }
+        } catch (e) {
+          console.warn('Canvas thumbnail extract error:', e);
+        }
+
+        executeUpload(selectedFile, {
+          width: tempVideo.videoWidth,
+          height: tempVideo.videoHeight,
+          duration: Math.round(tempVideo.duration),
+          aspectRatio: determineAspectRatio(tempVideo.videoWidth, tempVideo.videoHeight),
+          thumbnailUrl: capturedThumb
+        });
       };
 
       tempVideo.onerror = () => {
@@ -286,7 +313,8 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 sizeBytes: response.mediaAsset.sizeBytes,
                 aspectRatio: meta.aspectRatio,
                 videoDurationSeconds: meta.duration,
-                originalFilename: fileToUpload.name
+                originalFilename: fileToUpload.name,
+                thumbnailUrl: (meta as any).thumbnailUrl
               };
 
               onMediaUploaded(uploadedData);

@@ -273,9 +273,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   />
                 ) : item.reel.mediaUrl && !item.reel.mediaUrl.endsWith('.jpg') ? (
                   <video
-                    src={item.reel.mediaUrl}
+                    src={`${item.reel.mediaUrl}#t=0.5`}
                     poster={item.reel.mediaThumbnail || undefined}
-                    preload="none"
+                    preload="metadata"
                     muted
                     playsInline
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

@@ -109,7 +109,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         title,
         description,
         mediaUrl: uploadedMedia?.publicUrl || '',
-        mediaThumbnail: '',
+        mediaThumbnail: uploadedMedia?.thumbnailUrl || '',
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: contentType === 'reel' ? '9:16' : '16:9',
         publishingLocation: {
@@ -151,6 +151,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           contentType,
           mediaAssetId: uploadedMedia?.mediaAssetId || undefined,
           mediaUrl: uploadedMedia?.publicUrl || undefined,
+          mediaThumbnail: uploadedMedia?.thumbnailUrl || undefined,
           aspectRatio: uploadedMedia?.aspectRatio || (contentType === 'reel' ? '9:16' : '4:3'),
           videoDurationSeconds: uploadedMedia?.videoDurationSeconds,
           classification: isCommercialMode ? 'sponsored_creator' : 'organic',
@@ -198,7 +199,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           title,
           description,
           mediaUrl: uploadedMedia?.publicUrl || '',
-          mediaThumbnail: '',
+          mediaThumbnail: uploadedMedia?.thumbnailUrl || '',
           mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
           aspectRatio: contentType === 'reel' ? '9:16' : '16:9',
           publishingLocation: {

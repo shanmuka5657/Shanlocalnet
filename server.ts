@@ -570,6 +570,7 @@ async function startServer() {
         description,
         mediaAssetId: mediaAssetId || undefined,
         mediaUrl: resolvedMediaUrl,
+        mediaThumbnail: req.body.mediaThumbnail || undefined,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: resolvedAspectRatio,
         videoDurationSeconds: resolvedDuration,
