@@ -19,7 +19,10 @@ import {
   Music,
   Send,
   X,
-  Plus
+  Plus,
+  Maximize,
+  Minimize,
+  Bell
 } from 'lucide-react';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 
@@ -51,6 +54,55 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
   const [doubleTapHeart, setDoubleTapHeart] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFsChange = () => {
+      const activeFs = document.fullscreenElement || (document as any).webkitFullscreenElement;
+      setIsFullscreen(activeFs === stageRef.current);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
+  const toggleFullscreen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!stageRef.current) return;
+    const isFs = document.fullscreenElement || (document as any).webkitFullscreenElement;
+    if (!isFs) {
+      if (stageRef.current.requestFullscreen) {
+        stageRef.current.requestFullscreen().catch(() => {});
+      } else if ((stageRef.current as any).webkitRequestFullscreen) {
+        (stageRef.current as any).webkitRequestFullscreen();
+      } else if ((videoRef.current as any)?.webkitEnterFullscreen) {
+        (videoRef.current as any).webkitEnterFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!progressBarRef.current || !videoRef.current || !duration) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    videoRef.current.currentTime = ratio * duration;
+    setCurrentTime(ratio * duration);
+  };
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   // Comments state per reel
   const [commentsMap, setCommentsMap] = useState<Record<string, { author: string; text: string; time: string }[]>>({
@@ -287,7 +339,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
       onWheel={handleWheel}
     >
       {/* Immersive 9:16 Video Stage (Edge-to-Edge on mobile, centered on desktop) */}
-      <div className="relative w-full h-full max-w-[500px] md:mx-auto flex items-center justify-center bg-black overflow-hidden shadow-2xl">
+      <div ref={stageRef} className="relative w-full h-full max-w-[500px] md:mx-auto flex items-center justify-center bg-black overflow-hidden shadow-2xl">
         
         {/* Active Video Player or Audio Visualizer */}
         {!hasVideoError ? (
@@ -301,6 +353,8 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             muted={isMuted}
             onClick={handleVideoTap}
             onError={() => setVideoErrors(prev => ({ ...prev, [activeReel.id]: true }))}
+            onTimeUpdate={() => videoRef.current && setCurrentTime(videoRef.current.currentTime)}
+            onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
             className="w-full h-full object-cover cursor-pointer"
           />
         ) : (
@@ -383,6 +437,19 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
                 <VolumeX className="w-4 h-4 text-rose-400" />
               ) : (
                 <Volume2 className="w-4 h-4 text-emerald-400" />
+              )}
+            </button>
+
+            <button
+              onClick={toggleFullscreen}
+              className="p-2 rounded-full bg-black/50 hover:bg-black/75 backdrop-blur-md border border-white/20 transition-all shadow-md active:scale-95"
+              aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? (
+                <Minimize className="w-4 h-4 text-white" />
+              ) : (
+                <Maximize className="w-4 h-4 text-white" />
               )}
             </button>
           </div>
@@ -513,6 +580,20 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             <div className="w-6 h-6 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center animate-spin [animation-duration:4s]">
               <span className="w-2 h-2 rounded-full bg-amber-400" />
             </div>
+          </div>
+        </div>
+
+        {/* Reels Scrubber Timeline Bar */}
+        <div
+          ref={progressBarRef}
+          onClick={handleSeek}
+          className="absolute bottom-0 left-0 right-0 z-30 h-1.5 hover:h-2.5 bg-white/20 hover:bg-white/40 cursor-pointer transition-all pointer-events-auto group/scrub"
+        >
+          <div
+            className="h-full bg-rose-500 relative"
+            style={{ width: `${progressPercent}%` }}
+          >
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow scale-0 group-hover/scrub:scale-100 transition-transform" />
           </div>
         </div>
 

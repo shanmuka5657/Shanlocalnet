@@ -25,6 +25,7 @@ import {
   FileText
 } from 'lucide-react';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
+import { FeedVideoPlayer } from './FeedVideoPlayer.tsx';
 
 interface HomeFeedProps {
   posts: { post: Post; eligibility: EligibilityResult }[];
@@ -139,9 +140,23 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     setFollowingCreators(prev => ({ ...prev, [creatorId]: !prev[creatorId] }));
   };
 
-  const handleShare = (title: string) => {
+  const handleShare = async (title: string, description?: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${title} | LocalNet`,
+          text: description || title,
+          url: window.location.href
+        });
+        setShowShareToast(`Shared "${title}"`);
+        setTimeout(() => setShowShareToast(null), 3000);
+        return;
+      } catch {
+        // Dismissed share
+      }
+    }
     navigator.clipboard?.writeText(window.location.href);
-    setShowShareToast(`Link copied for "${title}"`);
+    setShowShareToast(`Link copied! Ready to share on WhatsApp or Instagram`);
     setTimeout(() => setShowShareToast(null), 3000);
   };
 
@@ -382,12 +397,23 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={() => toggleFollow(post.creatorId)}
-                      className={`px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold rounded-lg transition-colors ${isFollowing
-                        ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                        : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                      className={`px-3 py-1 text-xs font-bold rounded-full transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${isFollowing
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
+                        : 'bg-red-600 hover:bg-red-700 text-white'
                         }`}
+                      title={isFollowing ? 'Subscribed' : 'Subscribe to creator'}
                     >
-                      {isFollowing ? 'Following' : 'Follow'}
+                      {isFollowing ? (
+                        <>
+                          <Bell className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          <span>Subscribed</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Subscribe</span>
+                        </>
+                      )}
                     </button>
 
                     <button
@@ -415,104 +441,32 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   }}
                 >
                   {(post.contentType === 'reel' || post.contentType === 'video') ? (
-                    post.mediaUrl && !videoErrors[post.id] ? (
-                      <div className="w-full h-full relative">
-                        <video
-                          id={`feed-video-${post.id}`}
-                          src={post.mediaUrl}
-                          poster={post.mediaThumbnail || undefined}
-                          loop
-                          muted={isMuted}
-                          playsInline
-                          preload={playingVideoId === post.id ? 'auto' : (post.mediaThumbnail ? 'none' : 'metadata')}
-                          className="w-full h-full object-cover"
-                          onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
-                          onPlay={(e) => {
-                            // DOM-level safety: pause all other video elements in the document
-                            const current = e.currentTarget;
-                            document.querySelectorAll('video').forEach((v) => {
-                              if (v !== current && !v.paused) {
-                                v.pause();
-                              }
-                            });
-                            setPlayingVideoId(post.id);
-                          }}
-                          onPause={() => {
-                            if (playingVideoId === post.id) setPlayingVideoId(null);
-                          }}
-                        />
-
-                        {/* Large center play button when paused */}
-                        {playingVideoId !== post.id && (
-                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none transition-all">
-                            <div className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-md flex items-center justify-center shadow-2xl ring-1 ring-white/40">
-                              <Play className="w-8 h-8 text-white ml-1 fill-white" />
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
-
-                        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-white pointer-events-auto">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleVideo(post.id);
-                            }}
-                            className="p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md transition-colors"
-                          >
-                            {playingVideoId === post.id ? (
-                              <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                            ) : (
-                              <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white ml-0.5" />
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const newMuted = !isMuted;
-                              setIsMuted(newMuted);
-                              const v = document.getElementById(`feed-video-${post.id}`) as HTMLVideoElement;
-                              if (v) {
-                                v.muted = newMuted;
-                                v.volume = newMuted ? 0 : 1;
-                                if (!newMuted && v.paused) {
-                                  // Ensure other videos are paused if unmute triggers play
-                                  document.querySelectorAll('video').forEach((other) => {
-                                    if (other !== v && !other.paused) {
-                                      other.pause();
-                                    }
-                                  });
-                                  v.play().catch(err => console.warn('Unmute play error:', err));
-                                }
-                              }
-                            }}
-                            className="p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md transition-colors"
-                            title={isMuted ? "Unmute Audio" : "Mute Audio"}
-                          >
-                            {isMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={`w-full h-full bg-gradient-to-br ${post.mediaGradient || 'from-amber-600 via-rose-700 to-indigo-950'} flex flex-col items-center justify-center p-4 text-center text-white relative`}>
-                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 animate-pulse">
-                          <Play className="w-6 h-6 text-white ml-0.5" />
-                        </div>
-                        <p className="font-bold text-xs sm:text-sm line-clamp-1 max-w-xs">{post.title}</p>
-                        <span className="text-[10px] text-white/70 mt-0.5">{post.creatorName}</span>
-                      </div>
-                    )
-                  ) : post.mediaUrl ? (
-                    <img
-                      src={post.mediaUrl}
-                      alt={post.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
+                    <FeedVideoPlayer
+                      post={post}
+                      isCurrentlyPlaying={playingVideoId === post.id}
+                      onPlayRequest={() => setPlayingVideoId(post.id)}
+                      onPauseRequest={() => {
+                        if (playingVideoId === post.id) setPlayingVideoId(null);
+                      }}
+                      onOpenReels={() => {
+                        const idx = reels.findIndex(r => r.reel.id === post.id);
+                        onOpenReels(idx >= 0 ? idx : 0);
+                      }}
+                      onDoubleTapLike={() => toggleLike(post.id)}
+                      isLiked={isLiked}
                     />
+                  ) : post.mediaUrl ? (
+                    <div
+                      className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center cursor-pointer group"
+                      onDoubleClick={() => toggleLike(post.id)}
+                    >
+                      <img
+                        src={post.mediaUrl}
+                        alt={post.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                      />
+                    </div>
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-6 text-center text-white relative">
                       <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mb-3">
@@ -559,7 +513,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleShare(post.title)}
+                        onClick={() => handleShare(post.title, post.description)}
                         className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                       >
                         <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />

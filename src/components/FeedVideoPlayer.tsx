@@ -1,0 +1,490 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Post } from '../types/index.ts';
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
+  Film,
+  Heart,
+  Loader2,
+  RotateCcw
+} from 'lucide-react';
+
+interface FeedVideoPlayerProps {
+  post: Post;
+  isCurrentlyPlaying: boolean;
+  onPlayRequest: () => void;
+  onPauseRequest: () => void;
+  onOpenReels?: () => void;
+  onDoubleTapLike?: () => void;
+  isLiked?: boolean;
+}
+
+export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
+  post,
+  isCurrentlyPlaying,
+  onPlayRequest,
+  onPauseRequest,
+  onOpenReels,
+  onDoubleTapLike,
+  isLiked
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(post.videoDurationSeconds || 0);
+  const [isMuted, setIsMuted] = useState(true);
+  const [volume, setVolume] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const [showControls, setShowControls] = useState(true);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [doubleTapHeart, setDoubleTapHeart] = useState<{ x: number; y: number } | null>(null);
+  const [centerIconFlash, setCenterIconFlash] = useState<'play' | 'pause' | null>(null);
+
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTapRef = useRef<number>(0);
+
+  // Sync external play/pause instruction with local video element
+  useEffect(() => {
+    if (!videoRef.current) return;
+    if (isCurrentlyPlaying) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => {
+          onPauseRequest();
+        });
+      }
+    } else {
+      if (!videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+    }
+  }, [isCurrentlyPlaying, onPauseRequest]);
+
+  // Handle Fullscreen state change events
+  useEffect(() => {
+    const handleFsChange = () => {
+      const activeFs = document.fullscreenElement || (document as any).webkitFullscreenElement;
+      setIsFullscreen(activeFs === containerRef.current);
+    };
+
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
+  // Controls auto-hide timer
+  const resetControlsTimer = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    if (isCurrentlyPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 2800);
+    }
+  }, [isCurrentlyPlaying]);
+
+  useEffect(() => {
+    if (!isCurrentlyPlaying) {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    } else {
+      resetControlsTimer();
+    }
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, [isCurrentlyPlaying, resetControlsTimer]);
+
+  // Video time & duration updates
+  const handleTimeUpdate = () => {
+    if (!videoRef.current) return;
+    setCurrentTime(videoRef.current.currentTime);
+  };
+
+  const handleLoadedMetadata = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.duration && !isNaN(videoRef.current.duration)) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  // Play / Pause toggle
+  const togglePlayPause = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!videoRef.current) return;
+
+    if (videoRef.current.paused) {
+      onPlayRequest();
+      setCenterIconFlash('play');
+    } else {
+      onPauseRequest();
+      setCenterIconFlash('pause');
+    }
+    setTimeout(() => setCenterIconFlash(null), 600);
+  };
+
+  // Fullscreen toggle
+  const toggleFullscreen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!containerRef.current) return;
+
+    const isFs = document.fullscreenElement || (document as any).webkitFullscreenElement;
+    if (!isFs) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      } else if ((containerRef.current as any).webkitRequestFullscreen) {
+        (containerRef.current as any).webkitRequestFullscreen();
+      } else if ((videoRef.current as any)?.webkitEnterFullscreen) {
+        (videoRef.current as any).webkitEnterFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+    }
+  };
+
+  // Scrubber timeline seek
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!progressBarRef.current || !videoRef.current || !duration) return;
+
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clickRatio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const newTime = clickRatio * duration;
+
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  // Double-tap on video stage (like Instagram)
+  const handleStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const now = Date.now();
+    const timeDiff = now - lastTapRef.current;
+    lastTapRef.current = now;
+
+    if (timeDiff < 320 && onDoubleTapLike) {
+      // Double-tap detected -> trigger like & heart animation
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      setDoubleTapHeart({ x, y });
+      setTimeout(() => setDoubleTapHeart(null), 800);
+      onDoubleTapLike();
+    } else {
+      togglePlayPause();
+    }
+    resetControlsTimer();
+  };
+
+  // Mute / Volume toggle
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!videoRef.current) return;
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    videoRef.current.muted = nextMuted;
+    if (!nextMuted && videoRef.current.volume === 0) {
+      videoRef.current.volume = 1;
+      setVolume(1);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const newVol = parseFloat(e.target.value);
+    setVolume(newVol);
+    if (videoRef.current) {
+      videoRef.current.volume = newVol;
+      videoRef.current.muted = newVol === 0;
+      setIsMuted(newVol === 0);
+    }
+  };
+
+  // Playback rate cycle (1x -> 1.25x -> 1.5x -> 2x)
+  const cyclePlaybackRate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rates = [1, 1.25, 1.5, 2];
+    const nextIdx = (rates.indexOf(playbackRate) + 1) % rates.length;
+    const nextRate = rates[nextIdx];
+    setPlaybackRate(nextRate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = nextRate;
+    }
+  };
+
+  const formatTime = (secs: number) => {
+    if (isNaN(secs) || !isFinite(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  if (hasError || !post.mediaUrl) {
+    return (
+      <div
+        className={`w-full h-full aspect-[4/3] bg-gradient-to-br ${
+          post.mediaGradient || 'from-amber-600 via-rose-700 to-indigo-950'
+        } flex flex-col items-center justify-center p-4 text-center text-white relative`}
+      >
+        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 animate-pulse">
+          <Play className="w-6 h-6 text-white ml-0.5" />
+        </div>
+        <p className="font-bold text-xs sm:text-sm line-clamp-1 max-w-xs">{post.title}</p>
+        <span className="text-[10px] text-white/70 mt-0.5">{post.creatorName}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseMove={resetControlsTimer}
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => isCurrentlyPlaying && setShowControls(false)}
+      className={`group/player relative w-full bg-black overflow-hidden select-none ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 h-screen w-screen flex items-center justify-center'
+          : 'aspect-[4/3] max-h-[560px] rounded-b-none'
+      }`}
+    >
+      {/* Video Element */}
+      <video
+        ref={videoRef}
+        src={post.mediaUrl}
+        poster={post.mediaThumbnail || undefined}
+        loop
+        muted={isMuted}
+        playsInline
+        preload={isCurrentlyPlaying ? 'auto' : (post.mediaThumbnail ? 'none' : 'metadata')}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onWaiting={() => setIsBuffering(true)}
+        onPlaying={() => setIsBuffering(false)}
+        onCanPlay={() => setIsBuffering(false)}
+        onError={() => setHasError(true)}
+        onClick={handleStageClick}
+        className={`w-full h-full cursor-pointer ${
+          isFullscreen ? 'max-h-screen object-contain' : 'object-cover'
+        }`}
+      />
+
+      {/* Double Tap Heart Animation (Instagram Style) */}
+      {doubleTapHeart && (
+        <div
+          className="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-1/2 animate-ping"
+          style={{ left: doubleTapHeart.x, top: doubleTapHeart.y }}
+        >
+          <Heart className="w-20 h-20 fill-rose-500 text-rose-500 drop-shadow-2xl" />
+        </div>
+      )}
+
+      {/* Center Icon Flash (Play/Pause confirmation) */}
+      {centerIconFlash && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none animate-fade-in">
+          <div className="w-16 h-16 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-2xl scale-125 transition-transform">
+            {centerIconFlash === 'play' ? (
+              <Play className="w-8 h-8 fill-white ml-1" />
+            ) : (
+              <Pause className="w-8 h-8 fill-white" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Buffering Indicator */}
+      {isBuffering && isCurrentlyPlaying && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none bg-black/20 backdrop-blur-xs">
+          <div className="p-3 rounded-full bg-black/60 backdrop-blur-md">
+            <Loader2 className="w-8 h-8 text-white animate-spin" />
+          </div>
+        </div>
+      )}
+
+      {/* Large Center Play Button when Paused */}
+      {!isCurrentlyPlaying && !isBuffering && (
+        <div
+          onClick={togglePlayPause}
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/35 backdrop-blur-[1px] cursor-pointer group-hover/player:bg-black/25 transition-all"
+        >
+          <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-red-600/90 hover:bg-red-600 active:scale-95 text-white flex items-center justify-center shadow-2xl ring-4 ring-white/30 backdrop-blur-md transition-all">
+            <Play className="w-8 h-8 sm:w-9 sm:h-9 fill-white ml-1" />
+          </div>
+        </div>
+      )}
+
+      {/* Top Gradient Overlay */}
+      <div
+        className={`absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/70 to-transparent pointer-events-none transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+
+      {/* Top Floating Badge (Reels link & Duration) */}
+      <div
+        className={`absolute top-3 left-3 right-3 z-20 flex items-center justify-between text-white transition-opacity duration-300 pointer-events-auto ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {onOpenReels && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenReels();
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold shadow transition-all active:scale-95"
+            title="Watch in immersive vertical Reels mode"
+          >
+            <Film className="w-3.5 h-3.5 text-amber-400" />
+            <span>Shorts View</span>
+          </button>
+        )}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-mono text-white/90 border border-white/10">
+            {formatTime(duration)}
+          </span>
+        </div>
+      </div>
+
+      {/* Bottom Controls Bar (YouTube/Instagram Frosted Glass) */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 z-20 pt-8 pb-2.5 px-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${
+          showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Scrubber Timeline */}
+        <div
+          ref={progressBarRef}
+          onClick={handleSeek}
+          className="group/scrub relative w-full h-1.5 hover:h-2.5 bg-white/25 hover:bg-white/35 rounded-full cursor-pointer transition-all flex items-center mb-2.5"
+        >
+          {/* Progress Filled */}
+          <div
+            className="h-full bg-rose-500 rounded-full relative"
+            style={{ width: `${progressPercent}%` }}
+          >
+            {/* Scrubber Thumb */}
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover/scrub:scale-100 transition-transform" />
+          </div>
+        </div>
+
+        {/* Controls Row */}
+        <div className="flex items-center justify-between text-white gap-2">
+          {/* Left Controls: Play/Pause, Volume, Time */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
+              title={isCurrentlyPlaying ? 'Pause (space)' : 'Play (space)'}
+            >
+              {isCurrentlyPlaying ? (
+                <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
+              ) : (
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white ml-0.5" />
+              )}
+            </button>
+
+            {/* Volume & Mute with Hover Slider */}
+            <div className="flex items-center gap-1.5 group/vol">
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
+                title={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
+                ) : (
+                  <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                )}
+              </button>
+
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={isMuted ? 0 : volume}
+                onChange={handleVolumeChange}
+                className="w-14 sm:w-16 h-1 accent-rose-500 bg-white/30 rounded-lg cursor-pointer hidden group-hover/vol:inline-block transition-all"
+                title="Volume"
+              />
+            </div>
+
+            {/* Time Indicator */}
+            <div className="text-[11px] sm:text-xs font-mono tabular-nums text-white/80 select-none">
+              <span>{formatTime(currentTime)}</span>
+              <span className="mx-1 text-white/40">/</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          {/* Right Controls: Playback Speed, Fullscreen */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Playback Speed Pill */}
+            <button
+              type="button"
+              onClick={cyclePlaybackRate}
+              className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-white/15 hover:bg-white/25 text-white/90 transition-colors"
+              title="Change Playback Speed"
+            >
+              {playbackRate}x
+            </button>
+
+            {/* Replay button if reached end */}
+            {currentTime >= duration && duration > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (videoRef.current) {
+                    videoRef.current.currentTime = 0;
+                    videoRef.current.play();
+                    onPlayRequest();
+                  }
+                }}
+                className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
+                title="Replay"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+
+            {/* Fullscreen Button */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="p-1.5 sm:p-2 rounded-full hover:bg-white/20 text-white transition-all active:scale-95"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            >
+              {isFullscreen ? (
+                <Minimize className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              ) : (
+                <Maximize className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
