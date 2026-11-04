@@ -22,8 +22,7 @@ import {
   Sparkles,
   Users,
   Film,
-  FileText
-} from 'lucide-react';
+  FileText,  Bell,  Plus,  MoreVertical} from 'lucide-react';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 import { FeedVideoPlayer } from './FeedVideoPlayer.tsx';
 
