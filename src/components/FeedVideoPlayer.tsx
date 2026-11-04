@@ -7,6 +7,7 @@ import {
   VolumeX,
   Maximize,
   Minimize,
+  PictureInPicture2,
   Film,
   Heart,
   Loader2,
@@ -219,6 +220,22 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     resetControlsTimer();
   };
 
+  // Picture-in-Picture toggle (YouTube Style)
+  const togglePiP = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!videoRef.current) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (document.pictureInPictureEnabled) {
+        await videoRef.current.requestPictureInPicture();
+      }
+    } catch (err) {
+      console.warn('PiP error:', err);
+    }
+    resetControlsTimer();
+  };
+
   // Fullscreen toggle
   const toggleFullscreen = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -373,6 +390,9 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     } else if (e.key === ' ' || e.key === 'k') {
       e.preventDefault();
       togglePlayPause();
+    } else if (e.key === 'p') {
+      e.preventDefault();
+      togglePiP();
     } else if (e.key === 'f') {
       e.preventDefault();
       toggleFullscreen(e as any);
@@ -686,6 +706,16 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               title="Change Playback Speed"
             >
               {playbackRate}x
+            </button>
+
+            {/* Picture-in-Picture Button */}
+            <button
+              type="button"
+              onClick={togglePiP}
+              className="p-1.5 sm:p-2 rounded-full hover:bg-white/20 text-white/90 hover:text-white transition-all active:scale-95"
+              title="Picture in Picture (P)"
+            >
+              <PictureInPicture2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </button>
 
             {/* Fullscreen Button */}

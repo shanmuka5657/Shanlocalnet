@@ -34,6 +34,8 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialMediaUrl || null);
   const [isVideo, setIsVideo] = useState<boolean>(contentType === 'reel' || contentType === 'video');
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [coverTimestamp, setCoverTimestamp] = useState<number>(0.5);
+  const [capturedThumbnail, setCapturedThumbnail] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
     initialMediaUrl ? 'ready' : 'idle'
   );
@@ -62,6 +64,46 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     if (ratio >= 0.9 && ratio <= 1.1) return '1:1';
     if (ratio >= 1.2 && ratio <= 1.45) return '4:3';
     return '16:9';
+  };
+
+  const handleCoverScrub = (time: number) => {
+    setCoverTimestamp(time);
+    if (!videoPreviewRef.current) return;
+    videoPreviewRef.current.currentTime = time;
+
+    const onSeeked = () => {
+      if (!videoPreviewRef.current) return;
+      try {
+        const canvas = document.createElement('canvas');
+        const targetW = 480;
+        const targetH = Math.round((targetW * (videoPreviewRef.current.videoHeight || 360)) / (videoPreviewRef.current.videoWidth || 480));
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(videoPreviewRef.current, 0, 0, targetW, targetH);
+          const newThumb = canvas.toDataURL('image/jpeg', 0.8);
+          setCapturedThumbnail(newThumb);
+          if (file) {
+            onMediaUploaded({
+              mediaAssetId: `asset_${Date.now()}`,
+              publicUrl: previewUrl || '',
+              mimeType: file.type,
+              sizeBytes: file.size,
+              aspectRatio: mediaMeta?.aspectRatio || '9:16',
+              videoDurationSeconds: mediaMeta?.duration,
+              originalFilename: file.name,
+              thumbnailUrl: newThumb
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Cover scrub error:', err);
+      }
+      videoPreviewRef.current?.removeEventListener('seeked', onSeeked);
+    };
+
+    videoPreviewRef.current.addEventListener('seeked', onSeeked);
   };
 
   const handleFileValidation = async (selectedFile: File) => {
@@ -509,6 +551,43 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Interactive Video Cover Frame Selector (YouTube / Instagram Style) */}
+          {isVideo && mediaMeta?.duration && mediaMeta.duration > 0 && (
+            <div className="p-3 bg-slate-900 border-t border-slate-800 space-y-2 text-left w-full">
+              <div className="flex items-center justify-between text-xs text-white">
+                <span className="font-bold flex items-center gap-1.5 text-amber-400">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Choose Cover Frame
+                </span>
+                <span className="font-mono text-slate-400 text-[11px]">
+                  {Math.floor(coverTimestamp / 60)}:{Math.floor(coverTimestamp % 60) < 10 ? '0' : ''}{Math.floor(coverTimestamp % 60)} / {Math.floor(mediaMeta.duration / 60)}:{Math.floor(mediaMeta.duration % 60) < 10 ? '0' : ''}{Math.floor(mediaMeta.duration % 60)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {capturedThumbnail && (
+                  <img
+                    src={capturedThumbnail}
+                    alt="Cover frame"
+                    className="w-10 h-14 rounded-lg object-cover border-2 border-amber-500 shadow-md shrink-0"
+                  />
+                )}
+                <div className="flex-1 space-y-1">
+                  <input
+                    type="range"
+                    min="0"
+                    max={mediaMeta.duration}
+                    step="0.1"
+                    value={coverTimestamp}
+                    onChange={(e) => handleCoverScrub(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-700 accent-amber-500 rounded-lg cursor-pointer"
+                  />
+                  <p className="text-[10px] text-slate-400">Drag to choose your video thumbnail cover before publishing</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Upload Progress Bar & Verification State */}
           <div className="p-3 bg-slate-900 border-t border-slate-800">

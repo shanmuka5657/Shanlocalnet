@@ -113,18 +113,43 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     eligibility: EligibilityResult | null;
   } | null>(null);
 
+  interface FeedComment {
+    id: string;
+    author: string;
+    authorAvatar: string;
+    text: string;
+    likes: number;
+    hasLiked?: boolean;
+    time: string;
+    replyTo?: string;
+  }
+
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
-  const [postComments, setPostComments] = useState<Record<string, string[]>>({
+  const [replyingToCommentId, setReplyingToCommentId] = useState<{ id: string; author: string } | null>(null);
+  const [postComments, setPostComments] = useState<Record<string, FeedComment[]>>({
     post_kurnool_dance_worldwide: [
-      'Proud of Kurnool! Amazing moves at the fort 🔥',
-      'Watching this all the way from London! Love the beats.'
+      { id: 'c1', author: 'Suresh Kumar', authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80', text: 'Proud of Kurnool! Amazing moves at the fort 🔥', likes: 14, time: '2h ago' },
+      { id: 'c2', author: 'Charlotte H.', authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80', text: 'Watching this all the way from London! Love the beats.', likes: 8, time: '1h ago' }
     ],
     post_hyderabad_tech_comedy_worldwide: [
-      'Literally had this happen in today sprint demo 😂',
-      'Relatable for every engineer in Hitec City and beyond'
+      { id: 'c3', author: 'Vikram J.', authorAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=100&q=80', text: 'Literally had this happen in today sprint demo 😂', likes: 21, time: '3h ago' },
+      { id: 'c4', author: 'Anita Rao', authorAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=100&q=80', text: 'Relatable for every engineer in Hitec City and beyond!', likes: 12, time: '45m ago' }
     ]
   });
   const [newCommentText, setNewCommentText] = useState('');
+
+  const toggleCommentLike = (postId: string, commentId: string) => {
+    setPostComments(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || []).map(c => {
+        if (c.id === commentId) {
+          const hasLiked = !c.hasLiked;
+          return { ...c, hasLiked, likes: c.likes + (hasLiked ? 1 : -1) };
+        }
+        return c;
+      })
+    }));
+  };
   const [showShareToast, setShowShareToast] = useState<string | null>(null);
 
   const t = (key: string) => getTranslation(language, key);
@@ -147,11 +172,21 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   const handleAddComment = (postId: string) => {
     if (!newCommentText.trim()) return;
+    const newEntry: FeedComment = {
+      id: `c_${Date.now()}`,
+      author: 'You (Local Viewer)',
+      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
+      text: replyingToCommentId ? `@${replyingToCommentId.author} ${newCommentText.trim()}` : newCommentText.trim(),
+      likes: 0,
+      time: 'Just now',
+      replyTo: replyingToCommentId?.id
+    };
     setPostComments(prev => ({
       ...prev,
-      [postId]: [...(prev[postId] || []), newCommentText.trim()]
+      [postId]: [...(prev[postId] || []), newEntry]
     }));
     setNewCommentText('');
+    setReplyingToCommentId(null);
   };
 
   // Build combined stream with ads injected into the feed
@@ -559,21 +594,85 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   </div>
 
                   {openCommentsPostId === post.id && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Comments ({commentsList.length})
-                      </h4>
+                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          Comments ({commentsList.length})
+                        </h4>
+                        <span className="text-[10px] text-slate-400">YouTube-style threads</span>
+                      </div>
 
-                      <div className="space-y-2 max-h-36 overflow-y-auto text-xs">
-                        {commentsList.map((c, i) => (
-                          <div key={i} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-                            <span className="font-semibold text-slate-900 dark:text-white mr-1.5">
-                              Local Viewer:
-                            </span>
-                            <span className="text-slate-700 dark:text-slate-300">{c}</span>
+                      <div className="space-y-2.5 max-h-56 overflow-y-auto text-xs pr-1 scrollbar-thin">
+                        {commentsList.map((c) => (
+                          <div
+                            key={c.id}
+                            className={`p-2.5 rounded-xl transition-colors ${
+                              c.replyTo
+                                ? 'ml-6 bg-slate-50/70 dark:bg-slate-800/40 border-l-2 border-amber-500'
+                                : 'bg-slate-50 dark:bg-slate-800/70'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <img
+                                  src={c.authorAvatar}
+                                  alt={c.author}
+                                  className="w-5 h-5 rounded-full object-cover"
+                                />
+                                <span className="font-bold text-slate-900 dark:text-white text-[11px]">
+                                  {c.author}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {c.time}
+                                </span>
+                              </div>
+
+                              {/* Comment Like Button */}
+                              <button
+                                onClick={() => toggleCommentLike(post.id, c.id)}
+                                className={`flex items-center gap-1 text-[11px] font-semibold transition-transform active:scale-90 ${
+                                  c.hasLiked
+                                    ? 'text-rose-500'
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                                }`}
+                                title="Like comment"
+                              >
+                                <Heart className={`w-3.5 h-3.5 ${c.hasLiked ? 'fill-rose-500' : ''}`} />
+                                <span className="font-mono tabular-nums">{c.likes}</span>
+                              </button>
+                            </div>
+
+                            <p className="text-slate-800 dark:text-slate-200 mt-1 leading-relaxed pl-7">
+                              {c.text}
+                            </p>
+
+                            <div className="mt-1.5 pl-7 flex items-center gap-3 text-[10px]">
+                              <button
+                                onClick={() => {
+                                  setReplyingToCommentId({ id: c.id, author: c.author });
+                                  setNewCommentText('');
+                                }}
+                                className="font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                              >
+                                Reply
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
+
+                      {/* Replying indicator */}
+                      {replyingToCommentId && (
+                        <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[11px]">
+                          <span>Replying to <strong>@{replyingToCommentId.author}</strong></span>
+                          <button
+                            onClick={() => setReplyingToCommentId(null)}
+                            className="text-xs font-bold hover:opacity-80"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-2">
                         <input
@@ -581,14 +680,14 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                           value={newCommentText}
                           onChange={e => setNewCommentText(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleAddComment(post.id)}
-                          placeholder="Add a comment..."
-                          className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          placeholder={replyingToCommentId ? `Reply to @${replyingToCommentId.author}...` : "Add a public comment..."}
+                          className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
                         <button
                           onClick={() => handleAddComment(post.id)}
-                          className="px-3 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-colors shrink-0"
+                          className="px-3.5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
                         >
-                          Post
+                          {replyingToCommentId ? 'Reply' : 'Comment'}
                         </button>
                       </div>
                     </div>
