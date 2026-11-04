@@ -254,7 +254,7 @@ export class PostsRepository {
   ): Promise<{ liked: boolean; likesCount: number }> {
     await this.client.query(`
       INSERT INTO users (id, email, active_role, is_suspended)
-      VALUES ($1, $2, 'viewer', FALSE)
+      VALUES ($1, $2, 'user', FALSE)
       ON CONFLICT (id) DO NOTHING;
     `, [userId, `${userId}@localnet.in`]);
 
@@ -298,7 +298,7 @@ export class PostsRepository {
   ): Promise<any> {
     await this.client.query(`
       INSERT INTO users (id, email, active_role, is_suspended)
-      VALUES ($1, $2, 'viewer', FALSE)
+      VALUES ($1, $2, 'user', FALSE)
       ON CONFLICT (id) DO NOTHING;
     `, [userId, `${userId}@localnet.in`]);
 
