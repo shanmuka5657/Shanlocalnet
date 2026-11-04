@@ -70,7 +70,30 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     return '16:9';
   };
 
-  const handleCaptureFrame = (targetTime?: number) => {
+  const isBlackFrame = (context: CanvasRenderingContext2D, width: number, height: number): boolean => {
+    try {
+      const points = [
+        [Math.round(width / 2), Math.round(height / 2)],
+        [Math.round(width / 4), Math.round(height / 4)],
+        [Math.round(3 * width / 4), Math.round(height / 4)],
+        [Math.round(width / 4), Math.round(3 * height / 4)],
+        [Math.round(3 * width / 4), Math.round(3 * height / 4)],
+        [Math.round(width / 2), Math.round(height / 3)],
+        [Math.round(width / 2), Math.round(2 * height / 3)]
+      ];
+      for (const [px, py] of points) {
+        const pixel = context.getImageData(px, py, 1, 1).data;
+        if (pixel[0] > 12 || pixel[1] > 12 || pixel[2] > 12) {
+          return false;
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCaptureFrame = (targetTime?: number, retries = 0) => {
     const vid = videoPreviewRef.current;
     if (!vid) return;
 
@@ -97,6 +120,11 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(v, 0, 0, targetW, targetH);
+          if (isBlackFrame(ctx, targetW, targetH) && retries < 4) {
+            // GPU video surface was not ready, wait a tick and retry
+            setTimeout(() => handleCaptureFrame(undefined, retries + 1), 120);
+            return;
+          }
           const newThumb = canvas.toDataURL('image/jpeg', 0.85);
           setCapturedThumbnail(newThumb);
           if (file) {
@@ -118,9 +146,11 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     };
 
     if (typeof targetTime === 'number') {
-      vid.addEventListener('seeked', doCapture, { once: true });
+      vid.addEventListener('seeked', () => {
+        requestAnimationFrame(doCapture);
+      }, { once: true });
     } else {
-      doCapture();
+      requestAnimationFrame(doCapture);
     }
   };
 
@@ -207,33 +237,12 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           sizeMb: (selectedFile.size / 1024 / 1024).toFixed(1)
         });
 
-        // Seek to 0.5s to capture thumbnail canvas frame
-        tempVideo.currentTime = Math.min(0.5, (duration || 1) / 2);
-      };
-
-      tempVideo.onseeked = () => {
-        let capturedThumb = '';
-        try {
-          const canvas = document.createElement('canvas');
-          const targetW = 480;
-          const targetH = Math.round((targetW * (tempVideo.videoHeight || 360)) / (tempVideo.videoWidth || 480));
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(tempVideo, 0, 0, targetW, targetH);
-            capturedThumb = canvas.toDataURL('image/jpeg', 0.8);
-          }
-        } catch (e) {
-          console.warn('Canvas thumbnail extract error:', e);
-        }
-
+        // Trigger upload without unmounted black canvas thumbnail
         executeUpload(selectedFile, {
-          width: tempVideo.videoWidth,
-          height: tempVideo.videoHeight,
-          duration: Math.round(tempVideo.duration),
-          aspectRatio: determineAspectRatio(tempVideo.videoWidth, tempVideo.videoHeight),
-          thumbnailUrl: capturedThumb
+          width,
+          height,
+          duration,
+          aspectRatio
         });
       };
 
@@ -661,8 +670,15 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                     value={coverTimestamp}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
+                      setCoverTimestamp(val);
+                      if (videoPreviewRef.current) {
+                        videoPreviewRef.current.currentTime = val;
+                      }
                       handleCaptureFrame(val);
                     }}
+                    onPointerUp={() => handleCaptureFrame(coverTimestamp)}
+                    onTouchEnd={() => handleCaptureFrame(coverTimestamp)}
+                    onMouseUp={() => handleCaptureFrame(coverTimestamp)}
                     className="w-full h-2 bg-slate-700 accent-amber-500 rounded-lg cursor-pointer"
                   />
 

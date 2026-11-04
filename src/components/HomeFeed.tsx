@@ -313,7 +313,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 className="group relative flex-shrink-0 w-28 sm:w-32 aspect-[9/16] rounded-xl overflow-hidden bg-slate-950 cursor-pointer snap-start shadow-md hover:scale-[1.02] active:scale-95 transition-all"
               >
                 {/* Media Preview */}
-                {item.reel.mediaThumbnail ? (
+                {item.reel.mediaThumbnail && !item.reel.mediaThumbnail.includes("AAQSkZJRgABAQAAAQABAAD/4gHY") ? (
                   <img
                     src={item.reel.mediaThumbnail}
                     alt={item.reel.title}
@@ -328,7 +328,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 ) : item.reel.mediaUrl && !item.reel.mediaUrl.endsWith('.jpg') ? (
                   <video
                     src={`${item.reel.mediaUrl}#t=0.5`}
-                    poster={item.reel.mediaThumbnail || undefined}
+                    poster={item.reel.mediaThumbnail && !item.reel.mediaThumbnail.includes("AAQSkZJRgABAQAAAQABAAD/4gHY") ? item.reel.mediaThumbnail : undefined}
                     preload="metadata"
                     muted
                     playsInline
