@@ -37,6 +37,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [coverTimestamp, setCoverTimestamp] = useState<number>(0.5);
   const [capturedThumbnail, setCapturedThumbnail] = useState<string>('');
   const [serverAssetId, setServerAssetId] = useState<string | undefined>(undefined);
+  const [serverPublicUrl, setServerPublicUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
     initialMediaUrl ? 'ready' : 'idle'
@@ -101,7 +102,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           if (file) {
             onMediaUploaded({
               mediaAssetId: serverAssetId || undefined,
-              publicUrl: previewUrl || '',
+              publicUrl: serverPublicUrl || previewUrl || '',
               mimeType: file.type,
               sizeBytes: file.size,
               aspectRatio: mediaMeta?.aspectRatio || '9:16',
@@ -277,6 +278,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
       setUploadProgress(100);
       setStatus('ready');
               if (mediaAssetId) setServerAssetId(mediaAssetId);
+              if (publicUrl) setServerPublicUrl(publicUrl);
 
       const uploadedData: UploadedMediaData = {
         mediaAssetId: serverAssetId || undefined,
@@ -341,6 +343,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               setUploadProgress(100);
               setStatus('ready');
               if (mediaAssetId) setServerAssetId(mediaAssetId);
+              if (publicUrl) setServerPublicUrl(publicUrl);
               onMediaUploaded({
                 mediaAssetId: mediaAssetId || undefined,
                 publicUrl: publicUrl || previewUrl || URL.createObjectURL(fileToUpload),
@@ -393,6 +396,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               setUploadProgress(100);
               setStatus('ready');
               if (mediaAssetId) setServerAssetId(mediaAssetId);
+              if (publicUrl) setServerPublicUrl(publicUrl);
 
               const uploadedData: UploadedMediaData = {
                 mediaAssetId: response.mediaAsset.id,
@@ -543,6 +547,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               <video
                 ref={videoPreviewRef}
                 src={previewUrl}
+                poster={capturedThumbnail || undefined}
                 controls
                 playsInline
                 className="max-h-72 w-auto object-contain mx-auto"
