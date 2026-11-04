@@ -152,3 +152,4 @@ Outputs:
   SecretAccessKey:
     Description: 'AWS_SECRET_ACCESS_KEY to put in .env'
     Value: !GetAtt LocalNetAppAccessKey.SecretAccessKey
+
