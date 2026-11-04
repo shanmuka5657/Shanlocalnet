@@ -193,6 +193,22 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
       onMediaUploaded(uploadedData);
     };
 
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || '';
+    const isStaticDeployment = !apiBase && (
+      typeof window !== 'undefined' && (
+        window.location.hostname.endsWith('vercel.app') ||
+        window.location.hostname.endsWith('github.io') ||
+        window.location.hostname.endsWith('netlify.app')
+      )
+    );
+
+    if (isStaticDeployment) {
+      setTimeout(() => {
+        applyClientFallback();
+      }, 300);
+      return;
+    }
+
     xhr.onreadystatechange = () => {
       if (xhr.readyState === XMLHttpRequest.DONE) {
         if (xhr.status === 200 || xhr.status === 201) {

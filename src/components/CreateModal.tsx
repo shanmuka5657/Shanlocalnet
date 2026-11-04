@@ -96,6 +96,65 @@ export const CreateModal: React.FC<CreateModalProps> = ({
     const tags = tagInput.split(',').map(t => t.trim()).filter(Boolean);
     const radiusNumber = parseScopeToKm(scope, customRadiusKm);
 
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || '';
+    const isStaticDeployment = !apiBase && (
+      typeof window !== 'undefined' && (
+        window.location.hostname.endsWith('vercel.app') ||
+        window.location.hostname.endsWith('github.io') ||
+        window.location.hostname.endsWith('netlify.app')
+      )
+    );
+
+    const createLocalFallbackPost = () => {
+      const localPost: Post = {
+        id: `post_local_${Date.now()}`,
+        creatorId: 'current_user_1',
+        creatorName: 'Arjun Rayalaseema',
+        creatorHandle: '@arjun_grooves',
+        creatorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+        creatorVerified: true,
+        contentType,
+        classification: isCommercialMode ? 'sponsored_creator' : 'organic',
+        title,
+        description,
+        mediaUrl: uploadedMedia?.publicUrl || '',
+        mediaThumbnail: '',
+        mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
+        aspectRatio: contentType === 'reel' ? '9:16' : '16:9',
+        publishingLocation: {
+          latitude: viewerLocation.coords.latitude,
+          longitude: viewerLocation.coords.longitude,
+          cityName: viewerLocation.cityName,
+          state: viewerLocation.stateName,
+          country: viewerLocation.country,
+          isVerified: viewerLocation.isVerified,
+          publishedAt: new Date().toISOString()
+        },
+        audienceDistribution: {
+          engine: isCommercialMode ? 'COMMERCIAL_ADVERTISEMENT' : 'ORGANIC_ENTERTAINMENT',
+          scope,
+          maxRadiusKm: radiusNumber,
+          targetCountry: viewerLocation.countryCode
+        },
+        tags,
+        createdAt: new Date().toISOString(),
+        stats: { likes: 0, comments: 0, shares: 0, saves: 0, views: 0 },
+        moderation: { status: 'approved' }
+      };
+      INITIAL_POSTS.unshift(localPost);
+      setSuccessMsg('Published successfully!');
+      onPostCreated();
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+      setIsSubmitting(false);
+    };
+
+    if (isStaticDeployment) {
+      createLocalFallbackPost();
+      return;
+    }
+
     try {
       const response = await fetch('/api/posts/create', {
         method: 'POST',

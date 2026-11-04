@@ -183,6 +183,22 @@ function LocalNetContent() {
       setEvents(INITIAL_EVENTS);
       setNotifications(INITIAL_NOTIFICATIONS);
     };
+
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || '';
+    const isStaticDeployment = !apiBase && (
+      typeof window !== 'undefined' && (
+        window.location.hostname.endsWith('vercel.app') ||
+        window.location.hostname.endsWith('github.io') ||
+        window.location.hostname.endsWith('netlify.app')
+      )
+    );
+
+    if (isStaticDeployment) {
+      fallbackToLocalData();
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     const query = new URLSearchParams({
       lat: viewerLocation.coords.latitude.toString(),
