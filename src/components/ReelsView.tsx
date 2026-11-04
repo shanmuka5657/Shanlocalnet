@@ -294,6 +294,8 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           <video
             ref={videoRef}
             src={activeReel.mediaUrl}
+            poster={activeReel.mediaThumbnail || undefined}
+            preload="metadata"
             loop
             playsInline
             muted={isMuted}

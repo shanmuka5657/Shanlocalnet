@@ -264,9 +264,18 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 className="group relative flex-shrink-0 w-28 sm:w-32 aspect-[9/16] rounded-xl overflow-hidden bg-slate-950 cursor-pointer snap-start shadow-md hover:scale-[1.02] active:scale-95 transition-all"
               >
                 {/* Media Preview */}
-                {item.reel.mediaUrl && !item.reel.mediaUrl.endsWith('.jpg') ? (
+                {item.reel.mediaThumbnail ? (
+                  <img
+                    src={item.reel.mediaThumbnail}
+                    alt={item.reel.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : item.reel.mediaUrl && !item.reel.mediaUrl.endsWith('.jpg') ? (
                   <video
                     src={item.reel.mediaUrl}
+                    poster={item.reel.mediaThumbnail || undefined}
+                    preload="none"
                     muted
                     playsInline
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -411,10 +420,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                         <video
                           id={`feed-video-${post.id}`}
                           src={post.mediaUrl}
+                          poster={post.mediaThumbnail || undefined}
                           loop
                           muted={isMuted}
                           playsInline
-                          preload="auto"
+                          preload={playingVideoId === post.id ? 'auto' : (post.mediaThumbnail ? 'none' : 'metadata')}
                           className="w-full h-full object-cover"
                           onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
                           onPlay={(e) => {

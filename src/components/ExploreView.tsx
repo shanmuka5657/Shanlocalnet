@@ -231,12 +231,20 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 shadow-sm flex gap-3 min-w-0"
             >
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-950 overflow-hidden shrink-0 relative">
-                {post.contentType === 'reel' && !videoErrors[post.id] && (post.mediaUrl?.endsWith('.mp4') || post.mediaUrl?.endsWith('.webm') || post.mediaUrl?.includes('/videos/')) ? (
+                {post.mediaThumbnail ? (
+                  <img
+                    src={post.mediaThumbnail}
+                    alt={post.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                ) : post.contentType === 'reel' && !videoErrors[post.id] && (post.mediaUrl?.endsWith('.mp4') || post.mediaUrl?.endsWith('.webm') || post.mediaUrl?.includes('/videos/')) ? (
                   <video
                     src={post.mediaUrl}
+                    poster={post.mediaThumbnail || undefined}
+                    preload="none"
                     className="w-full h-full object-cover"
                     muted
-                    loop
                     onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
                   />
                 ) : (

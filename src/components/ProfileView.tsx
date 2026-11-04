@@ -229,12 +229,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm"
             >
               <div className="aspect-[4/3] bg-slate-950 relative">
-                {p.contentType === 'reel' && !videoErrors[p.id] && (p.mediaUrl?.endsWith('.mp4') || p.mediaUrl?.endsWith('.webm') || p.mediaUrl?.includes('/videos/')) ? (
+                {p.mediaThumbnail ? (
+                  <img
+                    src={p.mediaThumbnail}
+                    alt={p.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                ) : p.contentType === 'reel' && !videoErrors[p.id] && (p.mediaUrl?.endsWith('.mp4') || p.mediaUrl?.endsWith('.webm') || p.mediaUrl?.includes('/videos/')) ? (
                   <video
                     src={p.mediaUrl}
+                    poster={p.mediaThumbnail || undefined}
+                    preload="none"
                     className="w-full h-full object-cover"
                     muted
-                    loop
                     onError={() => setVideoErrors(prev => ({ ...prev, [p.id]: true }))}
                   />
                 ) : (
