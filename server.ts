@@ -17,7 +17,6 @@ dotenv.config({ override: true });
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 import {
   evaluateOrganicEligibility,
   evaluateCommercialEligibility,
@@ -122,6 +121,15 @@ async function startServer() {
 
   const app = express();
   app.use(express.json());
+
+  // Support Vercel serverless rewrites where req.url might have /api stripped or preserved
+  app.use((req: Request, _res: Response, next) => {
+    if (!req.url.startsWith('/api') && !req.url.startsWith('/favicon')) {
+      req.url = '/api' + req.url;
+    }
+    next();
+  });
+
   app.use(express.static(path.join(__dirname, 'public')));
 
   app.get('/favicon.ico', (_req: Request, res: Response) => {
@@ -1146,28 +1154,45 @@ async function startServer() {
   });
 
   // -------------------------------------------------------------------------
-  // VITE DEV MIDDLEWARE / STATIC FILES
+  // VITE DEV MIDDLEWARE / STATIC FILES (Local / Non-Vercel environment)
   // -------------------------------------------------------------------------
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(__dirname, 'dist')));
-    app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  if (!process.env.VERCEL) {
+    if (process.env.NODE_ENV !== 'production') {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa'
+      });
+      app.use(vite.middlewares);
+    } else {
+      app.use(express.static(path.join(__dirname, 'dist')));
+      app.get('*', (_req: Request, res: Response) => {
+        res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+      });
+    }
+
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`LocalNet ecosystem server active on http://localhost:${PORT}`);
     });
   }
 
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`LocalNet ecosystem server active on http://localhost:${PORT}`);
-  });
+  return app;
 }
 
-startServer().catch((err) => {
-  console.error('[Fatal Server Startup Failure]:', err);
-  process.exit(1);
-});
+let appInitPromise: Promise<express.Express> | null = null;
+
+export async function createApp(): Promise<express.Express> {
+  if (!appInitPromise) {
+    appInitPromise = startServer();
+  }
+  return appInitPromise;
+}
+
+// Auto-start server in local Node runtime
+if (!process.env.VERCEL) {
+  createApp().catch((err) => {
+    console.error('[Fatal Server Startup Failure]:', err);
+    process.exit(1);
+  });
+}

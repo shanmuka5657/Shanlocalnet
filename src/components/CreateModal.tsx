@@ -96,15 +96,6 @@ export const CreateModal: React.FC<CreateModalProps> = ({
     const tags = tagInput.split(',').map(t => t.trim()).filter(Boolean);
     const radiusNumber = parseScopeToKm(scope, customRadiusKm);
 
-    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || '';
-    const isStaticDeployment = !apiBase && (
-      typeof window !== 'undefined' && (
-        window.location.hostname.endsWith('vercel.app') ||
-        window.location.hostname.endsWith('github.io') ||
-        window.location.hostname.endsWith('netlify.app')
-      )
-    );
-
     const createLocalFallbackPost = () => {
       const localPost: Post = {
         id: `post_local_${Date.now()}`,
@@ -149,11 +140,6 @@ export const CreateModal: React.FC<CreateModalProps> = ({
       }, 1000);
       setIsSubmitting(false);
     };
-
-    if (isStaticDeployment) {
-      createLocalFallbackPost();
-      return;
-    }
 
     try {
       const response = await fetch('/api/posts/create', {
