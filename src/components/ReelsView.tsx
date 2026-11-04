@@ -95,13 +95,16 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     }
   };
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    if (!progressBarRef.current || !videoRef.current || !duration) return;
+    if (!progressBarRef.current || !videoRef.current) return;
+    const total = videoRef.current.duration || duration || activeReel?.videoDurationSeconds || 0;
+    if (!total || total <= 0) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    videoRef.current.currentTime = ratio * duration;
-    setCurrentTime(ratio * duration);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    videoRef.current.currentTime = ratio * total;
+    setCurrentTime(ratio * total);
   };
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -587,7 +590,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
         <div
           ref={progressBarRef}
           onClick={handleSeek}
-          className="absolute bottom-0 left-0 right-0 z-30 h-1.5 hover:h-2.5 bg-white/20 hover:bg-white/40 cursor-pointer transition-all pointer-events-auto group/scrub"
+          className="absolute bottom-0 left-0 right-0 z-30 py-2.5 -my-1 cursor-pointer transition-all pointer-events-auto group/scrub"
         >
           <div
             className="h-full bg-rose-500 relative"

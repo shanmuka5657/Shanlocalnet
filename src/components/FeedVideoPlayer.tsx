@@ -10,7 +10,8 @@ import {
   Film,
   Heart,
   Loader2,
-  RotateCcw
+  RotateCcw,
+  RotateCw
 } from 'lucide-react';
 
 interface FeedVideoPlayerProps {
@@ -47,9 +48,11 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const [hasError, setHasError] = useState(false);
   const [doubleTapHeart, setDoubleTapHeart] = useState<{ x: number; y: number } | null>(null);
   const [centerIconFlash, setCenterIconFlash] = useState<'play' | 'pause' | null>(null);
+  const [skipAnimation, setSkipAnimation] = useState<'backward' | 'forward' | null>(null);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTapRef = useRef<number>(0);
+  const singleTapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync external play/pause instruction with local video element
   useEffect(() => {
@@ -89,7 +92,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     if (isCurrentlyPlaying) {
       controlsTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
-      }, 2800);
+      }, 3000);
     }
   }, [isCurrentlyPlaying]);
 
@@ -109,12 +112,16 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     setCurrentTime(videoRef.current.currentTime);
+    if (!duration && videoRef.current.duration) {
+      setDuration(videoRef.current.duration);
+    }
   };
 
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return;
-    if (videoRef.current.duration && !isNaN(videoRef.current.duration)) {
-      setDuration(videoRef.current.duration);
+    const d = videoRef.current.duration;
+    if (d && !isNaN(d) && isFinite(d) && d > 0) {
+      setDuration(d);
     }
   };
 
@@ -131,6 +138,23 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       setCenterIconFlash('pause');
     }
     setTimeout(() => setCenterIconFlash(null), 600);
+    resetControlsTimer();
+  };
+
+  // Skip Forward / Backward by N seconds (YouTube style)
+  const handleSkip = (seconds: number, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!videoRef.current) return;
+    const total = videoRef.current.duration || duration || post.videoDurationSeconds || 0;
+    const current = videoRef.current.currentTime || 0;
+    const target = Math.max(0, Math.min(total || 99999, current + seconds));
+
+    videoRef.current.currentTime = target;
+    setCurrentTime(target);
+
+    setSkipAnimation(seconds < 0 ? 'backward' : 'forward');
+    setTimeout(() => setSkipAnimation(null), 700);
+    resetControlsTimer();
   };
 
   // Fullscreen toggle
@@ -156,37 +180,83 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     }
   };
 
-  // Scrubber timeline seek
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    if (!progressBarRef.current || !videoRef.current || !duration) return;
+  // Scrubber timeline seek logic
+  const performSeek = (clientX: number) => {
+    if (!progressBarRef.current || !videoRef.current) return;
+    const total = videoRef.current.duration || duration || post.videoDurationSeconds || 0;
+    if (!total || total <= 0) return;
 
     const rect = progressBarRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clickRatio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const newTime = clickRatio * duration;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const newTime = ratio * total;
 
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
   };
 
-  // Double-tap on video stage (like Instagram)
+  // Click & Drag scrubber handler
+  const handleScrubStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    performSeek(clientX);
+
+    const onMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const cx = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      performSeek(cx);
+    };
+
+    const onEnd = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      resetControlsTimer();
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchend', onEnd);
+  };
+
+  // Video Stage Click: handles Single Tap (play/pause) & Double Tap (Rewind, Forward, or Like)
   const handleStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickWidth = rect.width;
+    const xRatio = clickX / clickWidth;
+
     const now = Date.now();
     const timeDiff = now - lastTapRef.current;
     lastTapRef.current = now;
 
-    if (timeDiff < 320 && onDoubleTapLike) {
-      // Double-tap detected -> trigger like & heart animation
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+    if (timeDiff < 320) {
+      // Double tap detected! Cancel pending single tap
+      if (singleTapTimeoutRef.current) {
+        clearTimeout(singleTapTimeoutRef.current);
+        singleTapTimeoutRef.current = null;
+      }
 
-      setDoubleTapHeart({ x, y });
-      setTimeout(() => setDoubleTapHeart(null), 800);
-      onDoubleTapLike();
+      if (xRatio < 0.35) {
+        // Double tap left side -> Rewind 10s (YouTube Style)
+        handleSkip(-10);
+      } else if (xRatio > 0.65) {
+        // Double tap right side -> Forward 10s (YouTube Style)
+        handleSkip(10);
+      } else {
+        // Double tap center -> Instagram Like Heart Animation
+        if (onDoubleTapLike) {
+          const y = e.clientY - rect.top;
+          setDoubleTapHeart({ x: clickX, y });
+          setTimeout(() => setDoubleTapHeart(null), 800);
+          onDoubleTapLike();
+        }
+      }
     } else {
-      togglePlayPause();
+      // Single tap: queue play/pause
+      singleTapTimeoutRef.current = setTimeout(() => {
+        togglePlayPause();
+      }, 280);
     }
     resetControlsTimer();
   };
@@ -202,6 +272,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       videoRef.current.volume = 1;
       setVolume(1);
     }
+    resetControlsTimer();
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,6 +284,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       videoRef.current.muted = newVol === 0;
       setIsMuted(newVol === 0);
     }
+    resetControlsTimer();
   };
 
   // Playback rate cycle (1x -> 1.25x -> 1.5x -> 2x)
@@ -225,6 +297,27 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     if (videoRef.current) {
       videoRef.current.playbackRate = nextRate;
     }
+    resetControlsTimer();
+  };
+
+  // Keyboard controls when hovering player
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'j') {
+      e.preventDefault();
+      handleSkip(-10);
+    } else if (e.key === 'ArrowRight' || e.key === 'l') {
+      e.preventDefault();
+      handleSkip(10);
+    } else if (e.key === ' ' || e.key === 'k') {
+      e.preventDefault();
+      togglePlayPause();
+    } else if (e.key === 'f') {
+      e.preventDefault();
+      toggleFullscreen(e as any);
+    } else if (e.key === 'm') {
+      e.preventDefault();
+      toggleMute(e as any);
+    }
   };
 
   const formatTime = (secs: number) => {
@@ -234,7 +327,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const effectiveDuration = duration || post.videoDurationSeconds || 0;
+  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
 
   if (hasError || !post.mediaUrl) {
     return (
@@ -255,10 +349,12 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       onMouseMove={resetControlsTimer}
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => isCurrentlyPlaying && setShowControls(false)}
-      className={`group/player relative w-full bg-black overflow-hidden select-none ${
+      className={`group/player relative w-full bg-black overflow-hidden select-none outline-none ${
         isFullscreen
           ? 'fixed inset-0 z-50 h-screen w-screen flex items-center justify-center'
           : 'aspect-[4/3] max-h-[560px] rounded-b-none'
@@ -275,6 +371,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         preload={isCurrentlyPlaying ? 'auto' : (post.mediaThumbnail ? 'none' : 'metadata')}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onDurationChange={handleLoadedMetadata}
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => setIsBuffering(false)}
         onCanPlay={() => setIsBuffering(false)}
@@ -292,6 +389,21 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           style={{ left: doubleTapHeart.x, top: doubleTapHeart.y }}
         >
           <Heart className="w-20 h-20 fill-rose-500 text-rose-500 drop-shadow-2xl" />
+        </div>
+      )}
+
+      {/* YouTube Double-Tap Skip Feedback Ripple */}
+      {skipAnimation === 'backward' && (
+        <div className="absolute left-6 top-1/2 -translate-y-1/2 z-30 pointer-events-none flex flex-col items-center justify-center bg-black/60 backdrop-blur-md text-white px-4 py-3 rounded-full animate-fade-in shadow-2xl">
+          <RotateCcw className="w-8 h-8 animate-spin [animation-iteration-count:1]" />
+          <span className="text-xs font-bold font-mono mt-1">-10 sec</span>
+        </div>
+      )}
+
+      {skipAnimation === 'forward' && (
+        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-30 pointer-events-none flex flex-col items-center justify-center bg-black/60 backdrop-blur-md text-white px-4 py-3 rounded-full animate-fade-in shadow-2xl">
+          <RotateCw className="w-8 h-8 animate-spin [animation-iteration-count:1]" />
+          <span className="text-xs font-bold font-mono mt-1">+10 sec</span>
         </div>
       )}
 
@@ -359,7 +471,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
 
         <div className="ml-auto flex items-center gap-1.5">
           <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-mono text-white/90 border border-white/10">
-            {formatTime(duration)}
+            {formatTime(effectiveDuration)}
           </span>
         </div>
       </div>
@@ -370,31 +482,47 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Scrubber Timeline */}
+        {/* Scrubber Timeline with Expanded Touch/Click Target (30px tall touch zone) */}
         <div
           ref={progressBarRef}
-          onClick={handleSeek}
-          className="group/scrub relative w-full h-1.5 hover:h-2.5 bg-white/25 hover:bg-white/35 rounded-full cursor-pointer transition-all flex items-center mb-2.5"
+          onMouseDown={handleScrubStart}
+          onTouchStart={handleScrubStart}
+          className="group/scrub relative w-full py-2.5 -my-1 cursor-pointer flex items-center select-none"
         >
-          {/* Progress Filled */}
-          <div
-            className="h-full bg-rose-500 rounded-full relative"
-            style={{ width: `${progressPercent}%` }}
-          >
-            {/* Scrubber Thumb */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover/scrub:scale-100 transition-transform" />
+          {/* Visual Track */}
+          <div className="relative w-full h-1.5 group-hover/scrub:h-2.5 bg-white/25 group-hover/scrub:bg-white/35 rounded-full transition-all overflow-visible">
+            {/* Progress Filled */}
+            <div
+              className="h-full bg-rose-500 rounded-full relative"
+              style={{ width: `${progressPercent}%` }}
+            >
+              {/* Scrubber Thumb */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover/scrub:scale-100 transition-transform -mr-1.5 ring-2 ring-rose-500/50" />
+            </div>
           </div>
         </div>
 
         {/* Controls Row */}
-        <div className="flex items-center justify-between text-white gap-2">
-          {/* Left Controls: Play/Pause, Volume, Time */}
-          <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center justify-between text-white gap-2 mt-1">
+          {/* Left Controls: Rewind 10s, Play/Pause, Forward 10s, Volume, Time */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Rewind 10s Button */}
+            <button
+              type="button"
+              onClick={(e) => handleSkip(-10, e)}
+              className="p-1.5 rounded-full hover:bg-white/20 text-white/90 hover:text-white transition-colors relative flex items-center justify-center active:scale-95"
+              title="Rewind 10 seconds (← or J)"
+            >
+              <RotateCcw className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <span className="absolute text-[8px] font-bold font-mono tracking-tighter">10</span>
+            </button>
+
+            {/* Play / Pause Button */}
             <button
               type="button"
               onClick={togglePlayPause}
-              className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
-              title={isCurrentlyPlaying ? 'Pause (space)' : 'Play (space)'}
+              className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors active:scale-95"
+              title={isCurrentlyPlaying ? 'Pause (space or K)' : 'Play (space or K)'}
             >
               {isCurrentlyPlaying ? (
                 <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
@@ -403,13 +531,24 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               )}
             </button>
 
+            {/* Forward 10s Button */}
+            <button
+              type="button"
+              onClick={(e) => handleSkip(10, e)}
+              className="p-1.5 rounded-full hover:bg-white/20 text-white/90 hover:text-white transition-colors relative flex items-center justify-center active:scale-95"
+              title="Forward 10 seconds (→ or L)"
+            >
+              <RotateCw className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <span className="absolute text-[8px] font-bold font-mono tracking-tighter">10</span>
+            </button>
+
             {/* Volume & Mute with Hover Slider */}
-            <div className="flex items-center gap-1.5 group/vol">
+            <div className="flex items-center gap-1.5 group/vol ml-1">
               <button
                 type="button"
                 onClick={toggleMute}
                 className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
-                title={isMuted ? 'Unmute' : 'Mute'}
+                title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
               >
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -431,10 +570,10 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
             </div>
 
             {/* Time Indicator */}
-            <div className="text-[11px] sm:text-xs font-mono tabular-nums text-white/80 select-none">
+            <div className="text-[11px] sm:text-xs font-mono tabular-nums text-white/80 select-none ml-1">
               <span>{formatTime(currentTime)}</span>
               <span className="mx-1 text-white/40">/</span>
-              <span>{formatTime(duration)}</span>
+              <span>{formatTime(effectiveDuration)}</span>
             </div>
           </div>
 
@@ -450,31 +589,12 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               {playbackRate}x
             </button>
 
-            {/* Replay button if reached end */}
-            {currentTime >= duration && duration > 0 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (videoRef.current) {
-                    videoRef.current.currentTime = 0;
-                    videoRef.current.play();
-                    onPlayRequest();
-                  }
-                }}
-                className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
-                title="Replay"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            )}
-
             {/* Fullscreen Button */}
             <button
               type="button"
               onClick={toggleFullscreen}
               className="p-1.5 sm:p-2 rounded-full hover:bg-white/20 text-white transition-all active:scale-95"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
             >
               {isFullscreen ? (
                 <Minimize className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -488,4 +608,3 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     </div>
   );
 };
-
