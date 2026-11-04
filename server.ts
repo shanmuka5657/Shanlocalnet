@@ -577,6 +577,8 @@ async function startServer() {
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: resolvedAspectRatio,
         videoDurationSeconds: resolvedDuration,
+        trimStartSeconds: req.body.trimStartSeconds ? Number(req.body.trimStartSeconds) : undefined,
+        trimEndSeconds: req.body.trimEndSeconds ? Number(req.body.trimEndSeconds) : undefined,
         publishingLocation: {
           latitude: Number(publishingLocation.latitude),
           longitude: Number(publishingLocation.longitude),

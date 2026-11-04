@@ -356,7 +356,16 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             muted={isMuted}
             onClick={handleVideoTap}
             onError={() => setVideoErrors(prev => ({ ...prev, [activeReel.id]: true }))}
-            onTimeUpdate={() => videoRef.current && setCurrentTime(videoRef.current.currentTime)}
+            onTimeUpdate={() => {
+              if (!videoRef.current) return;
+              const cur = videoRef.current.currentTime;
+              setCurrentTime(cur);
+              if (activeReel.trimEndSeconds && activeReel.trimEndSeconds > (activeReel.trimStartSeconds || 0)) {
+                if (cur >= activeReel.trimEndSeconds) {
+                  videoRef.current.currentTime = activeReel.trimStartSeconds || 0;
+                }
+              }
+            }}
             onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
             className="w-full h-full object-cover cursor-pointer"
           />

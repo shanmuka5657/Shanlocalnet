@@ -110,6 +110,8 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         description,
         mediaUrl: uploadedMedia?.publicUrl || '',
         mediaThumbnail: uploadedMedia?.thumbnailUrl || '',
+        trimStartSeconds: uploadedMedia?.trimStartSeconds,
+        trimEndSeconds: uploadedMedia?.trimEndSeconds,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: contentType === 'reel' ? '9:16' : '16:9',
         publishingLocation: {
@@ -154,6 +156,8 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           mediaThumbnail: uploadedMedia?.thumbnailUrl || undefined,
           aspectRatio: uploadedMedia?.aspectRatio || (contentType === 'reel' ? '9:16' : '4:3'),
           videoDurationSeconds: uploadedMedia?.videoDurationSeconds,
+          trimStartSeconds: uploadedMedia?.trimStartSeconds,
+          trimEndSeconds: uploadedMedia?.trimEndSeconds,
           classification: isCommercialMode ? 'sponsored_creator' : 'organic',
           isPaidPromotion: isCommercialMode,
           scope,

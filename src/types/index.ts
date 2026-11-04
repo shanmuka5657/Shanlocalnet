@@ -143,6 +143,8 @@ export interface Post {
   mediaGradient?: string;
   aspectRatio?: '9:16' | '1:1' | '4:3' | '16:9';
   videoDurationSeconds?: number;
+  trimStartSeconds?: number;
+  trimEndSeconds?: number;
   publishingLocation: PublishingLocation;
   audienceDistribution: AudienceDistribution;
   commercialMetadata?: CommercialMetadata;

@@ -52,6 +52,11 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const [skipAnimation, setSkipAnimation] = useState<'backward' | 'forward' | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const isPreviewRef = useRef(false);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const [isHoveringScrubber, setIsHoveringScrubber] = useState(false);
+  const [hoverPercent, setHoverPercent] = useState<number | null>(null);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPositionPx, setHoverPositionPx] = useState<number | null>(null);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTapRef = useRef<number>(0);
@@ -296,6 +301,30 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     window.addEventListener('mouseup', onEnd);
     window.addEventListener('touchmove', onMove);
     window.addEventListener('touchend', onEnd);
+  };
+
+  const handleScrubberMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!progressBarRef.current) return;
+    const total = videoRef.current?.duration || duration || post.videoDurationSeconds || 0;
+    if (!total || total <= 0) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const offsetX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const ratio = offsetX / rect.width;
+    const time = ratio * total;
+    setHoverPercent(ratio * 100);
+    setHoverTime(time);
+    setHoverPositionPx(offsetX);
+    setIsHoveringScrubber(true);
+    if (previewVideoRef.current && isFinite(time)) {
+      previewVideoRef.current.currentTime = time;
+    }
+  };
+
+  const handleScrubberMouseLeave = () => {
+    setIsHoveringScrubber(false);
+    setHoverPercent(null);
+    setHoverTime(null);
+    setHoverPositionPx(null);
   };
 
   // Video Stage Click: handles Single Tap (play/pause) & Double Tap (Rewind, Forward, or Like)
@@ -606,10 +635,47 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           ref={progressBarRef}
           onMouseDown={handleScrubStart}
           onTouchStart={handleScrubStart}
+          onMouseMove={handleScrubberMouseMove}
+          onMouseLeave={handleScrubberMouseLeave}
           className="group/scrub relative w-full py-2.5 -my-1 cursor-pointer flex items-center select-none"
         >
+          {/* YouTube Floating Scrubber Preview Tooltip */}
+          {isHoveringScrubber && hoverPercent !== null && hoverTime !== null && hoverPositionPx !== null && (
+            <div
+              className="absolute bottom-6 -translate-x-1/2 pointer-events-none flex flex-col items-center z-40 transition-transform duration-75"
+              style={{
+                left: `${Math.max(54, Math.min((progressBarRef.current?.clientWidth || 300) - 54, hoverPositionPx))}px`
+              }}
+            >
+              <div className="bg-slate-900/95 border border-white/20 rounded-xl p-1 shadow-2xl backdrop-blur-md flex flex-col items-center">
+                <div className="w-28 h-16 bg-black rounded-lg overflow-hidden relative border border-white/10 mb-1 flex items-center justify-center">
+                  <video
+                    ref={previewVideoRef}
+                    src={post.mediaUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+                </div>
+                <span className="text-[10px] font-mono font-bold text-white px-2 py-0.5 rounded-full bg-black/70 border border-white/10">
+                  {formatTime(hoverTime)}
+                </span>
+              </div>
+              <div className="w-2 h-2 bg-slate-900 border-r border-b border-white/20 transform rotate-45 -mt-1" />
+            </div>
+          )}
+
           {/* Visual Track */}
           <div className="relative w-full h-1.5 group-hover/scrub:h-2.5 bg-white/25 group-hover/scrub:bg-white/35 rounded-full transition-all overflow-visible">
+            {/* Ghost hover progress bar */}
+            {isHoveringScrubber && hoverPercent !== null && (
+              <div
+                className="absolute top-0 bottom-0 left-0 bg-white/30 rounded-full pointer-events-none"
+                style={{ width: `${hoverPercent}%` }}
+              />
+            )}
             {/* Progress Filled */}
             <div
               className="h-full bg-rose-500 rounded-full relative"

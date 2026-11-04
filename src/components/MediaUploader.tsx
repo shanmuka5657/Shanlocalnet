@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { UploadCloud, FileVideo, Image as ImageIcon, X, AlertCircle, CheckCircle, RefreshCw, Play, Film, Sparkles, Camera, Upload } from 'lucide-react';
+import { UploadCloud, FileVideo, Image as ImageIcon, X, AlertCircle, CheckCircle, RefreshCw, Play, Pause, Film, Sparkles, Camera, Upload, Scissors, Clock } from 'lucide-react';
 
 export interface UploadedMediaData {
   mediaAssetId?: string;
@@ -10,6 +10,8 @@ export interface UploadedMediaData {
   videoDurationSeconds?: number;
   originalFilename?: string;
   thumbnailUrl?: string;
+  trimStartSeconds?: number;
+  trimEndSeconds?: number;
 }
 
 interface MediaUploaderProps {
@@ -39,6 +41,27 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [serverAssetId, setServerAssetId] = useState<string | undefined>(undefined);
   const [serverPublicUrl, setServerPublicUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [trimStart, setTrimStart] = useState<number>(0);
+  const [trimEnd, setTrimEnd] = useState<number>(0);
+  const [isTrimPreviewing, setIsTrimPreviewing] = useState<boolean>(false);
+
+  // Automatically propagate trim range changes to parent
+  useEffect(() => {
+    if (file && isVideo && (videoDuration > 0 || (mediaMeta?.duration || 0) > 0)) {
+      onMediaUploaded({
+        mediaAssetId: serverAssetId || undefined,
+        publicUrl: serverPublicUrl || previewUrl || '',
+        mimeType: file.type,
+        sizeBytes: file.size,
+        aspectRatio: mediaMeta?.aspectRatio || '9:16',
+        videoDurationSeconds: videoDuration || mediaMeta?.duration,
+        originalFilename: file.name,
+        thumbnailUrl: capturedThumbnail || undefined,
+        trimStartSeconds: trimStart,
+        trimEndSeconds: trimEnd > 0 ? trimEnd : videoDuration
+      });
+    }
+  }, [trimStart, trimEnd]);
   const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
     initialMediaUrl ? 'ready' : 'idle'
   );
@@ -560,6 +583,12 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 controls
                 playsInline
                 className="max-h-72 w-auto object-contain mx-auto"
+                onTimeUpdate={(e) => {
+                  const vid = e.currentTarget;
+                  if (trimEnd > 0 && vid.currentTime >= trimEnd) {
+                    vid.currentTime = trimStart;
+                  }
+                }}
                 onLoadedMetadata={(e) => {
                   const target = e.currentTarget;
                   if (!target) return;
@@ -568,6 +597,8 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                   const vh = target.videoHeight || 0;
                   if (d && !isNaN(d) && isFinite(d) && d > 0) {
                     setVideoDuration(d);
+                    setTrimStart(0);
+                    setTrimEnd(d);
                     setMediaMeta(prev => ({
                       ...prev,
                       duration: Math.round(d),
@@ -720,6 +751,165 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                     Scrub the slider or pause video above and click &quot;Grab Current Frame&quot; to pick thumbnail cover.
                   </p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Interactive Video Trim & Clip Duration Studio (YouTube Studio Style) */}
+          {Boolean(isVideo) && (videoDuration > 0 || (mediaMeta?.duration || 0) > 0) && (
+            <div className="p-3.5 bg-slate-950 border-t border-slate-800 space-y-3 text-left w-full">
+              <div className="flex items-center justify-between text-xs text-white">
+                <span className="font-bold flex items-center gap-1.5 text-amber-400">
+                  <Scissors className="w-4 h-4" />
+                  Video Trim & Clip Boundaries
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono text-[11px] font-bold border border-amber-500/30">
+                    Duration: {Math.max(0.1, (trimEnd || videoDuration) - trimStart).toFixed(1)}s / {videoDuration.toFixed(1)}s
+                  </span>
+                </div>
+              </div>
+
+              {/* Visual Trim Track with Highlighted Range */}
+              <div className="relative w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div
+                  className="absolute top-0 bottom-0 bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
+                  style={{
+                    left: `${videoDuration > 0 ? (trimStart / videoDuration) * 100 : 0}%`,
+                    right: `${videoDuration > 0 ? Math.max(0, 100 - ((trimEnd || videoDuration) / videoDuration) * 100) : 0}%`
+                  }}
+                />
+              </div>
+
+              {/* Dual Sliders: Start & End */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-slate-300 text-[11px]">
+                    <span className="font-medium">Start: {trimStart.toFixed(1)}s</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = videoPreviewRef.current?.currentTime || 0;
+                        const nextStart = Math.min(cur, (trimEnd || videoDuration) - 0.5);
+                        setTrimStart(nextStart);
+                      }}
+                      className="text-amber-400 hover:text-amber-300 underline text-[10px]"
+                    >
+                      Current Playhead
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max={Math.max(0, (trimEnd || videoDuration) - 0.5)}
+                    step="0.1"
+                    value={trimStart}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setTrimStart(val);
+                      if (videoPreviewRef.current) {
+                        videoPreviewRef.current.currentTime = val;
+                      }
+                    }}
+                    className="w-full h-2 bg-slate-700 accent-amber-500 rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-slate-300 text-[11px]">
+                    <span className="font-medium">End: {(trimEnd || videoDuration).toFixed(1)}s</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = videoPreviewRef.current?.currentTime || videoDuration;
+                        const nextEnd = Math.max(cur, trimStart + 0.5);
+                        setTrimEnd(nextEnd);
+                      }}
+                      className="text-amber-400 hover:text-amber-300 underline text-[10px]"
+                    >
+                      Current Playhead
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min={trimStart + 0.5}
+                    max={videoDuration || 10}
+                    step="0.1"
+                    value={trimEnd || videoDuration}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setTrimEnd(val);
+                      if (videoPreviewRef.current) {
+                        videoPreviewRef.current.currentTime = val;
+                      }
+                    }}
+                    className="w-full h-2 bg-slate-700 accent-rose-500 rounded-lg cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Presets & Preview Playback */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-slate-400">Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrimStart(0);
+                      setTrimEnd(videoDuration);
+                      if (videoPreviewRef.current) videoPreviewRef.current.currentTime = 0;
+                    }}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
+                  >
+                    Full Video
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrimStart(0);
+                      setTrimEnd(Math.min(15, videoDuration));
+                      if (videoPreviewRef.current) videoPreviewRef.current.currentTime = 0;
+                    }}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
+                  >
+                    First 15s
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrimStart(0);
+                      setTrimEnd(Math.min(30, videoDuration));
+                      if (videoPreviewRef.current) videoPreviewRef.current.currentTime = 0;
+                    }}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
+                  >
+                    First 30s
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrimStart(0);
+                      setTrimEnd(Math.min(60, videoDuration));
+                      if (videoPreviewRef.current) videoPreviewRef.current.currentTime = 0;
+                    }}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
+                  >
+                    First 60s
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!videoPreviewRef.current) return;
+                    videoPreviewRef.current.currentTime = trimStart;
+                    videoPreviewRef.current.play();
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-[11px] font-semibold flex items-center gap-1.5 transition-colors border border-emerald-500/30 ml-auto"
+                >
+                  <Play className="w-3 h-3 fill-emerald-300" />
+                  Play Trimmed Clip
+                </button>
               </div>
             </div>
           )}
