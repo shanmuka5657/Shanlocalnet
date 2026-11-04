@@ -2,6 +2,9 @@ import { IDatabaseClient } from '../postgresPool.ts';
 import { Post, EligibilityResult, ViewerLocation, AudienceScope } from '../../types/index.ts';
 import { calculateHaversineDistance, evaluateOrganicEligibility } from '../../lib/geo.ts';
 
+const isUuid = (val: any): boolean =>
+  typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
 const VALID_SCOPES = ['5km', '10km', '25km', '40km', 'city', 'state', 'country', 'worldwide'];
 
 function normalizeDbScope(scope?: string): string {
@@ -31,6 +34,7 @@ export class PostsRepository {
     const classification = post.classification || 'organic';
     const engine = post.audienceDistribution?.engine || (classification === 'organic' ? 'ORGANIC_ENTERTAINMENT' : 'COMMERCIAL_ADVERTISEMENT');
     const maxRadiusMeters = post.audienceDistribution?.maxRadiusKm ? post.audienceDistribution.maxRadiusKm * 1000 : null;
+    const safeMediaAssetId = isUuid(post.mediaAssetId) ? post.mediaAssetId : null;
 
     // Ensure creator user exists
     await this.client.query(`
@@ -74,7 +78,7 @@ export class PostsRepository {
       engine,
       post.title || 'Untitled Post',
       post.description || '',
-      post.mediaAssetId || null,
+      safeMediaAssetId,
       post.mediaUrl || null,
       post.mediaThumbnail || '',
       post.mediaGradient || 'from-amber-600 via-rose-600 to-indigo-900',

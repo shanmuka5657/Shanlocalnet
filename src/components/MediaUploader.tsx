@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { UploadCloud, FileVideo, Image as ImageIcon, X, AlertCircle, CheckCircle, RefreshCw, Play, Film, Sparkles, Camera, Upload } from 'lucide-react';
 
 export interface UploadedMediaData {
-  mediaAssetId: string;
+  mediaAssetId?: string;
   publicUrl: string;
   mimeType: string;
   sizeBytes: number;
@@ -36,6 +36,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [coverTimestamp, setCoverTimestamp] = useState<number>(0.5);
   const [capturedThumbnail, setCapturedThumbnail] = useState<string>('');
+  const [serverAssetId, setServerAssetId] = useState<string | undefined>(undefined);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [status, setStatus] = useState<'idle' | 'validating' | 'uploading' | 'ready' | 'error'>(
     initialMediaUrl ? 'ready' : 'idle'
@@ -99,7 +100,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           setCapturedThumbnail(newThumb);
           if (file) {
             onMediaUploaded({
-              mediaAssetId: `asset_${Date.now()}`,
+              mediaAssetId: serverAssetId || undefined,
               publicUrl: previewUrl || '',
               mimeType: file.type,
               sizeBytes: file.size,
@@ -131,7 +132,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         setCapturedThumbnail(reader.result);
         if (file) {
           onMediaUploaded({
-            mediaAssetId: `asset_${Date.now()}`,
+            mediaAssetId: serverAssetId || undefined,
             publicUrl: previewUrl || '',
             mimeType: file.type,
             sizeBytes: file.size,
@@ -275,9 +276,10 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     const applyClientFallback = () => {
       setUploadProgress(100);
       setStatus('ready');
+              if (mediaAssetId) setServerAssetId(mediaAssetId);
 
       const uploadedData: UploadedMediaData = {
-        mediaAssetId: `asset_client_${Date.now()}`,
+        mediaAssetId: serverAssetId || undefined,
         publicUrl: previewUrl || URL.createObjectURL(fileToUpload),
         mimeType: fileToUpload.type,
         sizeBytes: fileToUpload.size,
@@ -337,8 +339,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
 
               setUploadProgress(100);
               setStatus('ready');
+              if (mediaAssetId) setServerAssetId(mediaAssetId);
               onMediaUploaded({
-                mediaAssetId: mediaAssetId || `asset_${Date.now()}`,
+                mediaAssetId: mediaAssetId || undefined,
                 publicUrl: publicUrl || previewUrl || URL.createObjectURL(fileToUpload),
                 mimeType: fileToUpload.type,
                 sizeBytes: fileToUpload.size,
@@ -387,6 +390,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             if (response && response.mediaAsset) {
               setUploadProgress(100);
               setStatus('ready');
+              if (mediaAssetId) setServerAssetId(mediaAssetId);
 
               const uploadedData: UploadedMediaData = {
                 mediaAssetId: response.mediaAsset.id,

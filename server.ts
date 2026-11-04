@@ -1,3 +1,6 @@
+const isUuid = (val: any): boolean =>
+  typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
 /**
  * LocalNet Express Backend Server
  * Global Entertainment. Local Commerce.
@@ -550,7 +553,7 @@ async function startServer() {
       let resolvedDuration: number | undefined = req.body.videoDurationSeconds;
       let resolvedAspectRatio = req.body.aspectRatio || (contentType === 'reel' ? '9:16' : '4:3');
 
-      if (mediaAssetId) {
+      if (mediaAssetId && isUuid(mediaAssetId)) {
         const asset = await mediaRepo.getAssetById(mediaAssetId);
         if (asset) {
           resolvedMediaUrl = asset.cloudfrontUrl || defaultStorageService.getPublicUrl(asset.s3Key);
@@ -568,7 +571,7 @@ async function startServer() {
         classification: isCommercial ? 'sponsored_creator' : 'organic',
         title,
         description,
-        mediaAssetId: mediaAssetId || undefined,
+        mediaAssetId: (mediaAssetId && isUuid(mediaAssetId)) ? mediaAssetId : undefined,
         mediaUrl: resolvedMediaUrl,
         mediaThumbnail: req.body.mediaThumbnail || undefined,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
