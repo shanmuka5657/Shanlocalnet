@@ -509,9 +509,10 @@ export class StorageService {
     mimeType: string,
     sizeBytes: number
   ): Promise<{ uploadUrl: string; key: string; headers: Record<string, string>; publicUrl: string }> {
-    // Validate declared type & size
-    const isImage = ALLOWED_IMAGE_MIMES.includes(mimeType);
-    const isVideo = ALLOWED_VIDEO_MIMES.includes(mimeType);
+    // Sanitize MIME type (strip codecs parameter like ;codecs=vp9)
+    const cleanMime = (mimeType || '').split(';')[0].trim().toLowerCase();
+    const isImage = ALLOWED_IMAGE_MIMES.includes(cleanMime);
+    const isVideo = ALLOWED_VIDEO_MIMES.includes(cleanMime);
 
     if (!isImage && !isVideo) {
       throw new Error(`Unsupported MIME type: ${mimeType}. Allowed: JPEG, PNG, WebP, MP4, WebM`);
@@ -526,7 +527,7 @@ export class StorageService {
     }
 
     const key = this.generateKey(category, filename);
-    return await this.adapter.generatePresignedUploadUrl(key, mimeType, sizeBytes);
+    return await this.adapter.generatePresignedUploadUrl(key, cleanMime, sizeBytes);
   }
 
   public async getStream(key: string, range?: string): Promise<StreamRangeResult | null> {

@@ -222,3 +222,4 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
     </div>
   );
 };
+

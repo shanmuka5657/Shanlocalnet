@@ -255,3 +255,4 @@ export const ImageOverlayPicker: React.FC<ImageOverlayPickerProps> = ({
     </div>
   );
 };
+

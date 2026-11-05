@@ -572,7 +572,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                       {/* Video Thumbnail or Auto-Rendered Video Screen Frame */}
                       <MediaCardThumbnail
                         postId={video.id}
-                        thumbnailUrl={video.mediaThumbnail}
+                        thumbnailUrl={video.mediaThumbnail || (video as any).thumbnailUrl}
                         mediaUrl={video.mediaUrl}
                         alt={video.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

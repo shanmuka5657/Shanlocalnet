@@ -462,7 +462,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           <video
             ref={videoRef}
             src={activeReel.mediaUrl}
-            poster={activeReel.mediaThumbnail || undefined}
+            poster={activeReel.mediaThumbnail || (activeReel as any).thumbnailUrl || undefined}
             preload="metadata"
             loop
             playsInline
@@ -596,8 +596,11 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           {/* Creator Avatar with follow + */}
           <div className="relative mb-1">
             <img
-              src={activeReel.creatorAvatar}
-              alt={activeReel.creatorName}
+              src={activeReel.creatorAvatar || (activeReel as any).author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+              alt={activeReel.creatorName || (activeReel as any).author?.name || 'Creator'}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+              }}
               referrerPolicy="no-referrer"
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-white shadow-xl"
             />

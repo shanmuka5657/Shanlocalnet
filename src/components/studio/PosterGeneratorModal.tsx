@@ -104,7 +104,6 @@ export const PosterGeneratorModal: React.FC<PosterGeneratorModalProps> = ({
           src={videoUrl}
           playsInline
           muted
-          crossOrigin="anonymous"
           className="hidden"
         />
 
@@ -201,3 +200,4 @@ export const PosterGeneratorModal: React.FC<PosterGeneratorModalProps> = ({
     </div>
   );
 };
+

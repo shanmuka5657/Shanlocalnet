@@ -345,3 +345,4 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     </div>
   );
 };
+

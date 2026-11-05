@@ -137,3 +137,4 @@ export interface VideoProject {
   scope?: string;
   updatedAt: number;
 }
+

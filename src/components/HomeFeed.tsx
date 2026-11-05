@@ -56,6 +56,23 @@ import {
 } from '../lib/engagementStorage.ts';
 import { ShareModal } from './ShareModal.tsx';
 
+const isVideoPost = (p: any): boolean => {
+  if (!p) return false;
+  if (p.contentType === 'reel' || p.contentType === 'video') return true;
+  if (p.type === 'reel' || p.type === 'video') return true;
+  const url = p.mediaUrl || '';
+  if (
+    url.endsWith('.mp4') ||
+    url.endsWith('.webm') ||
+    url.includes('/videos/') ||
+    url.includes('/videos_original/') ||
+    url.startsWith('blob:') ||
+    url.includes('.mp4?') ||
+    url.includes('.webm?')
+  ) return true;
+  return false;
+};
+
 interface HomeFeedProps {
   posts: { post: Post; eligibility: EligibilityResult }[];
   ads: { ad: AdCampaign; eligibility: EligibilityResult }[];
@@ -510,7 +527,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 {/* Media Preview (Thumbnail Image or Auto-Rendered Video Screen Frame) */}
                 <MediaCardThumbnail
                   postId={item.reel.id}
-                  thumbnailUrl={item.reel.mediaThumbnail}
+                  thumbnailUrl={item.reel.mediaThumbnail || (item.reel as any).thumbnailUrl}
                   mediaUrl={item.reel.mediaUrl}
                   alt={item.reel.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -524,9 +541,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 <div className="absolute top-1.5 left-1.5 right-1.5 flex justify-between items-center text-[9px] font-bold text-white">
                   <span className="px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-xs flex items-center gap-1">
                     <Globe className="w-2.5 h-2.5 text-amber-400" />
-                    {item.reel.audienceDistribution.scope === 'worldwide'
+                    {item.reel.audienceDistribution?.scope === 'worldwide'
                       ? 'Global'
-                      : (item.reel.audienceDistribution.maxRadiusKm ? `${item.reel.audienceDistribution.maxRadiusKm}km` : item.reel.audienceDistribution.scope)}
+                      : (item.reel.audienceDistribution?.maxRadiusKm ? `${item.reel.audienceDistribution.maxRadiusKm}km` : (item.reel.audienceDistribution?.scope || '10km'))}
                   </span>
                 </div>
 
@@ -536,7 +553,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     {item.reel.title}
                   </p>
                   <p className="text-[9px] text-white/70 mt-0.5 truncate">
-                    {item.reel.creatorName}
+                    {item.reel.creatorName || (item.reel as any).author?.name || 'Local Creator'}
                   </p>
                 </div>
               </div>
@@ -609,25 +626,28 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 <div className="p-3 sm:p-4 flex items-center justify-between gap-2 w-full">
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <img
-                      src={post.creatorAvatar}
-                      alt={post.creatorName}
+                      src={post.creatorAvatar || (post as any).author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+                      alt={post.creatorName || (post as any).author?.name || 'Creator'}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+                      }}
                       referrerPolicy="no-referrer"
                       className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 shrink-0"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1 truncate">
                         <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
-                          {post.creatorName}
+                          {post.creatorName || (post as any).author?.name || 'Local Creator'}
                         </span>
-                        {post.creatorVerified && (
+                        {(post.creatorVerified ?? (post as any).author?.verified ?? true) && (
                           <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
                         )}
                       </div>
 
                       <div className="flex items-center gap-1 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
-                        <span className="truncate">{post.creatorHandle}</span>
+                        <span className="truncate">{post.creatorHandle || (post as any).author?.handle || '@creator'}</span>
                         <span aria-hidden="true">·</span>
-                        <span className="shrink-0">{post.publishingLocation.cityName}</span>
+                        <span className="shrink-0">{post.publishingLocation?.cityName || (post as any).author?.city || 'Kurnool'}</span>
                       </div>
                     </div>
                   </div>
@@ -673,12 +693,12 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 <div
                   className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center cursor-pointer group"
                   onClick={() => {
-                    if (post.contentType === 'reel' || post.contentType === 'video') {
+                    if (isVideoPost(post)) {
                       handleToggleVideo(post.id);
                     }
                   }}
                 >
-                  {(post.contentType === 'reel' || post.contentType === 'video') ? (
+                  {isVideoPost(post) ? (
                     <FeedVideoPlayer
                       post={post}
                       isCurrentlyPlaying={playingVideoId === post.id}
@@ -705,6 +725,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                         src={post.mediaUrl}
                         alt={post.title}
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                         className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                       />
                     </div>

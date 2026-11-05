@@ -183,7 +183,12 @@ function LocalNetContent() {
         if (!existingPostIds.has(up.id)) {
           const el = evaluateOrganicEligibility(viewerLocation, up);
           newPostEntries.push({ post: up, eligibility: el });
-          if (up.contentType === 'reel' || up.contentType === 'video') {
+          if (
+            up.contentType === 'reel' ||
+            up.contentType === 'video' ||
+            (up as any).type === 'reel' ||
+            (up as any).type === 'video'
+          ) {
             newReelEntries.push({ reel: up, eligibility: el });
           }
         }

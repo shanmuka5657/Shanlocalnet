@@ -206,7 +206,7 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
       setSavedStickers(updated);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.slice(0, 50)));
-      } catch {}
+      } catch { }
     }
 
     onSelectSticker(dataUrl, true);
@@ -233,7 +233,7 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
         setSavedStickers(updated);
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.slice(0, 50)));
-        } catch {}
+        } catch { }
 
         onSelectSticker(dataUrl, false);
         onClose();
@@ -248,7 +248,7 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
     setSavedStickers(filtered);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -272,11 +272,10 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
         <div className="grid grid-cols-3 p-1.5 bg-slate-950/60 border-b border-slate-800 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('draw')}
-            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'draw'
+            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${activeTab === 'draw'
                 ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
                 : 'text-slate-400 hover:text-white'
-            }`}
+              }`}
           >
             <Paintbrush className="w-3.5 h-3.5" />
             Draw Emoji
@@ -284,11 +283,10 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
 
           <button
             onClick={() => setActiveTab('upload')}
-            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'upload'
+            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${activeTab === 'upload'
                 ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
                 : 'text-slate-400 hover:text-white'
-            }`}
+              }`}
           >
             <Upload className="w-3.5 h-3.5" />
             Upload Photo
@@ -296,11 +294,10 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
 
           <button
             onClick={() => setActiveTab('saved')}
-            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'saved'
+            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${activeTab === 'saved'
                 ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
                 : 'text-slate-400 hover:text-white'
-            }`}
+              }`}
           >
             <FolderHeart className="w-3.5 h-3.5" />
             My Stickers ({savedStickers.length})
@@ -330,11 +327,10 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEraser(false)}
-                  className={`p-2 rounded-lg text-xs flex items-center gap-1 font-medium transition-colors ${
-                    !isEraser
+                  className={`p-2 rounded-lg text-xs flex items-center gap-1 font-medium transition-colors ${!isEraser
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                       : 'text-slate-400 hover:bg-slate-800'
-                  }`}
+                    }`}
                 >
                   <Paintbrush className="w-4 h-4" />
                   Brush
@@ -342,11 +338,10 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEraser(true)}
-                  className={`p-2 rounded-lg text-xs flex items-center gap-1 font-medium transition-colors ${
-                    isEraser
+                  className={`p-2 rounded-lg text-xs flex items-center gap-1 font-medium transition-colors ${isEraser
                       ? 'bg-red-500/20 text-red-300 border border-red-500/40'
                       : 'text-slate-400 hover:bg-slate-800'
-                  }`}
+                    }`}
                 >
                   <Eraser className="w-4 h-4" />
                   Eraser
@@ -405,9 +400,8 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
                     type="button"
                     onClick={() => setBrushColor(color)}
                     style={{ backgroundColor: color }}
-                    className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                      brushColor === color ? 'scale-125 border-white shadow-lg' : 'border-transparent hover:scale-110'
-                    }`}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform ${brushColor === color ? 'scale-125 border-white shadow-lg' : 'border-transparent hover:scale-110'
+                      }`}
                   />
                 ))}
               </div>
@@ -505,3 +499,4 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
     </div>
   );
 };
+

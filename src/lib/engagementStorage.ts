@@ -234,7 +234,44 @@ export function incrementStoredAdView(adId: string): number {
 export function getStoredUserPosts(): Post[] {
   try {
     const raw = localStorage.getItem(USER_POSTS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    return list.map((p: any) => {
+      const author = p.author || {};
+      const creatorName = p.creatorName || author.name || 'Local Creator';
+      const creatorHandle = p.creatorHandle || author.handle || '@creator';
+      const creatorAvatar = p.creatorAvatar || author.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
+      const creatorVerified = p.creatorVerified !== undefined ? p.creatorVerified : (author.verified ?? true);
+      const contentType = p.contentType || p.type || 'reel';
+      const title = p.title || p.caption || 'Local Short';
+      const description = p.description || p.caption || '';
+      const mediaThumbnail = p.mediaThumbnail || p.thumbnailUrl || undefined;
+
+      return {
+        ...p,
+        creatorId: p.creatorId || p.userId || author.id || 'usr_local_creator',
+        creatorName,
+        creatorHandle,
+        creatorAvatar,
+        creatorVerified,
+        contentType,
+        type: contentType,
+        classification: p.classification || 'organic',
+        title,
+        description,
+        mediaThumbnail,
+        thumbnailUrl: mediaThumbnail,
+        stats: p.stats || {
+          likes: p.likesCount || 1,
+          comments: p.commentsCount || 0,
+          shares: p.sharesCount || 0,
+          saves: p.savesCount || 0,
+          views: 1
+        },
+        moderation: p.moderation || { status: 'approved' }
+      } as Post;
+    });
   } catch {
     return [];
   }

@@ -244,3 +244,4 @@ export const PriceTagEditor: React.FC<PriceTagEditorProps> = ({
     </div>
   );
 };
+

@@ -64,7 +64,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
 
       if (videoElementRef.current) {
         videoElementRef.current.srcObject = stream;
-        videoElementRef.current.play().catch(() => {});
+        videoElementRef.current.play().catch(() => { });
       }
 
       // Check for torch/flashlight capability
@@ -250,11 +250,10 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
               <button
                 key={d}
                 onClick={() => setMaxDurationSec(d)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                  maxDurationSec === d
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${maxDurationSec === d
                     ? 'bg-amber-500 text-slate-950 shadow'
                     : 'text-white/70 hover:text-white'
-                }`}
+                  }`}
               >
                 {d}s
               </button>
@@ -267,9 +266,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
           {hasTorch && recordingState !== 'review' && (
             <button
               onClick={toggleTorch}
-              className={`p-2 rounded-full backdrop-blur-md transition-colors ${
-                isTorchOn ? 'bg-amber-500 text-slate-950' : 'bg-black/40 text-white'
-              }`}
+              className={`p-2 rounded-full backdrop-blur-md transition-colors ${isTorchOn ? 'bg-amber-500 text-slate-950' : 'bg-black/40 text-white'
+                }`}
             >
               <Zap className="w-5 h-5" />
             </button>
@@ -404,3 +402,4 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
     </div>
   );
 };
+

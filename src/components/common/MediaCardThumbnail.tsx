@@ -41,7 +41,8 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
   alt = 'Media preview',
   className = 'w-full h-full object-cover',
   gradient = 'linear-gradient(135deg, #1e293b, #0f172a)',
-  showPlayBadge = false
+  showPlayBadge = false,
+  ...rest
 }) => {
   const [imgError, setImgError] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -49,11 +50,13 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const attemptCount = useRef<number>(0);
 
+  const effectiveThumbnailUrl = thumbnailUrl || (rest as any).mediaThumbnail || null;
+
   // Check if existing thumbnail is a black dummy thumbnail
   const isBlackThumb = Boolean(
-    thumbnailUrl &&
-    thumbnailUrl.length < 1500 &&
-    thumbnailUrl.includes('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+    effectiveThumbnailUrl &&
+    effectiveThumbnailUrl.length < 1500 &&
+    effectiveThumbnailUrl.includes('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
   );
 
   // Reset error states when props change
@@ -62,10 +65,10 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
     setVideoError(false);
     setCapturedThumbnail(null);
     attemptCount.current = 0;
-  }, [thumbnailUrl, mediaUrl]);
+  }, [effectiveThumbnailUrl, mediaUrl]);
 
   const hasValidThumbnail = Boolean(
-    (!isBlackThumb && thumbnailUrl && thumbnailUrl.trim().length > 0 && !imgError) ||
+    (!isBlackThumb && effectiveThumbnailUrl && effectiveThumbnailUrl.trim().length > 0 && !imgError) ||
     capturedThumbnail
   );
 
@@ -75,7 +78,9 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
       mediaUrl.endsWith('.webm') ||
       mediaUrl.includes('/videos/') ||
       mediaUrl.includes('/videos_original/') ||
-      mediaUrl.startsWith('blob:'))
+      mediaUrl.startsWith('blob:') ||
+      mediaUrl.includes('.mp4?') ||
+      mediaUrl.includes('.webm?'))
   );
 
   // Auto-capture video frame to canvas on loadeddata and persist to backend
@@ -107,7 +112,7 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
             setCapturedThumbnail(dataUrl);
 
             // Persist to server if postId is known and has no server thumbnail or had black thumbnail
-            if (postId && (isBlackThumb || !thumbnailUrl || thumbnailUrl.trim().length === 0)) {
+            if (postId && (isBlackThumb || !effectiveThumbnailUrl || effectiveThumbnailUrl.trim().length === 0)) {
               fetch(`/api/posts/${postId}/thumbnail`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -126,7 +131,7 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
   if (hasValidThumbnail) {
     return (
       <img
-        src={capturedThumbnail || thumbnailUrl!}
+        src={capturedThumbnail || effectiveThumbnailUrl!}
         alt={alt}
         className={className}
         loading="lazy"

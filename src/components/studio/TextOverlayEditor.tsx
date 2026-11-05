@@ -275,3 +275,4 @@ export const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
     </div>
   );
 };
+

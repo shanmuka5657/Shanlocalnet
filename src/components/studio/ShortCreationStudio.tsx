@@ -277,14 +277,16 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
       // 2. Direct S3 Upload via Presigned URL
       let s3PublicUrl = project.sourceUrl;
       let mediaAssetId = `asset_${Date.now()}`;
+      const rawMime = finalVideoFile.type || 'video/mp4';
+      const cleanMime = rawMime.split(';')[0].trim().toLowerCase() || 'video/mp4';
 
       try {
         const presignRes = await fetch('/api/media/presign-upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            filename: finalVideoFile.name || 'short.mp4',
-            mimeType: finalVideoFile.type || 'video/mp4',
+            filename: finalVideoFile.name || `short_${Date.now()}.mp4`,
+            mimeType: cleanMime,
             sizeBytes: finalVideoFile.size || 1024 * 1024,
             category: 'videos_original'
           })
@@ -296,7 +298,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
             setExportProgress({ stage: 'compressing', progressPercent: 85 });
             await fetch(uploadUrl, {
               method: 'PUT',
-              headers: { 'Content-Type': finalVideoFile.type || 'video/mp4' },
+              headers: { 'Content-Type': cleanMime },
               body: finalVideoFile
             });
             s3PublicUrl = publicUrl;
@@ -309,12 +311,23 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
 
       setExportProgress({ stage: 'compressing', progressPercent: 95 });
 
-      // 3. Create Feed Post Object
+      // 3. Create Feed Post Object (Full Schema Compatible)
+      const poster = posterDataUrl || project.posterDataUrl || undefined;
+      const title = caption ? caption.slice(0, 40) : 'Local Short';
+      const description = caption || 'My new short on LocalNet #shorts';
+
       const newPost: Post = {
         id: `reel_${Date.now()}`,
-        userId: user?.id || 'usr_local_creator',
+        creatorId: user?.id || 'current_user_1',
+        creatorName: user?.name || 'Local Creator',
+        creatorHandle: user?.handle || '@creator',
+        creatorAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
+        creatorVerified: true,
+        contentType: 'reel',
+        type: 'reel' as any,
+        userId: user?.id || 'current_user_1',
         author: {
-          id: user?.id || 'usr_local_creator',
+          id: user?.id || 'current_user_1',
           name: user?.name || 'Local Creator',
           handle: user?.handle || '@creator',
           avatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
@@ -322,18 +335,23 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
           state: viewerLocation.stateName || 'Andhra Pradesh',
           country: 'India',
           verified: true
-        },
-        type: 'reel',
+        } as any,
+        classification: 'organic',
+        title,
+        description,
+        caption: description as any,
+        mediaAssetId,
         mediaUrl: s3PublicUrl,
-        thumbnailUrl: posterDataUrl || project.posterDataUrl || undefined,
+        mediaThumbnail: poster,
+        thumbnailUrl: poster as any,
+        mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: '9:16',
-        videoDurationSeconds: project.duration,
-        caption: caption || 'My new short on LocalNet #shorts',
-        tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
+        videoDurationSeconds: project.duration || 15,
         publishingLocation: {
           latitude: viewerLocation.coords.latitude,
           longitude: viewerLocation.coords.longitude,
           cityName: viewerLocation.cityName,
+          state: viewerLocation.stateName || 'Andhra Pradesh',
           country: 'India',
           isVerified: viewerLocation.isVerified,
           publishedAt: new Date().toISOString()
@@ -343,14 +361,56 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
           scope,
           maxRadiusKm: scope === 'worldwide' ? null : scope === '40km' ? 40 : 10
         },
-        likesCount: 1,
-        commentsCount: 0,
-        sharesCount: 0,
-        savesCount: 0,
+        tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
+        stats: {
+          likes: 1,
+          comments: 0,
+          shares: 0,
+          saves: 0,
+          views: 1
+        },
+        likesCount: 1 as any,
+        commentsCount: 0 as any,
+        sharesCount: 0 as any,
+        savesCount: 0 as any,
+        hasLiked: false,
+        hasSaved: false,
+        moderation: { status: 'approved' },
         createdAt: new Date().toISOString()
       };
 
-      // 4. Save to Local Feed Storage & Notify Parent
+      // 4. Persist to Backend API for Laptop & Cross-Device Sync
+      try {
+        const createRes = await fetch('/api/posts/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: newPost.title,
+            description: newPost.description,
+            mediaAssetId: newPost.mediaAssetId,
+            mediaUrl: newPost.mediaUrl,
+            mediaThumbnail: newPost.mediaThumbnail,
+            contentType: 'reel',
+            classification: 'organic',
+            scope: newPost.audienceDistribution.scope,
+            radiusKm: newPost.audienceDistribution.maxRadiusKm,
+            aspectRatio: '9:16',
+            videoDurationSeconds: newPost.videoDurationSeconds,
+            publishingLocation: newPost.publishingLocation,
+            tags: newPost.tags
+          })
+        });
+        if (createRes.ok) {
+          const createData = await createRes.json();
+          if (createData.post?.id) {
+            newPost.id = createData.post.id;
+          }
+        }
+      } catch (err) {
+        console.warn('Backend post creation sync skipped, saved locally:', err);
+      }
+
+      // 5. Save to Local Feed Storage & Notify Parent
       saveStoredUserPost(newPost);
       onPostPublished(newPost);
 
@@ -882,3 +942,4 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
     </div>
   );
 };
+
