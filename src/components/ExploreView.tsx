@@ -66,22 +66,22 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto px-2.5 sm:px-4 py-3 sm:py-6 space-y-5 sm:space-y-8">
-      
+
       {/* City Hero & Geospatial Radar */}
       <div className="w-full bg-gradient-to-br from-amber-600 via-amber-700 to-slate-900 rounded-2xl sm:rounded-3xl p-4 sm:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-        
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
           <div className="space-y-1 sm:space-y-2">
             <div className="flex items-center gap-2 text-amber-200 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
               <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin-slow" />
               <span>Geospatial Radar Discovery</span>
             </div>
-            
+
             <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">
               Exploring {viewerLocation.cityName}
             </h1>
-            
+
             <p className="text-xs sm:text-sm text-amber-100/80 max-w-lg leading-relaxed">
               Discover verified local businesses, trending community media, and nearby creators within your selected radius.
             </p>
@@ -116,11 +116,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               <button
                 key={r}
                 onClick={() => setSelectedRadiusKm(r)}
-                className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  selectedRadiusKm === r
+                className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${selectedRadiusKm === r
                     ? 'bg-amber-400 text-slate-950 shadow-sm font-bold'
                     : 'bg-white/10 hover:bg-white/20 text-white'
-                }`}
+                  }`}
               >
                 {r}km
               </button>

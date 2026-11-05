@@ -136,6 +136,8 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
   }
 
   // Strategy 2: Native HTML5 video frame (renders exact video frame at 1.5s past warmup)
+  // NOTE: Never use crossOrigin="anonymous" on raw S3 video streams because without CORS headers,
+  // crossOrigin causes the browser to block media display completely.
   if (mediaUrl && isVideoSource && !videoError) {
     return (
       <div className="relative w-full h-full overflow-hidden bg-slate-950">
@@ -145,7 +147,6 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
           preload="metadata"
           muted
           playsInline
-          crossOrigin="anonymous"
           className={className}
           onLoadedData={handleVideoLoadedData}
           onSeeked={handleVideoLoadedData}

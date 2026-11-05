@@ -83,7 +83,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto px-2.5 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6 min-w-0">
-      
+
       {/* Profile Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 md:p-8 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6">
         <div className="relative shrink-0">
@@ -171,11 +171,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl overflow-x-auto no-scrollbar shadow-inner">
         <button
           onClick={() => setActiveTab('posts')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'posts'
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${activeTab === 'posts'
               ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white font-bold'
               : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          }`}
+            }`}
         >
           <Grid className="w-4 h-4" />
           <span>My Posts ({myPosts.length})</span>
@@ -183,11 +182,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <button
           onClick={() => setActiveTab('creator_studio')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'creator_studio'
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${activeTab === 'creator_studio'
               ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white font-bold'
               : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          }`}
+            }`}
         >
           <BarChart3 className="w-4 h-4 text-amber-500" />
           <span>Creator Studio</span>
@@ -195,11 +193,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <button
           onClick={() => setActiveTab('roles')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'roles'
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${activeTab === 'roles'
               ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white font-bold'
               : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          }`}
+            }`}
         >
           <Settings className="w-4 h-4" />
           <span>Multi-Role Switcher</span>
@@ -210,11 +207,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             setActiveTab('admin_audit');
             fetchAuditLogs();
           }}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'admin_audit'
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${activeTab === 'admin_audit'
               ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white font-bold'
               : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          }`}
+            }`}
         >
           <ShieldAlert className="w-4 h-4 text-indigo-500" />
           <span>Geo-Policy Audit Logs</span>
@@ -356,11 +352,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               return (
                 <div
                   key={item.role}
-                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${
-                    isActive
+                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${isActive
                       ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/30 ring-1 ring-amber-500 shadow-sm'
                       : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40'
-                  }`}
+                    }`}
                 >
                   <div>
                     <div className="flex items-center justify-between">
@@ -383,11 +378,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                   <button
                     onClick={() => setActiveRole(item.role)}
-                    className={`w-full py-1.5 text-xs font-bold rounded-xl transition-colors ${
-                      isActive
+                    className={`w-full py-1.5 text-xs font-bold rounded-xl transition-colors ${isActive
                         ? 'bg-amber-600 text-white'
                         : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500'
-                    }`}
+                      }`}
                   >
                     {isActive ? 'Current Active Identity' : 'Switch to this Role'}
                   </button>

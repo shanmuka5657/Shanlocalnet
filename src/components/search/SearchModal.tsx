@@ -83,7 +83,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       if (stored) {
         setRecentSearches(JSON.parse(stored));
       }
-    } catch {}
+    } catch { }
   }, []);
 
   // Auto-focus input when modal opens
@@ -117,7 +117,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       const updated = [trimmed, ...recentSearches.filter(q => q.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
       setRecentSearches(updated);
       localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-    } catch {}
+    } catch { }
   };
 
   const removeRecentSearch = (itemToRemove: string, e: React.MouseEvent) => {
@@ -126,14 +126,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     setRecentSearches(updated);
     try {
       localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-    } catch {}
+    } catch { }
   };
 
   const clearAllRecent = () => {
     setRecentSearches([]);
     try {
       localStorage.removeItem(RECENT_SEARCHES_KEY);
-    } catch {}
+    } catch { }
   };
 
   // Keyboard shortcut listener (Escape to close)
@@ -258,7 +258,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     filteredLocalResults.matchedCreators.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/95 backdrop-blur-xl text-white overflow-hidden animate-fade-in safe-area-top safe-area-bottom">
+    <div className="fixed inset-0 w-screen h-screen z-50 flex flex-col bg-slate-900 text-white overflow-hidden animate-fade-in safe-area-top safe-area-bottom">
 
       {/* Top Header Bar with Search Input */}
       <div className="w-full max-w-4xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 pb-2 border-b border-slate-800">
@@ -315,11 +315,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     startListening();
                   }
                 }}
-                className={`absolute right-2.5 p-1.5 sm:p-2 rounded-xl transition-all ${
-                  isListening
+                className={`absolute right-2.5 p-1.5 sm:p-2 rounded-xl transition-all ${isListening
                     ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-500/50'
                     : 'text-slate-400 hover:text-amber-400 hover:bg-slate-700'
-                }`}
+                  }`}
                 title={isListening ? 'Listening... tap to stop' : 'Voice Search (Telugu / Hindi / English)'}
               >
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -356,43 +355,39 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2 mt-3 overflow-x-auto no-scrollbar pb-1 text-xs sm:text-sm">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${
-                activeTab === 'all'
+              className={`px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${activeTab === 'all'
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
+                }`}
             >
               All Results
             </button>
             <button
               onClick={() => setActiveTab('videos')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${
-                activeTab === 'videos'
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${activeTab === 'videos'
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
+                }`}
             >
               <Film className="w-3.5 h-3.5" />
               <span>Reels & Videos</span>
             </button>
             <button
               onClick={() => setActiveTab('nearby')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${
-                activeTab === 'nearby'
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${activeTab === 'nearby'
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
+                }`}
             >
               <Store className="w-3.5 h-3.5" />
               <span>Shops (≤ 40km)</span>
             </button>
             <button
               onClick={() => setActiveTab('people')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${
-                activeTab === 'people'
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 ${activeTab === 'people'
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
+                }`}
             >
               <User className="w-3.5 h-3.5" />
               <span>Creators</span>
@@ -411,11 +406,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               <button
                 key={r}
                 onClick={() => setDistanceFilterKm(r)}
-                className={`px-2 py-0.5 rounded-lg font-medium transition-colors ${
-                  distanceFilterKm === r
+                className={`px-2 py-0.5 rounded-lg font-medium transition-colors ${distanceFilterKm === r
                     ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
                     : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
+                  }`}
               >
                 ≤ {r} km
               </button>

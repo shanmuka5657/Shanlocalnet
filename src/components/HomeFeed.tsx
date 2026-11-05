@@ -476,8 +476,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               <div
                 key={item.reel.id}
                 onClick={() => onOpenReels(idx)}
-                onMouseEnter={() => {}}
-                onMouseLeave={() => {}}
+                onMouseEnter={() => { }}
+                onMouseLeave={() => { }}
                 className="group relative flex-shrink-0 w-28 sm:w-32 aspect-[9/16] rounded-xl overflow-hidden bg-slate-950 cursor-pointer snap-start shadow-md hover:scale-[1.02] active:scale-95 transition-all"
               >
                 {/* Media Preview (Thumbnail Image or Auto-Rendered Video Screen Frame) */}
@@ -784,8 +784,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                           <div
                             key={c.id}
                             className={`p-2.5 rounded-xl transition-colors ${c.replyTo
-                                ? 'ml-6 bg-slate-50/70 dark:bg-slate-800/40 border-l-2 border-amber-500'
-                                : 'bg-slate-50 dark:bg-slate-800/70'
+                              ? 'ml-6 bg-slate-50/70 dark:bg-slate-800/40 border-l-2 border-amber-500'
+                              : 'bg-slate-50 dark:bg-slate-800/70'
                               }`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -807,8 +807,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                               <button
                                 onClick={() => toggleCommentLike(post.id, c.id)}
                                 className={`flex items-center gap-1 text-[11px] font-semibold transition-transform active:scale-90 ${c.hasLiked
-                                    ? 'text-rose-500'
-                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                                  ? 'text-rose-500'
+                                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                                   }`}
                                 title="Like comment"
                               >
