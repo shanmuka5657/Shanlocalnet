@@ -60,7 +60,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
       <div className="w-full max-w-7xl mx-auto px-2.5 sm:px-4 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-1.5 sm:gap-4">
-        
+
         {/* Left Zone: Brand Wordmark + Location Pill */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink">
           <button
@@ -98,11 +98,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               <button
                 key={link.id}
                 onClick={() => onSelectTab(link.id)}
-                className={`whitespace-nowrap shrink-0 transition-colors py-1 relative ${
-                  isActive
+                className={`whitespace-nowrap shrink-0 transition-colors py-1 relative ${isActive
                     ? 'text-slate-900 dark:text-white font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 {link.label}
                 {isActive && (
@@ -115,7 +114,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 
         {/* Right Zone: Controls (Responsive across all screens) */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          
+
           {/* Desktop-only: Language Dropdown */}
           <div className="hidden lg:relative lg:block group">
             <button
@@ -151,11 +150,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           {/* Desktop-only: Lab Trigger */}
           <button
             onClick={() => onSelectTab('lab')}
-            className={`hidden md:block p-2 rounded-xl text-xs font-medium transition-colors border ${
-              currentTab === 'lab'
+            className={`hidden md:block p-2 rounded-xl text-xs font-medium transition-colors border ${currentTab === 'lab'
                 ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
                 : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
+              }`}
             title="Distribution Engine Lab"
           >
             <FlaskConical className="w-4 h-4" />
@@ -237,11 +235,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   onSelectLanguage('en');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`py-1 text-xs font-semibold rounded-lg border ${
-                  language === 'en'
+                className={`py-1 text-xs font-semibold rounded-lg border ${language === 'en'
                     ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
+                  }`}
               >
                 English
               </button>
@@ -250,11 +247,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   onSelectLanguage('te');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`py-1 text-xs font-semibold rounded-lg border ${
-                  language === 'te'
+                className={`py-1 text-xs font-semibold rounded-lg border ${language === 'te'
                     ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
+                  }`}
               >
                 తెలుగు
               </button>
@@ -263,11 +259,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   onSelectLanguage('hi');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`py-1 text-xs font-semibold rounded-lg border ${
-                  language === 'hi'
+                className={`py-1 text-xs font-semibold rounded-lg border ${language === 'hi'
                     ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
+                  }`}
               >
                 हिन्दी
               </button>

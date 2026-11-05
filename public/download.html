@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,12 +14,14 @@
       --text: #f8fafc;
       --text-muted: #94a3b8;
     }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
+
     body {
       background: var(--bg);
       color: var(--text);
@@ -29,6 +32,7 @@
       justify-content: center;
       padding: 20px;
     }
+
     .card {
       background: var(--card-bg);
       border-radius: 24px;
@@ -39,6 +43,7 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
       text-align: center;
     }
+
     .badge {
       display: inline-block;
       padding: 6px 14px;
@@ -51,6 +56,7 @@
       margin-bottom: 16px;
       border: 1px solid rgba(245, 158, 11, 0.3);
     }
+
     .app-icon {
       width: 88px;
       height: 88px;
@@ -62,22 +68,26 @@
       justify-content: center;
       box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
     }
+
     .app-icon svg {
       width: 48px;
       height: 48px;
       fill: #ffffff;
     }
+
     h1 {
       font-size: 24px;
       font-weight: 700;
       margin-bottom: 8px;
     }
+
     p.desc {
       font-size: 14px;
       color: var(--text-muted);
       margin-bottom: 24px;
       line-height: 1.5;
     }
+
     .btn-download {
       display: flex;
       align-items: center;
@@ -95,13 +105,16 @@
       transition: transform 0.15s ease, filter 0.15s ease;
       cursor: pointer;
     }
+
     .btn-download:hover {
       filter: brightness(1.08);
       transform: translateY(-2px);
     }
+
     .btn-download:active {
       transform: translateY(1px);
     }
+
     .specs {
       margin-top: 24px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -111,11 +124,13 @@
       gap: 12px;
       text-align: left;
     }
+
     .spec-item {
       background: rgba(15, 23, 42, 0.6);
       padding: 10px 14px;
       border-radius: 12px;
     }
+
     .spec-label {
       font-size: 11px;
       color: var(--text-muted);
@@ -123,11 +138,13 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+
     .spec-val {
       font-size: 13px;
       font-weight: 600;
       color: var(--text);
     }
+
     .instructions {
       margin-top: 20px;
       padding: 14px;
@@ -139,24 +156,29 @@
       line-height: 1.5;
       text-align: left;
     }
+
     .instructions strong {
       color: var(--primary);
     }
   </style>
 </head>
+
 <body>
   <div class="card">
     <div class="badge">OFFICIAL RELEASE</div>
     <div class="app-icon">
       <svg viewBox="0 0 24 24">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        <path
+          d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
       </svg>
     </div>
     <h1>LocalNet for Android</h1>
-    <p class="desc">Hyperlocal 40km Content & Social Network with native camera capture, GPS verification, and edge-to-edge UI.</p>
-    
+    <p class="desc">Hyperlocal 40km Content & Social Network with native camera capture, GPS verification, and
+      edge-to-edge UI.</p>
+
     <a href="/downloads/LocalNet.apk" download="LocalNet.apk" class="btn-download">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
         <polyline points="7 10 12 15 17 10"></polyline>
         <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -191,5 +213,5 @@
     </div>
   </div>
 </body>
-</html>
 
+</html>
