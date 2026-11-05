@@ -293,16 +293,30 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
         });
 
         if (presignRes.ok) {
-          const { uploadUrl, publicUrl, mediaAssetId: assetId } = await presignRes.json();
+          const { uploadUrl, publicUrl, mediaAssetId: assetId, key } = await presignRes.json();
           if (uploadUrl) {
             setExportProgress({ stage: 'compressing', progressPercent: 85 });
-            await fetch(uploadUrl, {
+            const s3PutRes = await fetch(uploadUrl, {
               method: 'PUT',
               headers: { 'Content-Type': cleanMime },
               body: finalVideoFile
             });
-            s3PublicUrl = publicUrl;
-            mediaAssetId = assetId;
+            if (s3PutRes.ok) {
+              s3PublicUrl = publicUrl;
+              mediaAssetId = assetId;
+              // Confirm upload in backend repository
+              try {
+                await fetch('/api/media/confirm', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    mediaAssetId: assetId,
+                    key,
+                    durationSeconds: project.duration
+                  })
+                });
+              } catch {}
+            }
           }
         }
       } catch (err) {
@@ -339,10 +353,38 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
         }
       }
 
+      // Strict validation: Never publish with a temporary in-memory blob URL
+      if (!s3PublicUrl || s3PublicUrl.startsWith('blob:')) {
+        throw new Error('Video upload to cloud storage failed. Please check your connection and try again.');
+      }
+
       setExportProgress({ stage: 'compressing', progressPercent: 95 });
 
       // 3. Create Feed Post Object (Full Schema Compatible)
-      const poster = posterDataUrl || project.posterDataUrl || undefined;
+      let poster = posterDataUrl || project.posterDataUrl || undefined;
+
+      // Ensure poster thumbnail is compressed to < 40KB for ultra-fast loading across devices
+      if (poster && poster.startsWith('data:image')) {
+        try {
+          const img = new Image();
+          img.src = poster;
+          await new Promise((res, rej) => {
+            img.onload = res;
+            img.onerror = rej;
+          });
+          const canvas = document.createElement('canvas');
+          const maxW = 480;
+          const targetW = Math.min(img.naturalWidth || maxW, maxW);
+          const targetH = Math.round((targetW * (img.naturalHeight || 854)) / (img.naturalWidth || 480));
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+            poster = canvas.toDataURL('image/jpeg', 0.8);
+          }
+        } catch {}
+      }
       const title = caption ? caption.slice(0, 40) : 'Local Short';
       const description = caption || 'My new short on LocalNet #shorts';
 
@@ -435,9 +477,14 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
           if (createData.post?.id) {
             newPost.id = createData.post.id;
           }
+        } else {
+          const errBody = await createRes.text();
+          console.error('[Short Studio] Backend post creation error:', createRes.status, errBody);
+          throw new Error(`Failed to save post to shared cloud database (HTTP ${createRes.status}).`);
         }
-      } catch (err) {
-        console.warn('Backend post creation sync skipped, saved locally:', err);
+      } catch (err: any) {
+        console.error('[Short Studio] Publishing error:', err);
+        throw err;
       }
 
       // 5. Save to Local Feed Storage & Notify Parent
