@@ -48,6 +48,7 @@ interface ReelsViewProps {
   reels: { reel: Post; eligibility: EligibilityResult }[];
   initialIndex?: number;
   onOpenCreate: () => void;
+  onOpenShortStudio?: () => void;
   onClose: () => void;
 }
 
@@ -55,6 +56,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   reels,
   initialIndex = 0,
   onOpenCreate,
+  onOpenShortStudio,
   onClose
 }) => {
   const { viewerLocation } = useLocation();
@@ -674,9 +676,9 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
           {/* Create Shortcut */}
           <button
-            onClick={onOpenCreate}
+            onClick={onOpenShortStudio || onOpenCreate}
             className="flex flex-col items-center gap-0.5 group active:scale-90 transition-transform"
-            aria-label="Create reel"
+            aria-label="Create short video"
           >
             <div className="p-2.5 rounded-full bg-amber-500 text-slate-950 font-black shadow-lg">
               <Plus className="w-5 h-5 stroke-[2.5]" />

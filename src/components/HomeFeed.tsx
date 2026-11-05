@@ -65,6 +65,7 @@ interface HomeFeedProps {
   onOpenCreate: () => void;
   onOpenLocationModal: () => void;
   onOpenReels: (index?: number) => void;
+  onOpenShortStudio?: () => void;
   language: SupportedLanguage;
   onRefreshFeed?: () => Promise<void> | void;
 }
@@ -78,6 +79,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onOpenCreate,
   onOpenLocationModal,
   onOpenReels,
+  onOpenShortStudio,
   language,
   onRefreshFeed
 }) => {
@@ -463,15 +465,40 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => onOpenReels(0)}
-              className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5"
-            >
-              Watch All →
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onOpenShortStudio || onOpenCreate}
+                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-md flex items-center gap-1 active:scale-95 transition-all"
+                title="Create a 9:16 Short Video"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>+ Create Short</span>
+              </button>
+
+              <button
+                onClick={() => onOpenReels(0)}
+                className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5"
+              >
+                Watch All →
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none snap-x snap-mandatory">
+            {/* 1. Dedicated Premier "Create Short" Studio Card */}
+            <div
+              onClick={onOpenShortStudio || onOpenCreate}
+              className="group relative flex-shrink-0 w-28 sm:w-32 aspect-[9/16] rounded-xl overflow-hidden bg-gradient-to-br from-amber-500/20 via-slate-900 to-slate-950 border-2 border-dashed border-amber-500/60 hover:border-amber-400 cursor-pointer snap-start shadow-md flex flex-col items-center justify-center gap-2 p-2 text-center transition-all hover:scale-[1.02] active:scale-95"
+            >
+              <div className="w-10 h-10 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <Plus className="w-6 h-6 stroke-[3]" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-black text-amber-400 uppercase tracking-tight">Create Short</span>
+                <span className="text-[9px] text-slate-400 leading-tight mt-0.5">Camera, Emojis, FX & Offers</span>
+              </div>
+            </div>
             {reels.map((item, idx) => (
               <div
                 key={item.reel.id}

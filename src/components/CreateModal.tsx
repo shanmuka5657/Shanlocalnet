@@ -26,12 +26,14 @@ interface CreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPostCreated: (createdPost?: Post) => void;
+  onOpenShortStudio?: () => void;
 }
 
 export const CreateModal: React.FC<CreateModalProps> = ({
   isOpen,
   onClose,
-  onPostCreated
+  onPostCreated,
+  onOpenShortStudio
 }) => {
   const { viewerLocation } = useLocation();
 
@@ -434,6 +436,29 @@ export const CreateModal: React.FC<CreateModalProps> = ({
             {/* Media Uploader Section */}
             {contentType !== 'text' ? (
               <>
+              {contentType === 'reel' && onOpenShortStudio && (
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent border border-amber-500/40 flex items-center justify-between gap-3 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">Full Short Creation Studio</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Record, draw emojis, insert pictures, price tags & FX</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenShortStudio();
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shrink-0 active:scale-95 transition-transform"
+                  >
+                    Open Studio
+                  </button>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {contentType === 'reel' ? 'Upload Reel Video (MP4 / WebM)' : 'Upload Photo (JPEG / PNG / WebP)'}

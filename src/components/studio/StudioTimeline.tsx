@@ -1,0 +1,224 @@
+import React, { useRef } from 'react';
+import { VideoOverlay } from './types.ts';
+import {
+  Play,
+  Pause,
+  Trash2,
+  Copy,
+  Scissors,
+  Layers,
+  Sparkles,
+  Tag,
+  Type,
+  Image as ImageIcon
+} from 'lucide-react';
+
+interface StudioTimelineProps {
+  duration: number;
+  currentTime: number;
+  onSeek: (time: number) => void;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+  trimStart: number;
+  trimEnd: number;
+  onUpdateTrim: (start: number, end: number) => void;
+  overlays: VideoOverlay[];
+  selectedOverlayId: string | null;
+  onSelectOverlay: (id: string | null) => void;
+  onUpdateOverlay: (id: string, updates: Partial<VideoOverlay>) => void;
+  onDeleteOverlay: (id: string) => void;
+  onDuplicateOverlay: (id: string) => void;
+}
+
+export const StudioTimeline: React.FC<StudioTimelineProps> = ({
+  duration,
+  currentTime,
+  onSeek,
+  isPlaying,
+  onTogglePlay,
+  trimStart,
+  trimEnd,
+  onUpdateTrim,
+  overlays,
+  selectedOverlayId,
+  onSelectOverlay,
+  onUpdateOverlay,
+  onDeleteOverlay,
+  onDuplicateOverlay
+}) => {
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+
+  const safeDuration = Math.max(0.1, duration);
+  const progressPercent = Math.min(100, Math.max(0, (currentTime / safeDuration) * 100));
+
+  // Timeline click to seek
+  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!timelineRef.current) return;
+    const rect = timelineRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const targetPercent = Math.max(0, Math.min(1, clickX / rect.width));
+    onSeek(targetPercent * safeDuration);
+  };
+
+  const getOverlayColor = (type: string) => {
+    switch (type) {
+      case 'text':
+        return 'bg-cyan-500/80 border-cyan-400 text-cyan-950';
+      case 'image':
+        return 'bg-emerald-500/80 border-emerald-400 text-emerald-950';
+      case 'emoji':
+      case 'sticker':
+        return 'bg-amber-500/80 border-amber-400 text-amber-950';
+      case 'price':
+        return 'bg-yellow-400 border-yellow-300 text-slate-950 font-black';
+      case 'merchant':
+      case 'coupon':
+        return 'bg-rose-500/80 border-rose-400 text-white';
+      default:
+        return 'bg-indigo-500/80 border-indigo-400 text-white';
+    }
+  };
+
+  return (
+    <div className="w-full bg-slate-950/90 border-t border-slate-800 p-2 sm:p-3 flex flex-col gap-2 select-none">
+      {/* Timeline Controls Header */}
+      <div className="flex items-center justify-between text-xs font-semibold px-1">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onTogglePlay}
+            className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow transition-colors"
+          >
+            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+          </button>
+          <div className="font-mono text-white text-xs">
+            <span className="text-amber-400">{currentTime.toFixed(1)}s</span>
+            <span className="text-slate-500"> / {safeDuration.toFixed(1)}s</span>
+          </div>
+        </div>
+
+        {/* Selected Overlay Actions */}
+        {selectedOverlayId && (
+          <div className="flex items-center gap-1.5 animate-in fade-in">
+            <span className="text-[11px] text-slate-400 truncate max-w-[100px]">
+              {overlays.find(o => o.id === selectedOverlayId)?.label || 'Layer'}
+            </span>
+            <button
+              type="button"
+              onClick={() => onDuplicateOverlay(selectedOverlayId)}
+              className="p-1 rounded bg-slate-800 text-slate-300 hover:text-white"
+              title="Duplicate layer"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDeleteOverlay(selectedOverlayId)}
+              className="p-1 rounded bg-red-950/60 text-red-400 hover:text-red-300"
+              title="Delete layer (leaves video intact)"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Main Interactive Timeline Ruler & Playhead */}
+      <div
+        ref={timelineRef}
+        onClick={handleTimelineClick}
+        className="relative w-full h-8 bg-slate-900 rounded-lg cursor-pointer overflow-hidden border border-slate-800"
+      >
+        {/* Video Filmstrip Base */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 opacity-60" />
+
+        {/* Trimming Active Region */}
+        <div
+          style={{
+            left: `${(trimStart / safeDuration) * 100}%`,
+            width: `${((trimEnd - trimStart) / safeDuration) * 100}%`
+          }}
+          className="absolute top-0 bottom-0 bg-amber-500/10 border-x-2 border-amber-400"
+        />
+
+        {/* Playhead Vertical Line */}
+        <div
+          style={{ left: `${progressPercent}%` }}
+          className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-30 pointer-events-none"
+        >
+          <div className="absolute -top-1 -left-1.5 w-3.5 h-3.5 bg-amber-400 rounded-full shadow-lg" />
+        </div>
+
+        {/* Time Markers */}
+        <div className="absolute inset-0 flex justify-between px-2 items-center text-[9px] text-slate-500 font-mono pointer-events-none">
+          <span>0s</span>
+          <span>{(safeDuration * 0.25).toFixed(1)}s</span>
+          <span>{(safeDuration * 0.5).toFixed(1)}s</span>
+          <span>{(safeDuration * 0.75).toFixed(1)}s</span>
+          <span>{safeDuration.toFixed(1)}s</span>
+        </div>
+      </div>
+
+      {/* Multi-Layer Visual Tracks */}
+      <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto px-0.5">
+        {overlays.length === 0 ? (
+          <div className="text-center py-2 text-[11px] text-slate-500 italic">
+            No active overlays yet. Add Text, Emojis, Pictures, or Price Tags above.
+          </div>
+        ) : (
+          overlays.map(overlay => {
+            const isSelected = overlay.id === selectedOverlayId;
+            const startPercent = (overlay.startTime / safeDuration) * 100;
+            const widthPercent = Math.max(8, ((overlay.endTime - overlay.startTime) / safeDuration) * 100);
+
+            return (
+              <div
+                key={overlay.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectOverlay(overlay.id);
+                }}
+                className={`relative w-full h-7 rounded-md bg-slate-900/60 border transition-all cursor-pointer ${
+                  isSelected ? 'border-amber-400 ring-1 ring-amber-400/40 bg-slate-900' : 'border-slate-800/80 hover:border-slate-700'
+                }`}
+              >
+                {/* Visual Track Bar */}
+                <div
+                  style={{
+                    left: `${startPercent}%`,
+                    width: `${widthPercent}%`
+                  }}
+                  className={`absolute top-0.5 bottom-0.5 rounded px-2 flex items-center justify-between text-[10px] font-bold border truncate shadow ${getOverlayColor(
+                    overlay.type
+                  )}`}
+                >
+                  <span className="truncate">{overlay.label || overlay.type}</span>
+                  <span className="text-[8px] opacity-80 font-mono hidden sm:inline">
+                    {overlay.startTime.toFixed(1)}s - {overlay.endTime.toFixed(1)}s
+                  </span>
+                </div>
+
+                {/* Adjust Start Time Handle (When Selected) */}
+                {isSelected && (
+                  <input
+                    type="range"
+                    min="0"
+                    max={Math.max(0, overlay.endTime - 0.5)}
+                    step="0.1"
+                    value={overlay.startTime}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onUpdateOverlay(overlay.id, { startTime: Number(e.target.value) });
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-ew-resize"
+                    title="Slide to change timing"
+                  />
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+};

@@ -19,6 +19,7 @@ import { DistributionEngineLab } from './components/DistributionEngineLab.tsx';
 import { ProfileView } from './components/ProfileView.tsx';
 import { LocationModal } from './components/LocationModal.tsx';
 import { CreateModal } from './components/CreateModal.tsx';
+import { ShortCreationStudio } from './components/studio/ShortCreationStudio.tsx';
 import { NotificationsModal } from './components/NotificationsModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { SearchModal } from './components/search/SearchModal.tsx';
@@ -66,6 +67,7 @@ function LocalNetContent() {
   // Modals state
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isShortStudioOpen, setIsShortStudioOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -379,6 +381,7 @@ function LocalNetContent() {
             activeFeedTab={activeFeedTab}
             onChangeFeedTab={setActiveFeedTab}
             onOpenCreate={() => setIsCreateModalOpen(true)}
+            onOpenShortStudio={() => setIsShortStudioOpen(true)}
             onOpenLocationModal={() => setIsLocationModalOpen(true)}
             onOpenReels={(index?: number) => {
               document.querySelectorAll('video').forEach((v) => {
@@ -398,6 +401,7 @@ function LocalNetContent() {
             reels={reelsList}
             initialIndex={selectedReelIndex}
             onOpenCreate={() => setIsCreateModalOpen(true)}
+            onOpenShortStudio={() => setIsShortStudioOpen(true)}
             onClose={() => setIsFullScreenReelsOpen(false)}
           />
         )}
@@ -410,6 +414,7 @@ function LocalNetContent() {
             businesses={businesses}
             onOpenLocationModal={() => setIsLocationModalOpen(true)}
             onOpenCreate={() => setIsCreateModalOpen(true)}
+            onOpenShortStudio={() => setIsShortStudioOpen(true)}
           />
         )}
 
@@ -471,6 +476,14 @@ function LocalNetContent() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onPostCreated={handlePostCreated}
+        onOpenShortStudio={() => setIsShortStudioOpen(true)}
+      />
+
+      {/* Complete Short Video Creation Studio (Camera, Emojis, Pictures, Prices, Timeline) */}
+      <ShortCreationStudio
+        isOpen={isShortStudioOpen}
+        onClose={() => setIsShortStudioOpen(false)}
+        onPostPublished={handlePostCreated}
       />
 
       {/* Global & Hyperlocal Smart Search Modal */}
