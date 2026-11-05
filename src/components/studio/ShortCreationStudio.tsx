@@ -306,7 +306,37 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
           }
         }
       } catch (err) {
-        console.warn('Presigned S3 upload skipped, publishing with device stream URL:', err);
+        console.warn('Presigned S3 upload skipped, trying direct upload endpoint:', err);
+      }
+
+      // Ensure regional S3 endpoint format for ap-southeast-2
+      if (s3PublicUrl && s3PublicUrl.includes('.s3.amazonaws.com') && !s3PublicUrl.includes('.s3.ap-southeast-2.amazonaws.com')) {
+        s3PublicUrl = s3PublicUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com');
+      }
+
+      // Fallback: If S3 presigned upload didn't succeed and we still have a blob/local URL, use multipart /api/media/upload
+      if (!s3PublicUrl || s3PublicUrl.startsWith('blob:')) {
+        try {
+          const formData = new FormData();
+          formData.append('file', finalVideoFile);
+          formData.append('category', 'videos_original');
+          const uploadRes = await fetch('/api/media/upload', {
+            method: 'POST',
+            body: formData
+          });
+          if (uploadRes.ok) {
+            const data = await uploadRes.json();
+            if (data.publicUrl) {
+              s3PublicUrl = data.publicUrl;
+              if (s3PublicUrl.includes('.s3.amazonaws.com') && !s3PublicUrl.includes('.s3.ap-southeast-2.amazonaws.com')) {
+                s3PublicUrl = s3PublicUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com');
+              }
+              mediaAssetId = data.mediaAsset?.id || mediaAssetId;
+            }
+          }
+        } catch (e) {
+          console.warn('Multipart fallback upload failed:', e);
+        }
       }
 
       setExportProgress({ stage: 'compressing', progressPercent: 95 });

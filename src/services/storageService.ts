@@ -403,7 +403,8 @@ export class S3StorageAdapter implements IStorageAdapter {
     if (this.cloudfrontUrl) {
       return `${this.cloudfrontUrl}/${key}`;
     }
-    return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    const regionPart = this.region && this.region !== 'us-east-1' ? `.${this.region}` : '';
+    return `https://${this.bucket}.s3${regionPart}.amazonaws.com/${key}`;
   }
 }
 

@@ -209,6 +209,12 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     if (d && !isNaN(d) && isFinite(d) && d > 0) {
       setDuration(d);
     }
+    // If no poster is present, seek to 0.5s so Chrome/Safari renders the video screen instead of an empty black box
+    if (!post.mediaThumbnail && !isCurrentlyPlaying && videoRef.current.currentTime === 0) {
+      try {
+        videoRef.current.currentTime = 0.5;
+      } catch {}
+    }
   };
 
   // Play / Pause toggle
@@ -544,6 +550,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         loop
         muted={isMuted}
         playsInline
+        crossOrigin="anonymous"
         preload={isCurrentlyPlaying ? 'auto' : (post.mediaThumbnail ? 'none' : 'metadata')}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}

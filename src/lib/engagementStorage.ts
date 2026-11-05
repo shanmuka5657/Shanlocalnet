@@ -237,7 +237,14 @@ export function getStoredUserPosts(): Post[] {
     if (!raw) return [];
     const list = JSON.parse(raw);
     if (!Array.isArray(list)) return [];
-    return list.map((p: any) => {
+    // Filter out posts that stored temporary in-memory blob URLs which expire across sessions
+    const sanitizedList = list.filter((p: any) => {
+      if (p?.mediaUrl && typeof p.mediaUrl === 'string' && p.mediaUrl.startsWith('blob:')) {
+        return false;
+      }
+      return true;
+    });
+    return sanitizedList.map((p: any) => {
       const author = p.author || {};
       const creatorName = p.creatorName || author.name || 'Local Creator';
       const creatorHandle = p.creatorHandle || author.handle || '@creator';
