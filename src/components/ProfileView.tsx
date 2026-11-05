@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Post, UserRole, SupportedLanguage } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
+import { useAuth } from '../context/AuthContext.tsx';
 import { MediaCardThumbnail } from './common/MediaCardThumbnail.tsx';
 import { getTranslation } from '../lib/i18n.ts';
 import {
@@ -24,7 +25,9 @@ import {
   CheckCircle2,
   BarChart3,
   ShieldAlert,
-  Play
+  Play,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -47,6 +50,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenLab
 }) => {
   const { viewerLocation } = useLocation();
+  const { user, loginWithGoogle, logout, loading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'posts' | 'creator_studio' | 'roles' | 'admin_audit'>('posts');
   const [activeRole, setActiveRole] = useState<UserRole>('creator');
@@ -57,7 +61,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const t = (key: string) => getTranslation(language, key);
 
-  const myPosts = posts.filter(p => p.creatorId === 'creator_arjun' || p.creatorId === 'current_user');
+  const myPosts = posts.filter(p => (user && p.creatorId === user.id) || p.creatorId === 'creator_arjun' || p.creatorId === 'current_user');
 
   const rolesList: { role: UserRole; labelKey: string; icon: React.ReactNode; desc: string }[] = [
     { role: 'viewer', labelKey: 'roleViewer', icon: <User className="w-4 h-4" />, desc: 'Watch global entertainment, discover local deals, and order within 40 km.' },
@@ -88,8 +92,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 md:p-8 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6">
         <div className="relative shrink-0">
           <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80"
-            alt="Arjun Rayalaseema"
+            src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80"}
+            alt={user?.name || "User Profile"}
             referrerPolicy="no-referrer"
             className="w-20 h-20 sm:w-28 sm:h-28 rounded-full object-cover ring-4 ring-amber-500/20"
           />
@@ -103,18 +107,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div>
               <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                 <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">
-                  Arjun Rayalaseema
+                  {user?.name || "Arjun Rayalaseema"}
                 </h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                  {t(`role${activeRole.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
+                  {user ? "Google Verified" : t(`role${activeRole.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                @arjun_grooves · Publishing from {viewerLocation.cityName}
+                {user ? `${user.handle} · ${user.email}` : `@arjun_grooves · Publishing from ${viewerLocation.cityName}`}
               </p>
             </div>
 
-            <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
+            <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0 flex-wrap">
+              {user ? (
+                <button
+                  onClick={() => logout()}
+                  disabled={authLoading}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-300 rounded-xl transition-colors border border-rose-200 dark:border-rose-800"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>Sign Out</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => loginWithGoogle()}
+                  disabled={authLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-all shadow-sm active:scale-95"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
+              )}
+
               <button
                 onClick={onOpenLocationModal}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors"
@@ -134,7 +158,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 max-w-xl leading-relaxed">
-            Kurnool-based choreographer & cultural curator. Active creator with 98k+ worldwide reach, and local merchant empowering Rayalaseema weavers within 40 km.
+            {user ? (user.bio || "LocalNet verified creator. Discover 40 km verified local commerce and worldwide entertainment.") : "Kurnool-based choreographer & cultural curator. Active creator with 98k+ worldwide reach, and local merchant empowering Rayalaseema weavers within 40 km."}
           </p>
 
           {/* Stats Bar */}

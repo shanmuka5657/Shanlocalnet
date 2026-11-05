@@ -1110,9 +1110,30 @@ async function startServer() {
     }
   });
 
-  app.get('/api/user/profile', async (_req: Request, res: Response) => {
+  app.post('/api/auth/google', async (req: Request, res: Response) => {
     try {
-      const user = await usersRepo.getProfile('current_user_1');
+      const { id, email, name, avatar, language } = req.body;
+      if (!id || !email) {
+        return res.status(400).json({ error: 'Missing user id or email' });
+      }
+      const user = await usersRepo.upsertGoogleUser({
+        id,
+        email,
+        name: name || 'Local User',
+        avatar: avatar || '',
+        language: language || 'en'
+      });
+      res.json({ success: true, user });
+    } catch (err: any) {
+      console.error('[Google Auth Error]:', err);
+      res.status(500).json({ error: 'Failed to sync Google user', details: err?.message });
+    }
+  });
+
+  app.get('/api/user/profile', async (req: Request, res: Response) => {
+    try {
+      const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'current_user_1';
+      const user = await usersRepo.getProfile(userId);
       res.json({ user: user || CURRENT_USER });
     } catch (err: any) {
       console.error('[User Profile Error]:', err);
@@ -1122,8 +1143,9 @@ async function startServer() {
 
   app.post('/api/user/update-role', async (req: Request, res: Response) => {
     try {
-      const { role, language } = req.body;
-      const updatedUser = await usersRepo.updateRole('current_user_1', role, language);
+      const { role, language, userId } = req.body;
+      const targetUserId = userId || (req.headers['x-user-id'] as string) || 'current_user_1';
+      const updatedUser = await usersRepo.updateRole(targetUserId, role, language);
       res.json({ success: true, user: updatedUser });
     } catch (err: any) {
       console.error('[Update Role Error]:', err);

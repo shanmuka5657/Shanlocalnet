@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LocationProvider, useLocation } from './context/LocationContext.tsx';
+import { AuthProvider } from './context/AuthContext.tsx';
 import { TopNavigation, MainNavigationTab } from './components/TopNavigation.tsx';
 import { BottomNavBar } from './components/BottomNavBar.tsx';
 import { HomeFeed } from './components/HomeFeed.tsx';
@@ -362,6 +363,7 @@ function LocalNetContent() {
           onSelectLanguage={handleSelectLanguage}
           unreadNotificationsCount={unreadCount}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
         />
       )}
 
@@ -530,7 +532,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <LocationProvider>
-        <LocalNetContent />
+        <AuthProvider>
+          <LocalNetContent />
+        </AuthProvider>
       </LocationProvider>
     </ErrorBoundary>
   );

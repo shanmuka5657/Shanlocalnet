@@ -148,4 +148,50 @@ export class UsersRepository {
       }
     }
   }
+
+  public async upsertGoogleUser(googleUser: {
+    id: string;
+    email: string;
+    name: string;
+    avatar: string;
+    language?: SupportedLanguage;
+  }): Promise<UserProfile> {
+    const activeDbRole = 'user';
+    await this.client.query(`
+      INSERT INTO users (id, email, active_role, is_suspended)
+      VALUES ($1, $2, $3, FALSE)
+      ON CONFLICT (id) DO UPDATE
+      SET email = EXCLUDED.email, updated_at = NOW();
+    `, [googleUser.id, googleUser.email, activeDbRole]);
+
+    const baseHandle = googleUser.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 15) || 'user';
+    const handle = `@${baseHandle}_${googleUser.id.slice(0, 5)}`;
+
+    await this.client.query(`
+      INSERT INTO user_profiles (
+        user_id, handle, display_name, avatar_url, bio, preferred_language,
+        home_city, home_state, home_country, home_country_code
+      )
+      VALUES ($1, $2, $3, $4, 'LocalNet user', $5, 'Kurnool', 'Andhra Pradesh', 'India', 'IN')
+      ON CONFLICT (user_id) DO UPDATE SET
+        display_name = COALESCE(NULLIF(EXCLUDED.display_name, ''), user_profiles.display_name),
+        avatar_url = COALESCE(NULLIF(EXCLUDED.avatar_url, ''), user_profiles.avatar_url),
+        updated_at = NOW();
+    `, [
+      googleUser.id,
+      handle,
+      googleUser.name,
+      googleUser.avatar,
+      googleUser.language || 'en'
+    ]);
+
+    await this.client.query(`
+      INSERT INTO user_roles (user_id, role, status)
+      VALUES ($1, 'user', 'approved')
+      ON CONFLICT (user_id, role) DO NOTHING;
+    `, [googleUser.id]);
+
+    const profile = await this.getProfile(googleUser.id);
+    return profile!;
+  }
 }

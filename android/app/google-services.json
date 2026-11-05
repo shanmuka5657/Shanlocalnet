@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1037511833028",
+    "project_id": "studio-9503295832-7bdc9",
+    "storage_bucket": "studio-9503295832-7bdc9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1037511833028:android:4e50bad2b9a781f6cde091",
+        "android_client_info": {
+          "package_name": "com.localnet.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfsBN7fAzj4APS3KeEBZ1LfO7_DOkLhoM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

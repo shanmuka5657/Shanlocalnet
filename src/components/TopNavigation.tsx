@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation } from '../context/LocationContext.tsx';
+import { useAuth } from '../context/AuthContext.tsx';
 import { SupportedLanguage } from '../types/index.ts';
 import { getTranslation } from '../lib/i18n.ts';
 import {
@@ -16,7 +17,8 @@ import {
   X,
   Sparkles,
   Download,
-  Search
+  Search,
+  User
 } from 'lucide-react';
 
 export type MainNavigationTab = 'home' | 'explore' | 'local' | 'profile' | 'lab';
@@ -33,6 +35,7 @@ interface TopNavigationProps {
   onSelectLanguage: (lang: SupportedLanguage) => void;
   unreadNotificationsCount?: number;
   onOpenNotifications: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
@@ -46,9 +49,11 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   language,
   onSelectLanguage,
   unreadNotificationsCount = 0,
-  onOpenNotifications
+  onOpenNotifications,
+  onOpenAuth
 }) => {
   const { viewerLocation } = useLocation();
+  const { user } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const t = (key: string) => getTranslation(language, key);
@@ -230,6 +235,32 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden min-[360px]:inline">{t('navCreate')}</span>
           </button>
+
+          {/* User Profile / Google Sign-In Pill */}
+          {user ? (
+            <button
+              onClick={() => onSelectTab('profile')}
+              className="relative p-0.5 rounded-full ring-2 ring-amber-500/50 hover:ring-amber-500 transition-all shrink-0 cursor-pointer"
+              title={`Signed in as ${user.name}`}
+            >
+              <img
+                src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80'}
+                alt={user.name}
+                referrerPolicy="no-referrer"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover"
+              />
+              <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-slate-900 rounded-full" />
+            </button>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="inline-flex items-center gap-1 px-2 py-1.5 sm:px-2.5 sm:py-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-all shrink-0 cursor-pointer border border-slate-200 dark:border-slate-700"
+              title="Sign in with Google"
+            >
+              <User className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="hidden sm:inline">Sign In</span>
+            </button>
+          )}
 
           {/* Mobile Overflow Menu Button (Houses Language, Theme, and Lab) */}
           <button
