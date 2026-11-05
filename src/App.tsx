@@ -353,6 +353,7 @@ function LocalNetContent() {
               setIsFullScreenReelsOpen(true);
             }}
             language={language}
+            onRefreshFeed={loadData}
           />
         )}
 

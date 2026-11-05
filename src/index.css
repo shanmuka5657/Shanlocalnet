@@ -63,3 +63,27 @@ html, body {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Mobile-First Animations & Transitions */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.18s ease-out forwards;
+}

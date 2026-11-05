@@ -146,13 +146,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-xs animate-fade-in"
+    >
       <div
-        className="relative w-full max-w-lg bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-2xl border border-slate-200 dark:border-neutral-700 overflow-hidden flex flex-col text-slate-900 dark:text-white"
+        className="relative w-full sm:max-w-lg bg-white dark:bg-[#1f1f1f] rounded-t-3xl sm:rounded-2xl shadow-2xl border-t sm:border border-slate-200 dark:border-neutral-700 max-h-[92dvh] overflow-hidden flex flex-col text-slate-900 dark:text-white animate-slide-up sm:animate-none safe-area-bottom"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag Pill */}
+        <div className="sm:hidden w-12 h-1.5 bg-slate-400/40 dark:bg-neutral-600 rounded-full mx-auto my-2.5 shrink-0" />
+
         {/* Header (YouTube Style) */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-neutral-800">
+        <div className="flex items-center justify-between px-5 py-3 sm:py-4 border-b border-slate-100 dark:border-neutral-800">
           <h3 className="text-base sm:text-lg font-bold">Share</h3>
           <button
             onClick={onClose}

@@ -15,6 +15,7 @@ import {
   RotateCw,
   Music
 } from 'lucide-react';
+import { triggerHaptic } from '../lib/haptics.ts';
 
 interface FeedVideoPlayerProps {
   post: Post;
@@ -184,6 +185,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   // Play / Pause toggle
   const togglePlayPause = (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    triggerHaptic('light');
     if (!videoRef.current) return;
 
     if (isPreviewPlaying || isPreviewRef.current) {
@@ -355,6 +357,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       } else {
         // Double tap center -> Instagram Like Heart Animation
         if (onDoubleTapLike) {
+          triggerHaptic('doubleTap');
           const y = e.clientY - rect.top;
           setDoubleTapHeart({ x: clickX, y });
           setTimeout(() => setDoubleTapHeart(null), 800);

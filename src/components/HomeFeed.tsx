@@ -22,7 +22,14 @@ import {
   Sparkles,
   Users,
   Film,
-  FileText,  Bell,  Plus,  MoreVertical,  Eye} from 'lucide-react';
+  FileText,
+  Bell,
+  Plus,
+  MoreVertical,
+  Eye,
+  RefreshCw
+} from 'lucide-react';
+import { triggerHaptic } from '../lib/haptics.ts';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 import { FeedVideoPlayer } from './FeedVideoPlayer.tsx';
 import {
@@ -58,6 +65,7 @@ interface HomeFeedProps {
   onOpenLocationModal: () => void;
   onOpenReels: (index?: number) => void;
   language: SupportedLanguage;
+  onRefreshFeed?: () => Promise<void> | void;
 }
 
 export const HomeFeed: React.FC<HomeFeedProps> = ({
@@ -69,9 +77,65 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onOpenCreate,
   onOpenLocationModal,
   onOpenReels,
-  language
+  language,
+  onRefreshFeed
 }) => {
   const { viewerLocation } = useLocation();
+
+  // Mobile Pull-to-Refresh State
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const touchStartYRef = React.useRef(0);
+  const isPullingRef = React.useRef(false);
+  const hasVibratedPullRef = React.useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY <= 2 && !isPullRefreshing) {
+      touchStartYRef.current = e.touches[0].clientY;
+      isPullingRef.current = true;
+      hasVibratedPullRef.current = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPullingRef.current || isPullRefreshing || window.scrollY > 2) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStartYRef.current;
+    if (diff > 0) {
+      const damped = Math.min(85, Math.pow(diff, 0.82));
+      setPullDistance(damped);
+      if (damped >= 60 && !hasVibratedPullRef.current) {
+        hasVibratedPullRef.current = true;
+        triggerHaptic('medium');
+      }
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (!isPullingRef.current) return;
+    isPullingRef.current = false;
+    if (pullDistance >= 60 && !isPullRefreshing) {
+      setIsPullRefreshing(true);
+      setPullDistance(56);
+      triggerHaptic('success');
+      try {
+        if (onRefreshFeed) {
+          await onRefreshFeed();
+        } else {
+          await new Promise(r => setTimeout(r, 750));
+        }
+      } catch (err) {
+        console.warn('Feed refresh error:', err);
+      } finally {
+        setTimeout(() => {
+          setIsPullRefreshing(false);
+          setPullDistance(0);
+        }, 350);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  };
 
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>(() => getStoredLikes());
   const [postViews, setPostViews] = useState<Record<string, number>>(() => getStoredViews());
@@ -213,6 +277,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const toggleLike = async (postId: string) => {
     const current = likedPosts[postId] ?? false;
     const next = !current;
+    triggerHaptic(next ? 'medium' : 'light');
     setLikedPosts(prev => ({ ...prev, [postId]: next }));
     setStoredLike(postId, next);
     const res = await syncLikeWithServer(postId);
@@ -229,19 +294,23 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   };
 
   const toggleSave = (postId: string) => {
+    triggerHaptic('light');
     setSavedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
   };
 
   const toggleFollow = (creatorId: string) => {
+    triggerHaptic('light');
     setFollowingCreators(prev => ({ ...prev, [creatorId]: !prev[creatorId] }));
   };
 
   const handleShare = (post: Post) => {
+    triggerHaptic('light');
     setShareModalPost(post);
   };
 
   const handleAddComment = (postId: string) => {
     if (!newCommentText.trim()) return;
+    triggerHaptic('medium');
     const commentText = newCommentText.trim();
     const replyAuthor = replyingToCommentId?.author;
     const formattedText = replyingToCommentId ? `@${replyAuthor} ${commentText}` : commentText;
@@ -289,7 +358,39 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   });
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 py-3 sm:py-6 space-y-4 sm:space-y-6">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="w-full max-w-2xl mx-auto px-2 sm:px-4 py-3 sm:py-6 space-y-4 sm:space-y-6"
+    >
+      {/* Native Pull-to-Refresh Indicator */}
+      {(pullDistance > 0 || isPullRefreshing) && (
+        <div
+          className="w-full flex items-center justify-center overflow-hidden transition-all duration-200"
+          style={{ height: `${pullDistance}px` }}
+        >
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <RefreshCw
+              className={`w-4 h-4 text-amber-500 ${
+                isPullRefreshing ? 'animate-spin' : ''
+              }`}
+              style={{
+                transform: isPullRefreshing
+                  ? undefined
+                  : `rotate(${Math.min(360, pullDistance * 4.5)}deg)`
+              }}
+            />
+            <span>
+              {isPullRefreshing
+                ? 'Refreshing LocalNet...'
+                : pullDistance >= 60
+                ? 'Release to refresh'
+                : 'Pull down to refresh'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Prominent Feed / Reels / Around Me / Following Bar (Responsive on 320px, 360px, 390px, 412px & Desktop) */}
       <div className="w-full bg-white dark:bg-slate-900 rounded-2xl p-1 sm:p-1.5 border border-slate-200/80 dark:border-slate-800 shadow-sm">

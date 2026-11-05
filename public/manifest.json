@@ -1,0 +1,56 @@
+{
+  "name": "LocalNet — Global Entertainment. Local Commerce.",
+  "short_name": "LocalNet",
+  "description": "Hyperlocal verified social media and commerce platform. Global entertainment meets strictly verified 40km local commerce.",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0f19",
+  "theme_color": "#0f172a",
+  "categories": ["social", "entertainment", "shopping"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Watch Reels",
+      "short_name": "Reels",
+      "description": "Watch trending full-screen vertical reels",
+      "url": "/?tab=reels",
+      "icons": [{ "src": "/favicon.svg", "sizes": "64x64" }]
+    },
+    {
+      "name": "Create Post",
+      "short_name": "Create",
+      "description": "Upload a new reel or video post",
+      "url": "/?action=create",
+      "icons": [{ "src": "/favicon.svg", "sizes": "64x64" }]
+    },
+    {
+      "name": "Local Hub",
+      "short_name": "Local",
+      "description": "Explore 40km hyperlocal community deals and services",
+      "url": "/?tab=local",
+      "icons": [{ "src": "/favicon.svg", "sizes": "64x64" }]
+    }
+  ]
+}

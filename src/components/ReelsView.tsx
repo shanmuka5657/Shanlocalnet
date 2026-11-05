@@ -42,6 +42,7 @@ import {
 } from '../lib/engagementStorage.ts';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 import { ShareModal } from './ShareModal.tsx';
+import { triggerHaptic } from '../lib/haptics.ts';
 
 interface ReelsViewProps {
   reels: { reel: Post; eligibility: EligibilityResult }[];
@@ -227,12 +228,14 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
   const handleNext = useCallback(() => {
     if (currentIndex < reels.length - 1) {
+      triggerHaptic('light');
       setCurrentIndex(prev => prev + 1);
     }
   }, [currentIndex, reels.length]);
 
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
+      triggerHaptic('light');
       setCurrentIndex(prev => prev - 1);
     }
   }, [currentIndex]);
@@ -315,7 +318,8 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     const timeSinceLastTap = now - lastTapTime.current;
 
     if (timeSinceLastTap < 300 && activeReel) {
-      // Double tap -> Like with animated heart
+      // Double tap -> Like with animated heart & haptic
+      triggerHaptic('doubleTap');
       setLikedReels(prev => ({ ...prev, [activeReel.id]: true }));
       setStoredLike(activeReel.id, true);
       syncLikeWithServer(activeReel.id);
@@ -332,6 +336,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
       lastTapTime.current = now;
       setTimeout(() => {
         if (Date.now() - lastTapTime.current >= 280) {
+          triggerHaptic('light');
           togglePlayPause();
         }
       }, 300);
@@ -352,6 +357,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const toggleLike = async (id: string) => {
     const current = likedReels[id] ?? false;
     const next = !current;
+    triggerHaptic(next ? 'medium' : 'light');
     setLikedReels(prev => ({ ...prev, [id]: next }));
     setStoredLike(id, next);
     const res = await syncLikeWithServer(id);
@@ -368,6 +374,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   };
 
   const toggleSave = (id: string) => {
+    triggerHaptic('light');
     setSavedReels(prev => ({ ...prev, [id]: !prev[id] }));
   };
 

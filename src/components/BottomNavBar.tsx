@@ -3,6 +3,7 @@ import { MainNavigationTab } from './TopNavigation.tsx';
 import { Home, Compass, Plus, Store, User } from 'lucide-react';
 import { SupportedLanguage } from '../types/index.ts';
 import { getTranslation } from '../lib/i18n.ts';
+import { triggerHaptic } from '../lib/haptics.ts';
 
 interface BottomNavBarProps {
   currentTab: MainNavigationTab;
@@ -19,13 +20,23 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 }) => {
   const t = (key: string) => getTranslation(language, key);
 
+  const handleTabClick = (tab: MainNavigationTab) => {
+    triggerHaptic('light');
+    onSelectTab(tab);
+  };
+
+  const handleCreateClick = () => {
+    triggerHaptic('heavy');
+    onOpenCreate();
+  };
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 safe-area-bottom shadow-lg">
       <div className="w-full grid grid-cols-5 items-center h-14 sm:h-16 px-1">
         
         {/* 1. Home */}
         <button
-          onClick={() => onSelectTab('home')}
+          onClick={() => handleTabClick('home')}
           className={`w-full min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors ${
             currentTab === 'home'
               ? 'text-amber-600 dark:text-amber-400 font-bold'
@@ -41,7 +52,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
         {/* 2. Explore */}
         <button
-          onClick={() => onSelectTab('explore')}
+          onClick={() => handleTabClick('explore')}
           className={`w-full min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors ${
             currentTab === 'explore'
               ? 'text-amber-600 dark:text-amber-400 font-bold'
@@ -57,7 +68,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
         {/* 3. Create (Elevated Action trigger) */}
         <button
-          onClick={onOpenCreate}
+          onClick={handleCreateClick}
           className="w-full min-h-[44px] flex flex-col items-center justify-center py-1 group"
           aria-label={t('navCreate')}
         >
@@ -71,7 +82,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
         {/* 4. Local (Local Hub) */}
         <button
-          onClick={() => onSelectTab('local')}
+          onClick={() => handleTabClick('local')}
           className={`w-full min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors ${
             currentTab === 'local'
               ? 'text-amber-600 dark:text-amber-400 font-bold'
@@ -87,7 +98,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
         {/* 5. Profile */}
         <button
-          onClick={() => onSelectTab('profile')}
+          onClick={() => handleTabClick('profile')}
           className={`w-full min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors ${
             currentTab === 'profile'
               ? 'text-amber-600 dark:text-amber-400 font-bold'
