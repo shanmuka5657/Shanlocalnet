@@ -475,20 +475,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               <div
                 key={item.reel.id}
                 onClick={() => onOpenReels(idx)}
-                onMouseEnter={(e) => {
-                  const v = e.currentTarget.querySelector('video');
-                  if (v) {
-                    v.currentTime = 0;
-                    v.play().catch(() => { });
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  const v = e.currentTarget.querySelector('video');
-                  if (v) {
-                    v.pause();
-                    v.currentTime = 0.5;
-                  }
-                }}
+                onMouseEnter={() => {}}
+                onMouseLeave={() => {}}
                 className="group relative flex-shrink-0 w-28 sm:w-32 aspect-[9/16] rounded-xl overflow-hidden bg-slate-950 cursor-pointer snap-start shadow-md hover:scale-[1.02] active:scale-95 transition-all"
               >
                 {/* Media Preview */}
@@ -499,17 +487,12 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                ) : item.reel.mediaUrl && !item.reel.mediaUrl.endsWith('.jpg') ? (
-                  <video
-                    src={`${item.reel.mediaUrl}#t=0.5`}
-                    poster={item.reel.mediaThumbnail || undefined}
-                    preload="metadata"
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
                 ) : (
-                  <div className={`w-full h-full bg-gradient-to-br ${item.reel.mediaGradient || 'from-rose-600 to-indigo-900'} flex items-center justify-center p-2 text-center`} />
+                  <div className={`w-full h-full bg-gradient-to-br ${item.reel.mediaGradient || 'from-rose-600 via-purple-700 to-indigo-900'} flex flex-col items-center justify-center p-3 text-center`}>
+                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <Film className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
                 )}
 
                 {/* Dark Scrim */}

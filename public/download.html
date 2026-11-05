@@ -88,6 +88,19 @@
       line-height: 1.5;
     }
 
+    .device-alert {
+      display: none;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 20px;
+      text-align: left;
+      font-size: 12px;
+      color: #93c5fd;
+      line-height: 1.5;
+    }
+
     .btn-download {
       display: flex;
       align-items: center;
@@ -176,6 +189,14 @@
     <p class="desc">Hyperlocal 40km Content & Social Network with native camera capture, GPS verification, and
       edge-to-edge UI.</p>
 
+    <!-- Notice if downloading on Windows/Mac PC -->
+    <div id="deviceNotice" class="device-alert">
+      📱 <strong>Notice: Downloading on PC/Laptop?</strong><br>
+      The <code>.apk</code> file installs directly on <strong>Android phones & tablets</strong>.<br>
+      • To install directly, open <strong>shanlocalnet.vercel.app/download</strong> on your mobile Chrome browser.<br>
+      • Or if downloaded here, send the APK to your phone (via WhatsApp, USB, or Google Drive) and tap to install! (Windows cannot run APKs natively and opens them in Notepad).
+    </div>
+
     <a href="/downloads/LocalNet.apk" download="LocalNet.apk" class="btn-download">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
         stroke-linecap="round" stroke-linejoin="round">
@@ -207,11 +228,22 @@
 
     <div class="instructions">
       <strong>Installation Note:</strong><br>
-      1. Tap <em>Download APK</em> above.<br>
+      1. Open this page on your <strong>Android Phone</strong> and tap <em>Download APK</em>.<br>
       2. When prompt appears, tap <em>Open</em> or <em>Install</em>.<br>
       3. If asked, toggle <em>Allow install from this source</em>.
     </div>
   </div>
+
+  <script>
+    // Detect non-Android desktop browsers (Windows, Mac, Linux) and reveal guidance alert
+    window.addEventListener('DOMContentLoaded', function () {
+      var isAndroid = /Android/i.test(navigator.userAgent);
+      var alertBox = document.getElementById('deviceNotice');
+      if (!isAndroid && alertBox) {
+        alertBox.style.display = 'block';
+      }
+    });
+  </script>
 </body>
 
 </html>

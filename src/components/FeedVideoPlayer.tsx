@@ -64,6 +64,23 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const lastTapRef = useRef<number>(0);
   const singleTapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Global listener to ensure strictly ONE video plays at any time across the entire app
+  useEffect(() => {
+    const handleGlobalVideoPlay = (e: Event) => {
+      const customEvent = e as CustomEvent<{ id: string }>;
+      if (customEvent.detail && customEvent.detail.id !== post.id) {
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+        setIsPreviewPlaying(false);
+        isPreviewRef.current = false;
+      }
+    };
+
+    window.addEventListener('localnet:video-play', handleGlobalVideoPlay);
+    return () => window.removeEventListener('localnet:video-play', handleGlobalVideoPlay);
+  }, [post.id]);
+
   // Sync external play/pause instruction with local video element
   useEffect(() => {
     if (!videoRef.current) return;
@@ -71,6 +88,11 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       setIsPreviewPlaying(false);
       isPreviewRef.current = false;
       if (videoRef.current.paused) {
+        // Pause all other video elements on the page immediately
+        document.querySelectorAll('video').forEach((v) => {
+          if (v !== videoRef.current && !v.paused) v.pause();
+        });
+        window.dispatchEvent(new CustomEvent('localnet:video-play', { detail: { id: post.id } }));
         videoRef.current.play().catch(() => {
           onPauseRequest();
         });
@@ -80,9 +102,9 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         videoRef.current.pause();
       }
     }
-  }, [isCurrentlyPlaying, onPauseRequest]);
+  }, [isCurrentlyPlaying, onPauseRequest, post.id]);
 
-  // YouTube-style: Auto-play 5-second muted promo preview when video comes into viewport
+  // YouTube-style: Auto-play 5-second muted promo preview ONLY for the single most visible video
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -90,11 +112,18 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && !isCurrentlyPlaying) {
-          // Video is on screen -> auto-play 5-second promo preview
+          // Check if any video is already playing before auto-previewing
+          const anyPlaying = Array.from(document.querySelectorAll('video')).some(
+            (v) => v !== videoRef.current && !v.paused
+          );
+          if (anyPlaying) return;
+
           if (videoRef.current && videoRef.current.paused) {
             videoRef.current.muted = true;
             setIsMuted(true);
             videoRef.current.currentTime = 0;
+            // Notify all other players to pause
+            window.dispatchEvent(new CustomEvent('localnet:video-play', { detail: { id: post.id } }));
             videoRef.current
               .play()
               .then(() => {
@@ -113,12 +142,12 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           isPreviewRef.current = false;
         }
       },
-      { threshold: 0.65 }
+      { threshold: 0.75 }
     );
 
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [isCurrentlyPlaying]);
+  }, [isCurrentlyPlaying, post.id]);
 
   // Handle Fullscreen state change events
   useEffect(() => {
@@ -500,8 +529,18 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       {/* Video Element */}
       <video
         ref={videoRef}
+        id={`feed-video-${post.id}`}
         src={post.mediaThumbnail ? post.mediaUrl : `${post.mediaUrl}#t=0.5`}
         poster={post.mediaThumbnail || undefined}
+        onPlay={() => {
+          document.querySelectorAll('video').forEach((v) => {
+            if (v !== videoRef.current && !v.paused) {
+              v.pause();
+            }
+          });
+          window.dispatchEvent(new CustomEvent('localnet:video-play', { detail: { id: post.id } }));
+          onPlayRequest();
+        }}
         loop
         muted={isMuted}
         playsInline

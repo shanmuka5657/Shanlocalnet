@@ -1,4 +1,4 @@
-const CACHE_NAME = 'localnet-v3';
+const CACHE_NAME = 'localnet-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -9,19 +9,24 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            console.log('[SW] Purging old cache:', key);
+            return caches.delete(key);
+          }
+        })
       );
     })
   );
@@ -40,20 +45,21 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // STRICT BYPASS: Never intercept cross-origin (S3, CDN), APIs, or media streams/ranges
+  // STRICT BYPASS: Never intercept cross-origin (S3, AWS, CDNs), APIs, media streams/ranges, or APK downloads
   if (
     url.origin !== location.origin ||
     url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/downloads/') ||
     event.request.headers.has('range') ||
     event.request.destination === 'video' ||
     event.request.destination === 'audio' ||
-    url.pathname.match(/\.(mp4|webm|mp3|ogg|wav|m4v)$/i)
+    /\.(mp4|webm|mp3|ogg|wav|m4v|apk)$/i.test(url.pathname)
   ) {
-    // Return early without calling respondWith -> Native browser pipeline handles it directly
+    // Native browser pipeline handles it directly
     return;
   }
 
-  // Cache-first for immutable static bundles and icons
+  // Cache-first ONLY for immutable static assets in /assets/ or app icons
   if (
     url.pathname.startsWith('/assets/') ||
     url.pathname.endsWith('.svg') ||
@@ -70,7 +76,7 @@ self.addEventListener('fetch', (event) => {
               caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
             }
             return res;
-          })
+          }).catch(() => cached)
         );
       })
     );

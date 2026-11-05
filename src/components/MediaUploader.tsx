@@ -262,13 +262,55 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           sizeMb: (selectedFile.size / 1024 / 1024).toFixed(1)
         });
 
-        // Trigger upload without unmounted black canvas thumbnail
-        executeUpload(selectedFile, {
-          width,
-          height,
-          duration,
-          aspectRatio
-        });
+        // Extract crisp video thumbnail at 0.5s
+        let uploadFired = false;
+        const fireUploadWithThumbnail = (thumbnailDataUrl) => {
+          if (uploadFired) return;
+          uploadFired = true;
+          if (thumbnailDataUrl) {
+            setCapturedThumbnail(thumbnailDataUrl);
+          }
+          executeUpload(selectedFile, {
+            width,
+            height,
+            duration,
+            aspectRatio,
+            thumbnailUrl: thumbnailDataUrl
+          });
+        };
+
+        // Fallback timer: proceed with upload if seek times out
+        const fallbackTimer = setTimeout(() => {
+          fireUploadWithThumbnail();
+        }, 1200);
+
+        tempVideo.onseeked = () => {
+          clearTimeout(fallbackTimer);
+          try {
+            const canvas = document.createElement('canvas');
+            const targetWidth = Math.min(width || 480, 480);
+            const targetHeight = Math.round(targetWidth * ((height || 480) / (width || 480)));
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(tempVideo, 0, 0, targetWidth, targetHeight);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+              fireUploadWithThumbnail(dataUrl);
+              return;
+            }
+          } catch (err) {
+            console.warn('Canvas thumbnail capture error:', err);
+          }
+          fireUploadWithThumbnail();
+        };
+
+        // Seek to 0.5s to trigger onseeked and capture frame
+        try {
+          tempVideo.currentTime = Math.min(0.5, Math.max(0.1, (duration || 1) / 2));
+        } catch {
+          fireUploadWithThumbnail();
+        }
       };
 
       tempVideo.onerror = () => {
