@@ -30,10 +30,27 @@ export class PostsRepository {
     const city = post.publishingLocation?.cityName || 'Kurnool';
     const state = post.publishingLocation?.state || 'Andhra Pradesh';
     const country = post.publishingLocation?.country || 'India';
-    const scope = normalizeDbScope(post.audienceDistribution?.scope);
     const classification = post.classification || 'organic';
+    let scope = normalizeDbScope(post.audienceDistribution?.scope);
     const engine = post.audienceDistribution?.engine || (classification === 'organic' ? 'ORGANIC_ENTERTAINMENT' : 'COMMERCIAL_ADVERTISEMENT');
-    const maxRadiusMeters = post.audienceDistribution?.maxRadiusKm ? post.audienceDistribution.maxRadiusKm * 1000 : null;
+    let maxRadiusMeters: number | null = null;
+    if (classification === 'organic') {
+      if (['city', 'state', 'country', 'worldwide'].includes(scope)) {
+        maxRadiusMeters = null;
+      } else {
+        const km = post.audienceDistribution?.maxRadiusKm || 10;
+        if (km <= 5) { scope = '5km'; maxRadiusMeters = 5000; }
+        else if (km <= 10) { scope = '10km'; maxRadiusMeters = 10000; }
+        else if (km <= 25) { scope = '25km'; maxRadiusMeters = 25000; }
+        else { scope = '40km'; maxRadiusMeters = 40000; }
+      }
+    } else {
+      const km = post.audienceDistribution?.maxRadiusKm || 40;
+      if (km <= 5) { scope = '5km'; maxRadiusMeters = 5000; }
+      else if (km <= 10) { scope = '10km'; maxRadiusMeters = 10000; }
+      else if (km <= 25) { scope = '25km'; maxRadiusMeters = 25000; }
+      else { scope = '40km'; maxRadiusMeters = 40000; }
+    }
     const safeMediaAssetId = isUuid(post.mediaAssetId) ? post.mediaAssetId : null;
 
     // Ensure creator user exists

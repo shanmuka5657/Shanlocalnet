@@ -742,8 +742,8 @@ async function startServer() {
         },
         audienceDistribution: {
           engine: isCommercial ? 'COMMERCIAL_ADVERTISEMENT' : 'ORGANIC_ENTERTAINMENT',
-          scope: isCommercial ? '40km' : scope || 'worldwide',
-          maxRadiusKm: isCommercial ? Math.min(40, Number(radiusKm) || 40) : scope === 'worldwide' ? null : Number(radiusKm) || 10
+          scope: isCommercial ? '40km' : (scope || 'worldwide'),
+          maxRadiusKm: isCommercial ? Math.min(40, Number(radiusKm) || 40) : (scope === 'worldwide' || !scope) ? null : Number(radiusKm) || 10
         },
         commercialMetadata: isCommercial
           ? {
