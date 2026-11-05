@@ -22,6 +22,7 @@ import { Post, BusinessProfile, ViewerLocation, SupportedLanguage } from '../../
 import { getTranslation } from '../../lib/i18n.ts';
 import { calculateHaversineDistance } from '../../lib/geo.ts';
 import { useVoiceSearch } from '../../hooks/useVoiceSearch.ts';
+import { MediaCardThumbnail } from '../common/MediaCardThumbnail.tsx';
 
 export type SearchCategoryTab = 'all' | 'videos' | 'nearby' | 'people' | 'jobs';
 
@@ -569,23 +570,15 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                       }}
                       className="group relative aspect-[9/16] rounded-2xl overflow-hidden bg-slate-800 border border-slate-800 hover:border-amber-500/50 cursor-pointer shadow-md transition-all hover:-translate-y-0.5"
                     >
-                      {/* Video Thumbnail or Gradient */}
-                      {video.mediaThumbnail ? (
-                        <img
-                          src={video.mediaThumbnail}
-                          alt={video.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div
-                          className="w-full h-full flex items-center justify-center"
-                          style={{
-                            background: video.mediaGradient || 'linear-gradient(135deg, #1e293b, #0f172a)'
-                          }}
-                        >
-                          <Play className="w-8 h-8 text-white/50" />
-                        </div>
-                      )}
+                      {/* Video Thumbnail or Auto-Rendered Video Screen Frame */}
+                      <MediaCardThumbnail
+                        postId={video.id}
+                        thumbnailUrl={video.mediaThumbnail}
+                        mediaUrl={video.mediaUrl}
+                        alt={video.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        gradient={video.mediaGradient}
+                      />
 
                       {/* Scrim overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
@@ -741,3 +734,4 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     </div>
   );
 };
+

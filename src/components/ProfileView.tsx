@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Post, UserRole, SupportedLanguage } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
+import { MediaCardThumbnail } from './common/MediaCardThumbnail.tsx';
 import { getTranslation } from '../lib/i18n.ts';
 import {
   User,
@@ -229,30 +230,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm"
             >
               <div className="aspect-[4/3] bg-slate-950 relative">
-                {p.mediaThumbnail ? (
-                  <img
-                    src={p.mediaThumbnail}
-                    alt={p.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                ) : p.contentType === 'reel' && !videoErrors[p.id] && (p.mediaUrl?.endsWith('.mp4') || p.mediaUrl?.endsWith('.webm') || p.mediaUrl?.includes('/videos/')) ? (
-                  <video
-                    src={p.mediaUrl}
-                    poster={p.mediaThumbnail || undefined}
-                    preload="none"
-                    className="w-full h-full object-cover"
-                    muted
-                    onError={() => setVideoErrors(prev => ({ ...prev, [p.id]: true }))}
-                  />
-                ) : (
-                  <img
-                    src={p.mediaUrl?.endsWith('.mp4') || p.mediaUrl?.endsWith('.webm') || !p.mediaUrl ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80' : p.mediaUrl}
-                    alt={p.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                )}
+                <MediaCardThumbnail
+                  postId={p.id}
+                  thumbnailUrl={p.mediaThumbnail}
+                  mediaUrl={p.mediaUrl}
+                  alt={p.title}
+                  className="w-full h-full object-cover"
+                  gradient={p.mediaGradient}
+                />
                 <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-mono">
                   {p.audienceDistribution.scope.toUpperCase()}
                 </span>

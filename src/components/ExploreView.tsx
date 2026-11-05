@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Post, AdCampaign, BusinessProfile, EligibilityResult } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
+import { MediaCardThumbnail } from './common/MediaCardThumbnail.tsx';
 import {
   Compass,
   MapPin,
@@ -231,30 +232,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 shadow-sm flex gap-3 min-w-0"
             >
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-950 overflow-hidden shrink-0 relative">
-                {post.mediaThumbnail ? (
-                  <img
-                    src={post.mediaThumbnail}
-                    alt={post.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                ) : post.contentType === 'reel' && !videoErrors[post.id] && (post.mediaUrl?.endsWith('.mp4') || post.mediaUrl?.endsWith('.webm') || post.mediaUrl?.includes('/videos/')) ? (
-                  <video
-                    src={post.mediaUrl}
-                    poster={post.mediaThumbnail || undefined}
-                    preload="none"
-                    className="w-full h-full object-cover"
-                    muted
-                    onError={() => setVideoErrors(prev => ({ ...prev, [post.id]: true }))}
-                  />
-                ) : (
-                  <img
-                    src={post.mediaUrl?.endsWith('.mp4') || post.mediaUrl?.endsWith('.webm') || !post.mediaUrl ? 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=400&q=80' : post.mediaUrl}
-                    alt={post.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                )}
+                <MediaCardThumbnail
+                  postId={post.id}
+                  thumbnailUrl={post.mediaThumbnail}
+                  mediaUrl={post.mediaUrl}
+                  alt={post.title}
+                  className="w-full h-full object-cover"
+                  gradient={post.mediaGradient}
+                />
                 <span className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/70 text-[8px] text-white font-mono">
                   {post.contentType.toUpperCase()}
                 </span>

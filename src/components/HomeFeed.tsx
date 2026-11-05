@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Post, AdCampaign, EligibilityResult, SupportedLanguage } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
+import { MediaCardThumbnail } from './common/MediaCardThumbnail.tsx';
 import { getTranslation } from '../lib/i18n.ts';
 import {
   Heart,
@@ -479,21 +480,15 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 onMouseLeave={() => {}}
                 className="group relative flex-shrink-0 w-28 sm:w-32 aspect-[9/16] rounded-xl overflow-hidden bg-slate-950 cursor-pointer snap-start shadow-md hover:scale-[1.02] active:scale-95 transition-all"
               >
-                {/* Media Preview */}
-                {item.reel.mediaThumbnail ? (
-                  <img
-                    src={item.reel.mediaThumbnail}
-                    alt={item.reel.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className={`w-full h-full bg-gradient-to-br ${item.reel.mediaGradient || 'from-rose-600 via-purple-700 to-indigo-900'} flex flex-col items-center justify-center p-3 text-center`}>
-                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                      <Film className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                )}
+                {/* Media Preview (Thumbnail Image or Auto-Rendered Video Screen Frame) */}
+                <MediaCardThumbnail
+                  postId={item.reel.id}
+                  thumbnailUrl={item.reel.mediaThumbnail}
+                  mediaUrl={item.reel.mediaUrl}
+                  alt={item.reel.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  gradient={item.reel.mediaGradient}
+                />
 
                 {/* Dark Scrim */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30 p-2 flex flex-col justify-between" />

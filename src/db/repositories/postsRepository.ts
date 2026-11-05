@@ -437,6 +437,17 @@ export class PostsRepository {
     };
   }
 
+  public async updateThumbnail(postId: string, thumbnailUrl: string): Promise<void> {
+    try {
+      await this.client.query(
+        `UPDATE posts SET media_thumbnail = $1, updated_at = NOW() WHERE id = $2 AND (media_thumbnail IS NULL OR media_thumbnail = '' OR media_thumbnail NOT LIKE 'data:image%');`,
+        [thumbnailUrl, postId]
+      );
+    } catch (e) {
+      console.warn('Update thumbnail error:', e);
+    }
+  }
+
   public async recordView(
     postId: string,
     userId = 'current_user_1',

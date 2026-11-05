@@ -91,7 +91,7 @@ export const useVoiceSearch = ({
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
-        } catch {}
+        } catch { }
       }
     };
   }, [language, onTranscript]);
@@ -113,7 +113,7 @@ export const useVoiceSearch = ({
     if (!recognitionRef.current) return;
     try {
       recognitionRef.current.stop();
-    } catch {}
+    } catch { }
     setIsListening(false);
   }, []);
 
@@ -125,3 +125,4 @@ export const useVoiceSearch = ({
     error
   };
 };
+

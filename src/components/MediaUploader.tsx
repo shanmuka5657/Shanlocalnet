@@ -38,6 +38,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [coverTimestamp, setCoverTimestamp] = useState<number>(0.5);
   const [capturedThumbnail, setCapturedThumbnail] = useState<string>('');
+  const capturedThumbnailRef = useRef<string>('');
+  const serverPublicUrlRef = useRef<string | null>(null);
+  const serverAssetIdRef = useRef<string | undefined>(undefined);
   const [serverAssetId, setServerAssetId] = useState<string | undefined>(undefined);
   const [serverPublicUrl, setServerPublicUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -122,6 +125,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     const vid = videoPreviewRef.current;
     if (!vid) return;
 
+    vid.muted = true;
+    vid.playsInline = true;
+
     if (typeof targetTime === 'number') {
       setCoverTimestamp(targetTime);
       try {
@@ -146,22 +152,27 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         if (ctx) {
           ctx.drawImage(v, 0, 0, targetW, targetH);
           if (isBlackFrame(ctx, targetW, targetH) && retries < 4) {
-            // GPU video surface was not ready, wait a tick and retry
-            setTimeout(() => handleCaptureFrame(undefined, retries + 1), 120);
+            const nextSeek = Math.min((retries + 1) * 0.8, (v.duration || 5) / 2);
+            v.currentTime = nextSeek;
+            setCoverTimestamp(nextSeek);
+            setTimeout(() => handleCaptureFrame(nextSeek, retries + 1), 150);
             return;
           }
           const newThumb = canvas.toDataURL('image/jpeg', 0.85);
           setCapturedThumbnail(newThumb);
+          capturedThumbnailRef.current = newThumb;
           if (file) {
             onMediaUploaded({
-              mediaAssetId: serverAssetId || undefined,
-              publicUrl: serverPublicUrl || previewUrl || '',
+              mediaAssetId: serverAssetIdRef.current || serverAssetId || undefined,
+              publicUrl: serverPublicUrlRef.current || serverPublicUrl || previewUrl || '',
               mimeType: file.type,
               sizeBytes: file.size,
               aspectRatio: mediaMeta?.aspectRatio || '9:16',
               videoDurationSeconds: videoDuration || mediaMeta?.duration,
               originalFilename: file.name,
-              thumbnailUrl: newThumb
+              thumbnailUrl: newThumb,
+              trimStartSeconds: trimStart,
+              trimEndSeconds: trimEnd > 0 ? trimEnd : videoDuration
             });
           }
         }
@@ -186,16 +197,19 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setCapturedThumbnail(reader.result);
+        capturedThumbnailRef.current = reader.result;
         if (file) {
           onMediaUploaded({
-            mediaAssetId: serverAssetId || undefined,
-            publicUrl: previewUrl || '',
+            mediaAssetId: serverAssetIdRef.current || serverAssetId || undefined,
+            publicUrl: serverPublicUrlRef.current || serverPublicUrl || previewUrl || '',
             mimeType: file.type,
             sizeBytes: file.size,
             aspectRatio: mediaMeta?.aspectRatio || '9:16',
             videoDurationSeconds: videoDuration || mediaMeta?.duration,
             originalFilename: file.name,
-            thumbnailUrl: reader.result
+            thumbnailUrl: reader.result,
+            trimStartSeconds: trimStart,
+            trimEndSeconds: trimEnd > 0 ? trimEnd : videoDuration
           });
         }
       }
@@ -354,15 +368,18 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
       setUploadProgress(100);
       setStatus('ready');
 
+      const finalThumb = capturedThumbnailRef.current || capturedThumbnail || (meta as any).thumbnailUrl || undefined;
       const uploadedData: UploadedMediaData = {
-        mediaAssetId: serverAssetId || undefined,
+        mediaAssetId: serverAssetIdRef.current || serverAssetId || undefined,
         publicUrl: previewUrl || URL.createObjectURL(fileToUpload),
         mimeType: fileToUpload.type,
         sizeBytes: fileToUpload.size,
         aspectRatio: meta.aspectRatio,
         videoDurationSeconds: meta.duration,
         originalFilename: fileToUpload.name,
-        thumbnailUrl: capturedThumbnail || (meta as any).thumbnailUrl || undefined
+        thumbnailUrl: finalThumb,
+        trimStartSeconds: trimStart,
+        trimEndSeconds: trimEnd > 0 ? trimEnd : (videoDuration || meta.duration)
       };
 
       onMediaUploaded(uploadedData);
@@ -416,8 +433,15 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
 
               setUploadProgress(100);
               setStatus('ready');
-              if (mediaAssetId) setServerAssetId(mediaAssetId);
-              if (publicUrl) setServerPublicUrl(publicUrl);
+              if (mediaAssetId) {
+                setServerAssetId(mediaAssetId);
+                serverAssetIdRef.current = mediaAssetId;
+              }
+              if (publicUrl) {
+                setServerPublicUrl(publicUrl);
+                serverPublicUrlRef.current = publicUrl;
+              }
+              const finalThumb = capturedThumbnailRef.current || capturedThumbnail || (meta as any).thumbnailUrl || undefined;
               onMediaUploaded({
                 mediaAssetId: mediaAssetId || undefined,
                 publicUrl: publicUrl || previewUrl || URL.createObjectURL(fileToUpload),
@@ -426,7 +450,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 aspectRatio: meta.aspectRatio,
                 videoDurationSeconds: meta.duration,
                 originalFilename: fileToUpload.name,
-                thumbnailUrl: capturedThumbnail || (meta as any).thumbnailUrl || undefined
+                thumbnailUrl: finalThumb,
+                trimStartSeconds: trimStart,
+                trimEndSeconds: trimEnd > 0 ? trimEnd : (videoDuration || meta.duration)
               });
             } else {
               applyClientFallback();

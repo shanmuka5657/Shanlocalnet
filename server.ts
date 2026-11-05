@@ -766,6 +766,21 @@ async function startServer() {
   // -------------------------------------------------------------------------
   // 3.1 ENGAGEMENT: LIKES, COMMENTS & VIEWS BACKEND PERSISTENCE
   // -------------------------------------------------------------------------
+  app.post('/api/posts/:id/thumbnail', async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.id;
+      const { thumbnailUrl } = req.body;
+      if (!thumbnailUrl || typeof thumbnailUrl !== 'string') {
+        return res.status(400).json({ error: 'thumbnailUrl is required' });
+      }
+      await postsRepo.updateThumbnail(postId, thumbnailUrl);
+      res.json({ success: true, postId });
+    } catch (err: any) {
+      console.error('[Update Thumbnail Error]:', err);
+      res.status(500).json({ error: 'Failed to update thumbnail', details: err?.message });
+    }
+  });
+
   app.post('/api/posts/:id/like', async (req: Request, res: Response) => {
     try {
       const postId = req.params.id;
