@@ -15,7 +15,8 @@ import {
   MoreVertical,
   X,
   Sparkles,
-  Download
+  Download,
+  Search
 } from 'lucide-react';
 
 export type MainNavigationTab = 'home' | 'explore' | 'local' | 'profile' | 'lab';
@@ -24,6 +25,7 @@ interface TopNavigationProps {
   currentTab: MainNavigationTab;
   onSelectTab: (tab: MainNavigationTab) => void;
   onOpenCreate: () => void;
+  onOpenSearch: () => void;
   onOpenLocationModal: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
@@ -37,6 +39,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   currentTab,
   onSelectTab,
   onOpenCreate,
+  onOpenSearch,
   onOpenLocationModal,
   isDarkMode,
   onToggleDarkMode,
@@ -90,30 +93,57 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           </button>
         </div>
 
-        {/* Center Zone: Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-sm font-medium">
-          {navLinks.map(link => {
-            const isActive = currentTab === link.id;
-            return (
-              <button
-                key={link.id}
-                onClick={() => onSelectTab(link.id)}
-                className={`whitespace-nowrap shrink-0 transition-colors py-1 relative ${isActive
+        {/* Center Zone: Desktop Navigation Links + Search Pill */}
+        <div className="hidden md:flex items-center gap-3 lg:gap-5 flex-1 max-w-xl mx-2">
+          {/* Desktop Search Trigger */}
+          <button
+            onClick={onOpenSearch}
+            className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-500 dark:text-slate-400 text-xs transition-all border border-slate-200/80 dark:border-slate-700/80 shadow-inner group cursor-pointer text-left"
+            title="Search LocalNet (Ctrl+K)"
+          >
+            <Search className="w-3.5 h-3.5 text-amber-500 shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="truncate text-slate-500 dark:text-slate-400">
+              {getTranslation(language, 'searchPlaceholder')}
+            </span>
+            <kbd className="hidden lg:inline-block ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+              Ctrl+K
+            </kbd>
+          </button>
+
+          <nav className="flex items-center gap-4 lg:gap-5 text-sm font-medium">
+            {navLinks.map(link => {
+              const isActive = currentTab === link.id;
+              return (
+                <button
+                  key={link.id}
+                  onClick={() => onSelectTab(link.id)}
+                  className={`whitespace-nowrap shrink-0 transition-colors py-1 relative ${isActive
                     ? 'text-slate-900 dark:text-white font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-              >
-                {link.label}
-                {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full" />
-                )}
-              </button>
-            );
-          })}
-        </nav>
+                    }`}
+                >
+                  {link.label}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
         {/* Right Zone: Controls (Responsive across all screens) */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+
+          {/* Search Trigger Button (Always visible on mobile, icon on tablet) */}
+          <button
+            onClick={onOpenSearch}
+            className="md:hidden p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 transition-colors"
+            title="Search"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4 text-amber-500" />
+          </button>
 
           {/* Desktop-only: Language Dropdown */}
           <div className="hidden lg:relative lg:block group">
@@ -151,8 +181,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           <button
             onClick={() => onSelectTab('lab')}
             className={`hidden md:block p-2 rounded-xl text-xs font-medium transition-colors border ${currentTab === 'lab'
-                ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
-                : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+              : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             title="Distribution Engine Lab"
           >
@@ -236,8 +266,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   setIsMobileMenuOpen(false);
                 }}
                 className={`py-1 text-xs font-semibold rounded-lg border ${language === 'en'
-                    ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
               >
                 English
@@ -248,8 +278,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   setIsMobileMenuOpen(false);
                 }}
                 className={`py-1 text-xs font-semibold rounded-lg border ${language === 'te'
-                    ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
               >
                 తెలుగు
@@ -260,8 +290,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   setIsMobileMenuOpen(false);
                 }}
                 className={`py-1 text-xs font-semibold rounded-lg border ${language === 'hi'
-                    ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
               >
                 हिन्दी

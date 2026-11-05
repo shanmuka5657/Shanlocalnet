@@ -20,6 +20,7 @@ import { LocationModal } from './components/LocationModal.tsx';
 import { CreateModal } from './components/CreateModal.tsx';
 import { NotificationsModal } from './components/NotificationsModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
+import { SearchModal } from './components/search/SearchModal.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import {
   INITIAL_POSTS,
@@ -66,6 +67,19 @@ function LocalNetContent() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // Global keyboard shortcut: Ctrl+K / Cmd+K opens Search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Pause any playing videos when switching navigation tabs
   useEffect(() => {
@@ -340,6 +354,7 @@ function LocalNetContent() {
           currentTab={currentTab}
           onSelectTab={setCurrentTab}
           onOpenCreate={() => setIsCreateModalOpen(true)}
+          onOpenSearch={() => setIsSearchModalOpen(true)}
           onOpenLocationModal={() => setIsLocationModalOpen(true)}
           isDarkMode={isDarkMode}
           onToggleDarkMode={toggleDarkMode}
@@ -454,6 +469,40 @@ function LocalNetContent() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onPostCreated={handlePostCreated}
+      />
+
+      {/* Global & Hyperlocal Smart Search Modal */}
+      <SearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        posts={feedPosts.map(p => p.post)}
+        reels={reelsList.map(r => r.reel)}
+        businesses={businesses}
+        viewerLocation={viewerLocation}
+        language={language}
+        onSelectPost={(post) => {
+          setCurrentTab('home');
+          setTimeout(() => {
+            const el = document.getElementById(`feed-post-${post.id}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }}
+        onSelectReel={(reel) => {
+          const idx = reelsList.findIndex(r => r.reel.id === reel.id);
+          if (idx !== -1) {
+            setSelectedReelIndex(idx);
+          } else {
+            setReelsList(prev => [{ reel, eligibility: evaluateOrganicEligibility(viewerLocation, reel) }, ...prev]);
+            setSelectedReelIndex(0);
+          }
+          setIsFullScreenReelsOpen(true);
+        }}
+        onSelectBusiness={(_biz) => {
+          setCurrentTab('explore');
+        }}
+        onSelectCreator={(_handle) => {
+          setCurrentTab('profile');
+        }}
       />
 
       {/* Notifications Drawer Modal */}

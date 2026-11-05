@@ -248,6 +248,44 @@ export class PostsRepository {
     return this.mapRowToPost(res.rows[0]);
   }
 
+  public async searchPosts(
+    query: string,
+    viewer?: ViewerLocation | null,
+    limit = 30
+  ): Promise<Array<{ post: Post; eligibility: EligibilityResult }>> {
+    const qWild = '%' + query.trim().toLowerCase() + '%';
+    const res = await this.client.query(`
+      SELECT
+        p.*,
+        u.email AS creator_email,
+        up.display_name AS creator_name,
+        up.handle AS creator_handle,
+        up.avatar_url AS creator_avatar,
+        ST_X(p.publishing_point::geometry) AS lon,
+        ST_Y(p.publishing_point::geometry) AS lat
+      FROM posts p
+      JOIN users u ON u.id = p.creator_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE p.deleted_at IS NULL
+        AND p.moderation_status = 'approved'
+        AND (
+          LOWER(p.title) LIKE $1
+          OR LOWER(p.description) LIKE $1
+          OR LOWER(COALESCE(up.display_name, '')) LIKE $1
+          OR LOWER(COALESCE(up.handle, '')) LIKE $1
+          OR array_to_string(p.tags, ',') ILIKE $1
+        )
+      ORDER BY p.published_at DESC
+      LIMIT $2;
+    `, [qWild, limit]);
+
+    return (res.rows || []).map((r: any) => {
+      const post = this.mapRowToPost(r);
+      const eligibility = evaluateOrganicEligibility(viewer, post);
+      return { post, eligibility };
+    });
+  }
+
   public async toggleLike(
     postId: string,
     userId = 'current_user_1'

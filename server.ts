@@ -322,6 +322,61 @@ async function startServer() {
   });
 
   // -------------------------------------------------------------------------
+  // UNIFIED SMART SEARCH API (Global Videos + Hyperlocal 40km Businesses)
+  // -------------------------------------------------------------------------
+  app.get('/api/search', async (req: Request, res: Response) => {
+    try {
+      const q = ((req.query.q as string) || '').trim().toLowerCase();
+      const type = (req.query.type as string) || 'all';
+      const radiusKm = parseFloat(req.query.radiusKm as string) || 40;
+      const viewer = extractViewerLocation(req);
+
+      if (!q) {
+        return res.json({ posts: [], reels: [], businesses: [] });
+      }
+
+      // 1. Search posts & reels from PostgreSQL PostGIS
+      const matchedPostsResults = await postsRepo.searchPosts(q, viewer, 40).catch(() => []);
+      const matchedPosts = matchedPostsResults.map(p => p.post);
+      const matchedReels = matchedPosts.filter(p => p.contentType === 'reel' || p.contentType === 'video');
+
+      // 2. Search local businesses within radiusKm (strictly capped <= 40km)
+      const allBiz = await bizRepo.listAll().catch(() => INITIAL_BUSINESSES);
+      const matchedBusinesses = allBiz
+        .map(b => {
+          const distKm = calculateHaversineDistance(
+            viewer ? viewer.coords.latitude : 15.8281,
+            viewer ? viewer.coords.longitude : 78.0373,
+            b.coordinates.latitude,
+            b.coordinates.longitude
+          );
+          return { ...b, distanceKm: Math.round(distKm * 10) / 10 };
+        })
+        .filter(b => {
+          const inRadius = b.distanceKm <= radiusKm;
+          const matchText =
+            b.name.toLowerCase().includes(q) ||
+            b.category.toLowerCase().includes(q) ||
+            (b.address || '').toLowerCase().includes(q) ||
+            (b.city || '').toLowerCase().includes(q);
+          return inRadius && matchText;
+        })
+        .sort((a, b) => a.distanceKm - b.distanceKm);
+
+      res.json({
+        query: q,
+        type,
+        posts: matchedPosts,
+        reels: matchedReels,
+        businesses: matchedBusinesses
+      });
+    } catch (err: any) {
+      console.error('[Search API Error]:', err);
+      res.status(500).json({ error: 'Search failed', details: err?.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // MEDIA UPLOAD & ASSET MANAGEMENT PIPELINE (PHASE 2)
   // -------------------------------------------------------------------------
 
