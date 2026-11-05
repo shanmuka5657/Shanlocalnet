@@ -6,6 +6,10 @@
       "destination": "/api/index"
     },
     {
+      "source": "/download",
+      "destination": "/download.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

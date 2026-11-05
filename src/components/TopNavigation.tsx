@@ -14,7 +14,8 @@ import {
   Bell,
   MoreVertical,
   X,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
 
 export type MainNavigationTab = 'home' | 'explore' | 'local' | 'profile' | 'lab';
@@ -173,6 +174,17 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             )}
           </button>
 
+          {/* Desktop: Download APK link */}
+          <a
+            href="/downloads/LocalNet.apk"
+            download="LocalNet.apk"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-300/60 dark:border-amber-700/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-xl transition-all active:scale-95 shrink-0"
+            title="Download LocalNet Android App (APK)"
+          >
+            <Download className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <span>Get APK</span>
+          </a>
+
           {/* Desktop-only: Theme Switcher */}
           <button
             onClick={onToggleDarkMode}
@@ -260,6 +272,18 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                 हिन्दी
               </button>
             </div>
+          </div>
+
+          {/* Direct Mobile APK Download */}
+          <div className="pt-1">
+            <a
+              href="/downloads/LocalNet.apk"
+              download="LocalNet.apk"
+              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-xs font-bold text-white shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Android App (APK - 39.6 MB)</span>
+            </a>
           </div>
 
           {/* Quick Actions Row */}
