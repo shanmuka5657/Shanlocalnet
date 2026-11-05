@@ -188,8 +188,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       return { matchedVideos: [], matchedBusinesses: [], matchedCreators: [] };
     }
 
-    // Combine posts & reels and deduplicate
-    const allVideos = [...posts, ...reels].filter((v, idx, arr) => arr.findIndex(item => item.id === v.id) === idx);
+    // Combine local posts & reels + server search results and deduplicate
+    const allVideos = [
+      ...posts,
+      ...reels,
+      ...(serverResults?.posts || []),
+      ...(serverResults?.reels || [])
+    ].filter((v, idx, arr) => arr.findIndex(item => item.id === v.id) === idx);
 
     // 1. Videos & Reels matching title, description, creator, or tags
     const matchedVideos = allVideos.filter(p => {
@@ -248,7 +253,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       matchedBusinesses,
       matchedCreators: Array.from(creatorMap.values())
     };
-  }, [query, posts, reels, businesses, viewerLocation, distanceFilterKm]);
+  }, [query, posts, reels, businesses, viewerLocation, distanceFilterKm, serverResults]);
 
   if (!isOpen) return null;
 
