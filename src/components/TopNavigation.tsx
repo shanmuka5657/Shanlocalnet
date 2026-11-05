@@ -58,7 +58,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors safe-area-top">
       <div className="w-full max-w-7xl mx-auto px-2.5 sm:px-4 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-1.5 sm:gap-4">
 
         {/* Left Zone: Brand Wordmark + Location Pill */}

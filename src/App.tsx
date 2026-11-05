@@ -112,13 +112,22 @@ function LocalNetContent() {
 
   const toggleDarkMode = () => setIsDarkMode(prev => !prev);
 
-  // Initialize Native Android & iOS Status Bar styling
+  // Initialize Native Android & iOS Status Bar styling & hardware inset measurement
   useEffect(() => {
     try {
-      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-      StatusBar.setBackgroundColor({ color: '#0f172a' }).catch(() => {});
-    } catch {}
-  }, []);
+      // Light theme uses dark status icons; Dark theme uses light status icons
+      StatusBar.setStyle({ style: isDarkMode ? Style.Dark : Style.Light }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: isDarkMode ? '#0f172a' : '#ffffff' }).catch(() => {});
+      StatusBar.getInfo().then((info) => {
+        const height = info && info.height && info.height > 0 ? info.height : 36;
+        document.documentElement.style.setProperty('--safe-area-inset-top', `${height}px`);
+      }).catch(() => {
+        document.documentElement.style.setProperty('--safe-area-inset-top', '36px');
+      });
+    } catch {
+      document.documentElement.style.setProperty('--safe-area-inset-top', '36px');
+    }
+  }, [isDarkMode]);
 
   // Ecosystem Data
   const [feedPosts, setFeedPosts] = useState<{ post: Post; eligibility: EligibilityResult }[]>([]);

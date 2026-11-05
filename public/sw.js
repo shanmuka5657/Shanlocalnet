@@ -1,4 +1,4 @@
-const CACHE_NAME = 'localnet-v4';
+const CACHE_NAME = 'localnet-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -43,21 +43,27 @@ self.addEventListener('fetch', (event) => {
   // Only process GET requests
   if (event.request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
+  const urlStr = event.request.url;
 
   // STRICT BYPASS: Never intercept cross-origin (S3, AWS, CDNs), APIs, media streams/ranges, or APK downloads
   if (
-    url.origin !== location.origin ||
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/downloads/') ||
+    !urlStr.startsWith(location.origin) ||
+    urlStr.includes('/api/') ||
+    urlStr.includes('/downloads/') ||
+    urlStr.includes('/videos/') ||
+    urlStr.includes('WhatsApp') ||
+    urlStr.includes('s3.') ||
+    urlStr.includes('amazonaws.com') ||
     event.request.headers.has('range') ||
     event.request.destination === 'video' ||
     event.request.destination === 'audio' ||
-    /\.(mp4|webm|mp3|ogg|wav|m4v|apk)$/i.test(url.pathname)
+    /\.(mp4|webm|mp3|ogg|wav|m4v|apk)$/i.test(urlStr)
   ) {
     // Native browser pipeline handles it directly
     return;
   }
+
+  const url = new URL(urlStr);
 
   // Cache-first ONLY for immutable static assets in /assets/ or app icons
   if (

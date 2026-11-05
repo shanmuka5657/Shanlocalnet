@@ -12,6 +12,8 @@ const isNativePlatform =
   window.location.hostname === '127.0.0.1';
 
 if (isNativePlatform) {
+  // Pre-seed status bar safe area height for edge-to-edge Android/iOS viewports
+  document.documentElement.style.setProperty("--safe-area-inset-top", "36px");
   const PROD_HOST = 'https://shanlocalnet.vercel.app';
   console.log('[NativeBridge] Routing relative /api calls to live production backend:', PROD_HOST);
 

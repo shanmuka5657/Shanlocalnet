@@ -55,12 +55,19 @@ html, body {
   scrollbar-width: none;
 }
 
-/* Safe area insets for Android and iOS devices */
-.safe-area-bottom {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+:root {
+  --safe-area-inset-top: 0px;
+  --safe-area-inset-bottom: 0px;
 }
-.safe-area-top {
-  padding-top: env(safe-area-inset-top, 0px);
+
+/* Safe area insets for Android and iOS devices */
+.safe-area-bottom,
+.pb-safe {
+  padding-bottom: max(0.5rem, max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)));
+}
+.safe-area-top,
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
 }
 
 /* Mobile-First Animations & Transitions */
