@@ -285,12 +285,15 @@ export async function syncCommentWithServer(
   return null;
 }
 
-export async function fetchCommentsFromServer(postId: string): Promise<FeedComment[] | null> {
+export async function fetchCommentsFromServer(postId: string): Promise<{ comments: FeedComment[]; stats?: { likes: number; comments: number; views: number } } | null> {
   try {
-    const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`);
+    const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments?_t=${Date.now()}`);
     if (res.ok) {
       const data = await res.json();
-      return data.comments || null;
+      return {
+        comments: data.comments || [],
+        stats: data.stats || undefined
+      };
     }
   } catch {}
   return null;

@@ -712,8 +712,11 @@ async function startServer() {
   app.get('/api/posts/:id/comments', async (req: Request, res: Response) => {
     try {
       const postId = req.params.id;
-      const comments = await postsRepo.getComments(postId);
-      res.json({ comments });
+      const [comments, stats] = await Promise.all([
+        postsRepo.getComments(postId),
+        postsRepo.getPostStats(postId).catch(() => null)
+      ]);
+      res.json({ comments, stats });
     } catch (err: any) {
       console.error('[Comments Fetch Error]:', err);
       res.status(500).json({ error: 'Failed to retrieve comments', details: err?.message });

@@ -126,6 +126,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     const [commentsMap, setCommentsMap] = useState<Record<string, FeedComment[]>>(() => getAllStoredComments());
+  const [liveReelStats, setLiveReelStats] = useState<Record<string, { likes: number; comments: number; views: number }>>({});
 
   // Ingest server comments attached to reels
   useEffect(() => {
@@ -158,18 +159,31 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const activeReel = activeReelData?.reel;
   const activeEligibility = activeReelData?.eligibility;
 
-  // Fetch fresh comments when comments drawer opens
+  // Real-time live polling for comments when drawer is open
   useEffect(() => {
-    if (activeReel?.id && showCommentsDrawer) {
-      fetchCommentsFromServer(activeReel.id).then(serverComments => {
-        if (serverComments && serverComments.length > 0) {
+    if (!activeReel?.id || !showCommentsDrawer) return;
+
+    const fetchLiveUpdates = () => {
+      fetchCommentsFromServer(activeReel.id).then(data => {
+        if (!data) return;
+        if (data.comments && data.comments.length > 0) {
           setCommentsMap(prev => ({
             ...prev,
-            [activeReel.id]: mergePostComments(prev[activeReel.id] || [], serverComments)
+            [activeReel.id]: mergePostComments(prev[activeReel.id] || [], data.comments)
+          }));
+        }
+        if (data.stats) {
+          setLiveReelStats(prev => ({
+            ...prev,
+            [activeReel.id]: data.stats!
           }));
         }
       });
-    }
+    };
+
+    fetchLiveUpdates();
+    const interval = setInterval(fetchLiveUpdates, 3500);
+    return () => clearInterval(interval);
   }, [activeReel?.id, showCommentsDrawer]);
 
   // Record reel view
@@ -335,12 +349,22 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     }
   };
 
-  const toggleLike = (id: string) => {
+  const toggleLike = async (id: string) => {
     const current = likedReels[id] ?? false;
     const next = !current;
     setLikedReels(prev => ({ ...prev, [id]: next }));
     setStoredLike(id, next);
-    syncLikeWithServer(id);
+    const res = await syncLikeWithServer(id);
+    if (res && typeof res.likesCount === 'number') {
+      setLiveReelStats(prev => ({
+        ...prev,
+        [id]: {
+          likes: res.likesCount,
+          comments: prev[id]?.comments ?? 0,
+          views: prev[id]?.views ?? 0
+        }
+      }));
+    }
   };
 
   const toggleSave = (id: string) => {
@@ -400,10 +424,16 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const isLiked = likedReels[activeReel.id] ?? activeReel.hasLiked;
   const isSaved = savedReels[activeReel.id] ?? activeReel.hasSaved;
   const isFollowing = followingMap[activeReel.creatorId];
+  const liveStat = liveReelStats[activeReel.id];
   const activeComments = commentsMap[activeReel.id] || (activeReel as any).commentsList || [];
-  const commentsCount = Math.max(activeReel.stats?.comments || 0, activeComments.length);
-  const effectiveLikes = (activeReel.stats.likes || 0) + (isLiked ? 1 : 0);
-  const effectiveViews = getPostViewCount(activeReel.id, activeReel.stats.views || 0);
+  const commentsCount = Math.max(
+    liveStat?.comments ?? activeReel.stats?.comments ?? 0,
+    activeComments.length
+  );
+  const effectiveLikes = liveStat?.likes !== undefined
+    ? liveStat.likes
+    : (activeReel.stats.likes || 0) + (isLiked ? 1 : 0);
+  const effectiveViews = getPostViewCount(activeReel.id, liveStat?.views ?? activeReel.stats.views ?? 0);
 
   const hasVideoError = videoErrors[activeReel.id] || !activeReel.mediaUrl || activeReel.mediaUrl.endsWith('.jpg') || activeReel.mediaUrl.endsWith('.png');
 
@@ -583,7 +613,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
               <Heart className={`w-6 h-6 ${isLiked ? 'fill-rose-500 text-rose-500 scale-110' : 'text-white'}`} />
             </div>
             <span className="text-[10px] font-mono tabular-nums font-semibold drop-shadow">
-              {(activeReel.stats.likes + (isLiked ? 1 : 0)).toLocaleString()}
+              {effectiveLikes.toLocaleString()}
             </span>
           </button>
 

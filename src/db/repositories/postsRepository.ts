@@ -388,6 +388,17 @@ export class PostsRepository {
     return map;
   }
 
+  public async getPostStats(postId: string): Promise<{ likes: number; comments: number; views: number } | null> {
+    const res = await this.client.query('SELECT likes_count, comments_count, views_count FROM posts WHERE id = $1;', [postId]);
+    if (!res.rows || res.rows.length === 0) return null;
+    const r = res.rows[0];
+    return {
+      likes: Number(r.likes_count || 0),
+      comments: Number(r.comments_count || 0),
+      views: Number(r.views_count || 0)
+    };
+  }
+
   public async recordView(
     postId: string,
     userId = 'current_user_1',

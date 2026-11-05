@@ -140,6 +140,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [replyingToCommentId, setReplyingToCommentId] = useState<{ id: string; author: string } | null>(null);
   const [postComments, setPostComments] = useState<Record<string, FeedComment[]>>(() => getAllStoredComments());
+  const [livePostStats, setLivePostStats] = useState<Record<string, { likes: number; comments: number; views: number }>>({});
 
   // 1. Automatically ingest comments attached to incoming feed posts
   React.useEffect(() => {
@@ -158,18 +159,31 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     }
   }, [posts]);
 
-  // 2. Automatically fetch fresh comments from backend database when comments drawer/section opens
+  // 2. Real-time live polling for comments while open
   React.useEffect(() => {
-    if (openCommentsPostId) {
-      fetchCommentsFromServer(openCommentsPostId).then(serverComments => {
-        if (serverComments && serverComments.length > 0) {
+    if (!openCommentsPostId) return;
+
+    const fetchLiveUpdates = () => {
+      fetchCommentsFromServer(openCommentsPostId).then(data => {
+        if (!data) return;
+        if (data.comments && data.comments.length > 0) {
           setPostComments(prev => ({
             ...prev,
-            [openCommentsPostId]: mergePostComments(prev[openCommentsPostId] || [], serverComments)
+            [openCommentsPostId]: mergePostComments(prev[openCommentsPostId] || [], data.comments)
+          }));
+        }
+        if (data.stats) {
+          setLivePostStats(prev => ({
+            ...prev,
+            [openCommentsPostId]: data.stats!
           }));
         }
       });
-    }
+    };
+
+    fetchLiveUpdates();
+    const interval = setInterval(fetchLiveUpdates, 3500);
+    return () => clearInterval(interval);
   }, [openCommentsPostId]);
 
   const recordVideoPlayView = (postId: string) => {
@@ -196,12 +210,22 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   const t = (key: string) => getTranslation(language, key);
 
-  const toggleLike = (postId: string) => {
+  const toggleLike = async (postId: string) => {
     const current = likedPosts[postId] ?? false;
     const next = !current;
     setLikedPosts(prev => ({ ...prev, [postId]: next }));
     setStoredLike(postId, next);
-    syncLikeWithServer(postId);
+    const res = await syncLikeWithServer(postId);
+    if (res && typeof res.likesCount === 'number') {
+      setLivePostStats(prev => ({
+        ...prev,
+        [postId]: {
+          likes: res.likesCount,
+          comments: prev[postId]?.comments ?? 0,
+          views: prev[postId]?.views ?? 0
+        }
+      }));
+    }
   };
 
   const toggleSave = (postId: string) => {
@@ -459,10 +483,16 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             const isSaved = savedPosts[post.id] ?? post.hasSaved;
             const isFollowing = followingCreators[post.creatorId];
             const isWorldwide = post.audienceDistribution.scope === 'worldwide';
+            const liveStat = livePostStats[post.id];
             const commentsList = postComments[post.id] || (post as any).commentsList || [];
-            const commentsCount = Math.max(post.stats?.comments || 0, commentsList.length);
-            const effectiveLikes = (post.stats?.likes || 0) + (isLiked ? 1 : 0);
-            const effectiveViews = getPostViewCount(post.id, post.stats?.views || 0);
+            const commentsCount = Math.max(
+              liveStat?.comments ?? post.stats?.comments ?? 0,
+              commentsList.length
+            );
+            const effectiveLikes = liveStat?.likes !== undefined
+              ? liveStat.likes
+              : (post.stats?.likes || 0) + (isLiked ? 1 : 0);
+            const effectiveViews = getPostViewCount(post.id, liveStat?.views ?? post.stats?.views ?? 0);
 
             return (
               <article
