@@ -22,7 +22,7 @@ import {
   Sparkles,
   Users,
   Film,
-  FileText,  Bell,  Plus,  MoreVertical} from 'lucide-react';
+  FileText,  Bell,  Plus,  MoreVertical,  Eye} from 'lucide-react';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
 import { FeedVideoPlayer } from './FeedVideoPlayer.tsx';
 import {
@@ -32,6 +32,8 @@ import {
   getAllStoredComments,
   addStoredComment,
   toggleStoredCommentLike,
+  mergeServerComments,
+  mergePostComments,
   getStoredViews,
   getPostViewCount,
   incrementStoredView,
@@ -40,6 +42,7 @@ import {
   incrementStoredAdView,
   syncLikeWithServer,
   syncCommentWithServer,
+  fetchCommentsFromServer,
   syncViewWithServer,
   syncAdViewWithServer
 } from '../lib/engagementStorage.ts';
@@ -137,6 +140,37 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [replyingToCommentId, setReplyingToCommentId] = useState<{ id: string; author: string } | null>(null);
   const [postComments, setPostComments] = useState<Record<string, FeedComment[]>>(() => getAllStoredComments());
+
+  // 1. Automatically ingest comments attached to incoming feed posts
+  React.useEffect(() => {
+    const incomingMap: Record<string, FeedComment[]> = {};
+    posts.forEach(p => {
+      const pComments = (p.post as any).commentsList;
+      if (pComments && Array.isArray(pComments) && pComments.length > 0) {
+        incomingMap[p.post.id] = pComments;
+      }
+    });
+    if (Object.keys(incomingMap).length > 0) {
+      setPostComments(prev => {
+        const merged = mergeServerComments(incomingMap);
+        return { ...prev, ...merged };
+      });
+    }
+  }, [posts]);
+
+  // 2. Automatically fetch fresh comments from backend database when comments drawer/section opens
+  React.useEffect(() => {
+    if (openCommentsPostId) {
+      fetchCommentsFromServer(openCommentsPostId).then(serverComments => {
+        if (serverComments && serverComments.length > 0) {
+          setPostComments(prev => ({
+            ...prev,
+            [openCommentsPostId]: mergePostComments(prev[openCommentsPostId] || [], serverComments)
+          }));
+        }
+      });
+    }
+  }, [openCommentsPostId]);
 
   const recordVideoPlayView = (postId: string) => {
     incrementStoredView(postId);
@@ -425,7 +459,10 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             const isSaved = savedPosts[post.id] ?? post.hasSaved;
             const isFollowing = followingCreators[post.creatorId];
             const isWorldwide = post.audienceDistribution.scope === 'worldwide';
-            const commentsList = postComments[post.id] || [];
+            const commentsList = postComments[post.id] || (post as any).commentsList || [];
+            const commentsCount = Math.max(post.stats?.comments || 0, commentsList.length);
+            const effectiveLikes = (post.stats?.likes || 0) + (isLiked ? 1 : 0);
+            const effectiveViews = getPostViewCount(post.id, post.stats?.views || 0);
 
             return (
               <article
@@ -560,12 +597,13 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     <div className="flex items-center gap-3 sm:gap-4">
                       <button
                         onClick={() => toggleLike(post.id)}
-                        className={`flex items-center gap-1 text-xs font-semibold transition-colors ${isLiked ? 'text-rose-600' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${isLiked ? 'text-rose-600' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                           }`}
+                        title="Like video"
                       >
-                        <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-rose-600' : ''}`} />
+                        <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-rose-600 text-rose-600' : ''}`} />
                         <span className="font-mono tabular-nums">
-                          {(post.stats.likes + (isLiked ? 1 : 0)).toLocaleString()}
+                          {effectiveLikes.toLocaleString()}
                         </span>
                       </button>
 
@@ -573,13 +611,24 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                         onClick={() =>
                           setOpenCommentsPostId(openCommentsPostId === post.id ? null : post.id)
                         }
-                        className="flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        title="View or write comments"
                       >
                         <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                         <span className="font-mono tabular-nums">
-                          {(post.stats.comments + commentsList.length).toLocaleString()}
+                          {commentsCount.toLocaleString()}
                         </span>
                       </button>
+
+                      <div
+                        className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400"
+                        title="Total verified views"
+                      >
+                        <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+                        <span className="font-mono tabular-nums">
+                          {effectiveViews.toLocaleString()} views
+                        </span>
+                      </div>
 
                       <button
                         onClick={() => handleShare(post)}
@@ -617,7 +666,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                          Comments ({commentsList.length})
+                          Comments ({commentsCount})
                         </h4>
                         <span className="text-[10px] text-slate-400">YouTube-style threads</span>
                       </div>

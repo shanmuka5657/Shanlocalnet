@@ -197,11 +197,27 @@ async function startServer() {
         };
       });
 
+      const postIds = Array.from(new Set([
+        ...eligiblePosts.map(p => p.post.id),
+        ...eligibleReels.map(r => r.reel.id)
+      ]));
+      const commentsMap: Record<string, any[]> = await postsRepo.getCommentsForPosts(postIds).catch(() => ({}));
+
+      eligiblePosts.forEach(p => {
+        p.post.commentsList = commentsMap[p.post.id] || [];
+        p.post.stats.comments = Math.max(p.post.stats?.comments || 0, (p.post.commentsList || []).length);
+      });
+      eligibleReels.forEach(r => {
+        r.reel.commentsList = commentsMap[r.reel.id] || [];
+        r.reel.stats.comments = Math.max(r.reel.stats?.comments || 0, (r.reel.commentsList || []).length);
+      });
+
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.json({
         posts: eligiblePosts,
         ads: tab === 'around_me' || tab === 'global' ? eligibleAds : [],
         reels: eligibleReels,
+        comments: commentsMap,
         campaigns: eligibleAds.map(a => a.ad),
         businesses: rawBusinesses && rawBusinesses.length > 0 ? rawBusinesses : INITIAL_BUSINESSES,
         marketplace,
@@ -251,12 +267,20 @@ async function startServer() {
       // 2. Fetch commercial ads through Engine B (strictly capped <= 40 km)
       const eligibleAds = await campRepo.getCommercialFeed(viewer);
 
+      const feedPostIds = eligiblePosts.map(p => p.post.id);
+      const feedCommentsMap: Record<string, any[]> = await postsRepo.getCommentsForPosts(feedPostIds).catch(() => ({}));
+      eligiblePosts.forEach(p => {
+        p.post.commentsList = feedCommentsMap[p.post.id] || [];
+        p.post.stats.comments = Math.max(p.post.stats?.comments || 0, (p.post.commentsList || []).length);
+      });
+
       res.json({
         viewerLocation: viewer,
         tab,
         totalEligiblePosts: eligiblePosts.length,
         totalEligibleAds: eligibleAds.length,
         posts: eligiblePosts,
+        comments: feedCommentsMap,
         ads: tab === 'around_me' || tab === 'global' ? eligibleAds : []
       });
     } catch (err: any) {

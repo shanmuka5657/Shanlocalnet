@@ -31,10 +31,13 @@ import {
   setStoredLike,
   getAllStoredComments,
   addStoredComment,
+  mergeServerComments,
+  mergePostComments,
   getPostViewCount,
   incrementStoredView,
   syncLikeWithServer,
   syncCommentWithServer,
+  fetchCommentsFromServer,
   syncViewWithServer
 } from '../lib/engagementStorage.ts';
 import { EligibilityExplainerModal } from './EligibilityExplainerModal.tsx';
@@ -123,6 +126,25 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     const [commentsMap, setCommentsMap] = useState<Record<string, FeedComment[]>>(() => getAllStoredComments());
+
+  // Ingest server comments attached to reels
+  useEffect(() => {
+    const incomingMap: Record<string, FeedComment[]> = {};
+    reels.forEach(r => {
+      const rComments = (r.reel as any).commentsList;
+      if (rComments && Array.isArray(rComments) && rComments.length > 0) {
+        incomingMap[r.reel.id] = rComments;
+      }
+    });
+    if (Object.keys(incomingMap).length > 0) {
+      setCommentsMap(prev => {
+        const merged = mergeServerComments(incomingMap);
+        return { ...prev, ...merged };
+      });
+    }
+  }, [reels]);
+
+
   const [newCommentInput, setNewCommentInput] = useState('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -135,6 +157,20 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const activeReelData = reels[currentIndex];
   const activeReel = activeReelData?.reel;
   const activeEligibility = activeReelData?.eligibility;
+
+  // Fetch fresh comments when comments drawer opens
+  useEffect(() => {
+    if (activeReel?.id && showCommentsDrawer) {
+      fetchCommentsFromServer(activeReel.id).then(serverComments => {
+        if (serverComments && serverComments.length > 0) {
+          setCommentsMap(prev => ({
+            ...prev,
+            [activeReel.id]: mergePostComments(prev[activeReel.id] || [], serverComments)
+          }));
+        }
+      });
+    }
+  }, [activeReel?.id, showCommentsDrawer]);
 
   // Record reel view
   useEffect(() => {
@@ -364,8 +400,8 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const isLiked = likedReels[activeReel.id] ?? activeReel.hasLiked;
   const isSaved = savedReels[activeReel.id] ?? activeReel.hasSaved;
   const isFollowing = followingMap[activeReel.creatorId];
-  const activeComments = commentsMap[activeReel.id] || [];
-  const commentsCount = Math.max(activeReel.stats.comments, activeComments.length);
+  const activeComments = commentsMap[activeReel.id] || (activeReel as any).commentsList || [];
+  const commentsCount = Math.max(activeReel.stats?.comments || 0, activeComments.length);
   const effectiveLikes = (activeReel.stats.likes || 0) + (isLiked ? 1 : 0);
   const effectiveViews = getPostViewCount(activeReel.id, activeReel.stats.views || 0);
 

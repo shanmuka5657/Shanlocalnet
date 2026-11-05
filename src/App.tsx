@@ -36,7 +36,7 @@ import {
   evaluateCommercialEligibility,
   calculateHaversineDistance
 } from './lib/geo.ts';
-import { getStoredUserPosts, saveStoredUserPost } from './lib/engagementStorage.ts';
+import { getStoredUserPosts, saveStoredUserPost, mergeServerComments } from './lib/engagementStorage.ts';
 import {
   Post,
   AdCampaign,
@@ -235,6 +235,9 @@ function LocalNetContent() {
 
       if (initRes.ok && isJson) {
         const data = await initRes.json();
+        if (data.comments) {
+          mergeServerComments(data.comments);
+        }
         const merged = mergeWithStoredUserPosts(data.posts || [], data.reels || []);
         setFeedPosts(merged.posts);
         setFeedAds(data.ads || []);

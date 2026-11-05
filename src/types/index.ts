@@ -171,6 +171,7 @@ export interface Post {
   hasLiked?: boolean;
   hasSaved?: boolean;
   moderation: PostModeration;
+  commentsList?: any[];
   createdAt: string;
 }
 

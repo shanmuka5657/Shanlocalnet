@@ -135,6 +135,38 @@ export function toggleStoredCommentLike(postId: string, commentId: string): Feed
   }
 }
 
+export function mergePostComments(currentList: FeedComment[], serverComments: FeedComment[]): FeedComment[] {
+  const current = currentList || [];
+  const incoming = serverComments || [];
+  const seenIds = new Set(current.map(c => c.id));
+  const seenTexts = new Set(current.map(c => `${c.author}:${c.text.trim()}`));
+
+  const toAdd: FeedComment[] = [];
+  for (const sc of incoming) {
+    const textKey = `${sc.author}:${sc.text.trim()}`;
+    if (!seenIds.has(sc.id) && !seenTexts.has(textKey)) {
+      toAdd.push(sc);
+      seenIds.add(sc.id);
+      seenTexts.add(textKey);
+    }
+  }
+  return [...current, ...toAdd];
+}
+
+export function mergeServerComments(serverMap: Record<string, FeedComment[]>): Record<string, FeedComment[]> {
+  try {
+    const all = getAllStoredComments();
+    for (const [postId, serverComments] of Object.entries(serverMap || {})) {
+      if (!serverComments || !Array.isArray(serverComments)) continue;
+      all[postId] = mergePostComments(all[postId] || [], serverComments);
+    }
+    localStorage.setItem(COMMENTS_KEY, JSON.stringify(all));
+    return all;
+  } catch {
+    return serverMap || {};
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 3. VIDEO & REEL VIEWS PERSISTENCE
 // ---------------------------------------------------------------------------
@@ -291,3 +323,4 @@ export async function syncAdViewWithServer(adId: string): Promise<number | null>
   } catch {}
   return null;
 }
+

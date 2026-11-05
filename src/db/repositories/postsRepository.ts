@@ -354,6 +354,40 @@ export class PostsRepository {
     }));
   }
 
+  public async getCommentsForPosts(postIds: string[]): Promise<Record<string, any[]>> {
+    if (!postIds || postIds.length === 0) return {};
+    const res = await this.client.query(`
+      SELECT
+        pc.id,
+        pc.post_id,
+        pc.user_id,
+        pc.body AS text,
+        pc.created_at,
+        COALESCE(up.display_name, 'You (Local Viewer)') AS author,
+        COALESCE(up.avatar_url, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80') AS author_avatar
+      FROM post_comments pc
+      LEFT JOIN users u ON u.id = pc.user_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE pc.post_id = ANY($1) AND pc.deleted_at IS NULL
+      ORDER BY pc.created_at ASC;
+    `, [postIds]);
+
+    const map: Record<string, any[]> = {};
+    for (const row of res.rows || []) {
+      if (!map[row.post_id]) map[row.post_id] = [];
+      map[row.post_id].push({
+        id: row.id,
+        author: row.author,
+        authorAvatar: row.author_avatar,
+        text: row.text,
+        likes: 0,
+        time: 'Just now',
+        createdAt: row.created_at
+      });
+    }
+    return map;
+  }
+
   public async recordView(
     postId: string,
     userId = 'current_user_1',
