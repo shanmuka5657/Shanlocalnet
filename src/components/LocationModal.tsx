@@ -139,11 +139,10 @@ export const LocationModal: React.FC<LocationModalProps> = ({ isOpen, onClose })
                     onClick={() => {
                       setCityPreset(city);
                     }}
-                    className={`text-left p-3 rounded-2xl border transition-all flex flex-col justify-between ${
-                      isSelected
+                    className={`text-left p-3 rounded-2xl border transition-all flex flex-col justify-between ${isSelected
                         ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm ring-1 ring-amber-500'
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between w-full">
                       <span className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">

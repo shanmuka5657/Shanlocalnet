@@ -39,3 +39,4 @@ export const triggerHaptic = (
     // Gracefully ignore if browser blocks vibration without direct user interaction
   }
 };
+

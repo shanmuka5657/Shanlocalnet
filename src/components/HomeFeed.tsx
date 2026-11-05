@@ -201,7 +201,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     eligibility: EligibilityResult | null;
   } | null>(null);
 
-    const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
+  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [replyingToCommentId, setReplyingToCommentId] = useState<{ id: string; author: string } | null>(null);
   const [postComments, setPostComments] = useState<Record<string, FeedComment[]>>(() => getAllStoredComments());
   const [livePostStats, setLivePostStats] = useState<Record<string, { likes: number; comments: number; views: number }>>({});
@@ -372,9 +372,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         >
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200">
             <RefreshCw
-              className={`w-4 h-4 text-amber-500 ${
-                isPullRefreshing ? 'animate-spin' : ''
-              }`}
+              className={`w-4 h-4 text-amber-500 ${isPullRefreshing ? 'animate-spin' : ''
+                }`}
               style={{
                 transform: isPullRefreshing
                   ? undefined
@@ -385,8 +384,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               {isPullRefreshing
                 ? 'Refreshing LocalNet...'
                 : pullDistance >= 60
-                ? 'Release to refresh'
-                : 'Pull down to refresh'}
+                  ? 'Release to refresh'
+                  : 'Pull down to refresh'}
             </span>
           </div>
         </div>
@@ -480,7 +479,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   const v = e.currentTarget.querySelector('video');
                   if (v) {
                     v.currentTime = 0;
-                    v.play().catch(() => {});
+                    v.play().catch(() => { });
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -806,11 +805,10 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                         {commentsList.map((c) => (
                           <div
                             key={c.id}
-                            className={`p-2.5 rounded-xl transition-colors ${
-                              c.replyTo
+                            className={`p-2.5 rounded-xl transition-colors ${c.replyTo
                                 ? 'ml-6 bg-slate-50/70 dark:bg-slate-800/40 border-l-2 border-amber-500'
                                 : 'bg-slate-50 dark:bg-slate-800/70'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2">
@@ -830,11 +828,10 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                               {/* Comment Like Button */}
                               <button
                                 onClick={() => toggleCommentLike(post.id, c.id)}
-                                className={`flex items-center gap-1 text-[11px] font-semibold transition-transform active:scale-90 ${
-                                  c.hasLiked
+                                className={`flex items-center gap-1 text-[11px] font-semibold transition-transform active:scale-90 ${c.hasLiked
                                     ? 'text-rose-500'
                                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                                }`}
+                                  }`}
                                 title="Like comment"
                               >
                                 <Heart className={`w-3.5 h-3.5 ${c.hasLiked ? 'fill-rose-500' : ''}`} />
