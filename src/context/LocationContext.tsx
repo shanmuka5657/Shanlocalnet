@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ViewerLocation, PermissionState } from '../types/index.ts';
 import { CITY_PRESETS, CityPreset, calculateHaversineDistance } from '../lib/geo.ts';
+import { Geolocation } from '@capacitor/geolocation';
 
 interface LocationContextType {
   viewerLocation: ViewerLocation;
@@ -84,61 +85,72 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const requestLiveGps = async () => {
-    if (!navigator.geolocation) {
-      setGpsError('Geolocation is not supported by your browser.');
-      return;
-    }
-
     setIsLoadingGps(true);
     setGpsError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const { latitude, longitude, accuracy } = position.coords;
+    const applyCoords = (latitude: number, longitude: number, accuracy: number) => {
+      let nearestCity = CITY_PRESETS[0];
+      let minDistance = Infinity;
 
-        // Find nearest city preset or create custom
-        let nearestCity = CITY_PRESETS[0];
-        let minDistance = Infinity;
-
-        for (const city of CITY_PRESETS) {
-          const dist = calculateHaversineDistance(latitude, longitude, city.latitude, city.longitude);
-          if (dist < minDistance) {
-            minDistance = dist;
-            nearestCity = city;
-          }
+      for (const city of CITY_PRESETS) {
+        const dist = calculateHaversineDistance(latitude, longitude, city.latitude, city.longitude);
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearestCity = city;
         }
-
-        const resolvedCityName = minDistance < 50 ? nearestCity.name : `Near ${nearestCity.name} (${Math.round(minDistance)}km)`;
-
-        const liveLocation: ViewerLocation = {
-          coords: {
-            latitude,
-            longitude,
-            accuracy: accuracy || 10
-          },
-          cityName: resolvedCityName,
-          stateName: nearestCity.state,
-          country: nearestCity.country,
-          countryCode: nearestCity.countryCode,
-          isVerified: true,
-          verifiedTimestamp: Date.now(),
-          permissionState: 'granted'
-        };
-
-        setViewerLocation(liveLocation);
-        setIsLoadingGps(false);
-      },
-      error => {
-        setIsLoadingGps(false);
-        setGpsError(error.message || 'Unable to retrieve your location');
-        setPermissionState('denied');
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000
       }
-    );
+
+      const resolvedCityName = minDistance < 50 ? nearestCity.name : `Near ${nearestCity.name} (${Math.round(minDistance)}km)`;
+
+      const liveLocation: ViewerLocation = {
+        coords: {
+          latitude,
+          longitude,
+          accuracy: accuracy || 10
+        },
+        cityName: resolvedCityName,
+        stateName: nearestCity.state,
+        country: nearestCity.country,
+        countryCode: nearestCity.countryCode,
+        isVerified: true,
+        verifiedTimestamp: Date.now(),
+        permissionState: 'granted'
+      };
+
+      setViewerLocation(liveLocation);
+      setIsLoadingGps(false);
+    };
+
+    try {
+      // 1. Try Native Capacitor Hardware GPS first
+      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      applyCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy || 10);
+      return;
+    } catch {
+      // 2. Fallback to Browser Geolocation API
+      if (!navigator.geolocation) {
+        setGpsError('Geolocation is not supported by your browser.');
+        setIsLoadingGps(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const { latitude, longitude, accuracy } = position.coords;
+          applyCoords(latitude, longitude, accuracy);
+        },
+        error => {
+          setIsLoadingGps(false);
+          setGpsError(error.message || 'Unable to retrieve your location');
+          setPermissionState('denied');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000
+        }
+      );
+    }
   };
 
   const getDistanceTo = (latitude: number, longitude: number): number => {

@@ -1,42 +1,47 @@
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+
 /**
- * LocalNet Mobile Touch Haptics Engine
- * Provides subtle tactile feedback on mobile devices using navigator.vibrate
+ * LocalNet Native & Web Haptics Engine
+ * Provides physical tactile feedback via Capacitor Haptics on Android/iOS
+ * with automatic fallback to navigator.vibrate on mobile browsers.
  */
 
-export const triggerHaptic = (
+export const triggerHaptic = async (
   type: 'light' | 'medium' | 'heavy' | 'success' | 'doubleTap' | 'warning' = 'light'
 ) => {
-  if (typeof window === 'undefined' || !('vibrate' in navigator)) return;
-
   try {
     switch (type) {
       case 'light':
-        // Micro-tick for scrubber drags, slider moves, tab changes (8ms)
-        navigator.vibrate(8);
+        await Haptics.impact({ style: ImpactStyle.Light });
         break;
       case 'medium':
-        // Button press, bookmark save, follow (15ms)
-        navigator.vibrate(15);
+        await Haptics.impact({ style: ImpactStyle.Medium });
         break;
       case 'heavy':
-        // Create post publish, modal open (25ms)
-        navigator.vibrate(25);
+        await Haptics.impact({ style: ImpactStyle.Heavy });
         break;
       case 'doubleTap':
-        // Double-pulse heart bounce for double-tap video like
-        navigator.vibrate([15, 45, 20]);
+        await Haptics.impact({ style: ImpactStyle.Medium });
+        setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}), 80);
         break;
       case 'success':
-        // Pull-to-refresh triggered, order placed
-        navigator.vibrate([12, 40, 18]);
+        await Haptics.notification({ type: NotificationType.Success });
         break;
       case 'warning':
-        // Discard / delete confirmation
-        navigator.vibrate([30, 60, 30]);
+        await Haptics.notification({ type: NotificationType.Warning });
         break;
     }
   } catch {
-    // Gracefully ignore if browser blocks vibration without direct user interaction
+    // Graceful web fallback
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        if (type === 'light') navigator.vibrate(8);
+        else if (type === 'medium') navigator.vibrate(15);
+        else if (type === 'heavy') navigator.vibrate(25);
+        else if (type === 'doubleTap') navigator.vibrate([15, 45, 20]);
+        else if (type === 'success') navigator.vibrate([12, 40, 18]);
+        else if (type === 'warning') navigator.vibrate([30, 60, 30]);
+      } catch {}
+    }
   }
 };
-

@@ -13,6 +13,7 @@ import { ReelsView } from './components/ReelsView.tsx';
 import { ExploreView } from './components/ExploreView.tsx';
 import { LocalHubView } from './components/LocalHubView.tsx';
 import { BusinessAdHub } from './components/BusinessAdHub.tsx';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { DistributionEngineLab } from './components/DistributionEngineLab.tsx';
 import { ProfileView } from './components/ProfileView.tsx';
 import { LocationModal } from './components/LocationModal.tsx';
@@ -110,6 +111,14 @@ function LocalNetContent() {
   }, [isDarkMode]);
 
   const toggleDarkMode = () => setIsDarkMode(prev => !prev);
+
+  // Initialize Native Android & iOS Status Bar styling
+  useEffect(() => {
+    try {
+      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#0f172a' }).catch(() => {});
+    } catch {}
+  }, []);
 
   // Ecosystem Data
   const [feedPosts, setFeedPosts] = useState<{ post: Post; eligibility: EligibilityResult }[]>([]);
