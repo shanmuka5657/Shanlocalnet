@@ -124,6 +124,20 @@ async function startServer() {
   });
 
   const app = express();
+
+  // Enable Universal CORS for Web, PWA, and Native Android/iOS (Capacitor)
+  app.use((req: Request, res: Response, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, X-Requested-With, Cache-Control');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   app.use(express.json());
 
   // Support Vercel serverless rewrites where req.url might have /api stripped or preserved

@@ -1,9 +1,11 @@
 import { createRoot } from 'react-dom/client';
+import { Capacitor } from '@capacitor/core';
 import App from './App.tsx';
 import './index.css';
 
 // Automatically bridge relative /api/ requests to the live production server when running inside Native Android/iOS
 const isNativePlatform =
+  Capacitor.isNativePlatform() ||
   window.location.protocol === 'capacitor:' ||
   window.location.protocol === 'file:' ||
   window.location.hostname === 'localhost' ||
@@ -45,6 +47,19 @@ if ('serviceWorker' in navigator && !window.location.hostname.includes('localhos
         console.log('[PWA] ServiceWorker active with scope:', reg.scope);
         // Force update check to ensure users get the latest sw.js immediately
         reg.update().catch(() => {});
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        reg.addEventListener('updatefound', () => {
+          const installingWorker = reg.installing;
+          if (installingWorker) {
+            installingWorker.addEventListener('statechange', () => {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                installingWorker.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          }
+        });
       })
       .catch((err) => console.warn('[PWA] ServiceWorker registration failed:', err));
   });

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'localnet-v2';
+const CACHE_NAME = 'localnet-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -26,6 +26,12 @@ self.addEventListener('activate', (event) => {
     })
   );
   self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'skipWaiting')) {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
