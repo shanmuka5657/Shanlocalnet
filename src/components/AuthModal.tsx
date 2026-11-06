@@ -29,7 +29,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSelectLanguage,
   onLoginSuccess
 }) => {
-  const { user, loginWithGoogle, logout, loading: authLoading, error: authError, clearError } = useAuth();
+  const { user, loginWithGoogle, loginWithPhone, logout, loading: authLoading, error: authError, clearError } = useAuth();
   const [showPhoneLogin, setShowPhoneLogin] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -57,8 +57,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setStep('otp');
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    await loginWithPhone(phoneNumber, 'Kurnool Local');
     onLoginSuccess('Kurnool Local', phoneNumber);
     onClose();
   };

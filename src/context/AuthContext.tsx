@@ -17,6 +17,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   loginWithGoogle: () => Promise<void>;
+  loginWithPhone: (phoneNumber: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateRole: (role?: UserRole, language?: SupportedLanguage) => Promise<void>;
   clearError: () => void;
@@ -156,6 +157,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithPhone = async (phoneNumber: string, name: string = 'Kurnool Local') => {
+    setError(null);
+    setLoading(true);
+    try {
+      const cleanPhone = phoneNumber.replace(/[^0-9+]/g, '');
+      const phoneSuffix = cleanPhone.slice(-4) || 'local';
+      const phoneUserId = `phone_${cleanPhone.replace(/[^0-9]/g, '') || Date.now()}`;
+      const userProfile: UserProfile = {
+        id: phoneUserId,
+        name: name || 'Local Explorer',
+        handle: `@user_${phoneSuffix}`,
+        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${phoneUserId}`,
+        phone: cleanPhone.startsWith('+') ? cleanPhone : `+91 ${cleanPhone}`,
+        email: `${phoneUserId}@localnet.in`,
+        city: 'Kurnool',
+        state: 'Andhra Pradesh',
+        country: 'India',
+        bio: 'Verified LocalNet citizen',
+        roles: ['viewer'],
+        activeRole: 'viewer',
+        language: 'en',
+        verified: true,
+        followersCount: 0,
+        followingCount: 0,
+        savedPostIds: [],
+        joinedCommunityIds: ['comm_kurnool_city']
+      };
+
+      setUser(userProfile);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(userProfile));
+
+      // Sync with Postgres database
+      try {
+        await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': phoneUserId },
+          body: JSON.stringify({
+            id: userProfile.id,
+            email: userProfile.email,
+            name: userProfile.name,
+            avatar: userProfile.avatar,
+            language: userProfile.language
+          })
+        });
+      } catch (syncErr) {
+        console.warn('Backend sync warning:', syncErr);
+      }
+    } catch (err: any) {
+      console.error('[AuthContext] Phone login error:', err);
+      setError(err?.message || 'Phone sign-in failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     setLoading(true);
     try {
@@ -208,6 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         error,
         loginWithGoogle,
+        loginWithPhone,
         logout,
         updateRole,
         clearError
