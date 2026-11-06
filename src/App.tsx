@@ -85,6 +85,13 @@ function LocalNetContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Global auth-open event (dispatched from any component needing login)
+  useEffect(() => {
+    const handleOpenAuth = () => setIsAuthModalOpen(true);
+    window.addEventListener('localnet:open-auth', handleOpenAuth);
+    return () => window.removeEventListener('localnet:open-auth', handleOpenAuth);
+  }, []);
+
   // Pause any playing videos when switching navigation tabs
   useEffect(() => {
     document.querySelectorAll('video').forEach((v) => {

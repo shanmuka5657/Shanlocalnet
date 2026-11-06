@@ -12,11 +12,24 @@ export interface FeedComment {
   createdAt?: string;
 }
 
-const LIKES_KEY = 'localnet_likes_v2';
-const COMMENTS_KEY = 'localnet_comments_v2';
-const VIEWS_KEY = 'localnet_views_v2';
-const AD_VIEWS_KEY = 'localnet_ad_views_v2';
-const USER_POSTS_KEY = 'localnet_user_posts_v2';
+// ---------------------------------------------------------------------------
+// USER ISOLATION: Scope all keys by userId
+// ---------------------------------------------------------------------------
+let _currentUserId = 'anonymous';
+
+export function setCurrentUserId(userId: string): void {
+  _currentUserId = userId || 'anonymous';
+}
+
+export function getCurrentUserId(): string {
+  return _currentUserId;
+}
+
+function getLikesKey()     { return `localnet_likes_v2_${_currentUserId}`; }
+function getCommentsKey()  { return `localnet_comments_v2_${_currentUserId}`; }
+function getViewsKey()     { return `localnet_views_v2_${_currentUserId}`; }
+function getAdViewsKey()   { return `localnet_ad_views_v2_${_currentUserId}`; }
+function getUserPostsKey() { return `localnet_user_posts_v2_${_currentUserId}`; }
 
 export const INITIAL_DEMO_COMMENTS: Record<string, FeedComment[]> = {
   post_kurnool_dance_worldwide: [
@@ -63,7 +76,7 @@ export const INITIAL_DEMO_COMMENTS: Record<string, FeedComment[]> = {
 
 export function getStoredLikes(): Record<string, boolean> {
   try {
-    const raw = localStorage.getItem(LIKES_KEY);
+    const raw = localStorage.getItem(getLikesKey());
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -78,7 +91,7 @@ export function setStoredLike(postId: string, liked: boolean): void {
     } else {
       delete likes[postId];
     }
-    localStorage.setItem(LIKES_KEY, JSON.stringify(likes));
+    localStorage.setItem(getLikesKey(), JSON.stringify(likes));
   } catch {}
 }
 
@@ -88,7 +101,7 @@ export function setStoredLike(postId: string, liked: boolean): void {
 
 export function getAllStoredComments(): Record<string, FeedComment[]> {
   try {
-    const raw = localStorage.getItem(COMMENTS_KEY);
+    const raw = localStorage.getItem(getCommentsKey());
     const parsed = raw ? JSON.parse(raw) : {};
     return { ...INITIAL_DEMO_COMMENTS, ...parsed };
   } catch {
@@ -106,7 +119,7 @@ export function addStoredComment(postId: string, comment: FeedComment): FeedComm
     const all = getAllStoredComments();
     const updated = [...(all[postId] || []), comment];
     all[postId] = updated;
-    localStorage.setItem(COMMENTS_KEY, JSON.stringify(all));
+    localStorage.setItem(getCommentsKey(), JSON.stringify(all));
     return updated;
   } catch {
     return [comment];
@@ -128,7 +141,7 @@ export function toggleStoredCommentLike(postId: string, commentId: string): Feed
       return c;
     });
     all[postId] = list;
-    localStorage.setItem(COMMENTS_KEY, JSON.stringify(all));
+    localStorage.setItem(getCommentsKey(), JSON.stringify(all));
     return list;
   } catch {
     return [];
@@ -160,7 +173,7 @@ export function mergeServerComments(serverMap: Record<string, FeedComment[]>): R
       if (!serverComments || !Array.isArray(serverComments)) continue;
       all[postId] = mergePostComments(all[postId] || [], serverComments);
     }
-    localStorage.setItem(COMMENTS_KEY, JSON.stringify(all));
+    localStorage.setItem(getCommentsKey(), JSON.stringify(all));
     return all;
   } catch {
     return serverMap || {};
@@ -173,7 +186,7 @@ export function mergeServerComments(serverMap: Record<string, FeedComment[]>): R
 
 export function getStoredViews(): Record<string, number> {
   try {
-    const raw = localStorage.getItem(VIEWS_KEY);
+    const raw = localStorage.getItem(getViewsKey());
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -190,7 +203,7 @@ export function incrementStoredView(postId: string): number {
   try {
     const views = getStoredViews();
     views[postId] = (views[postId] || 0) + 1;
-    localStorage.setItem(VIEWS_KEY, JSON.stringify(views));
+    localStorage.setItem(getViewsKey(), JSON.stringify(views));
     return views[postId];
   } catch {
     return 1;
@@ -203,7 +216,7 @@ export function incrementStoredView(postId: string): number {
 
 export function getStoredAdViews(): Record<string, number> {
   try {
-    const raw = localStorage.getItem(AD_VIEWS_KEY);
+    const raw = localStorage.getItem(getAdViewsKey());
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -220,7 +233,7 @@ export function incrementStoredAdView(adId: string): number {
   try {
     const adViews = getStoredAdViews();
     adViews[adId] = (adViews[adId] || 0) + 1;
-    localStorage.setItem(AD_VIEWS_KEY, JSON.stringify(adViews));
+    localStorage.setItem(getAdViewsKey(), JSON.stringify(adViews));
     return adViews[adId];
   } catch {
     return 1;
@@ -233,7 +246,7 @@ export function incrementStoredAdView(adId: string): number {
 
 export function getStoredUserPosts(): Post[] {
   try {
-    const raw = localStorage.getItem(USER_POSTS_KEY);
+    const raw = localStorage.getItem(getUserPostsKey());
     if (!raw) return [];
     const list = JSON.parse(raw);
     if (!Array.isArray(list)) return [];
@@ -289,7 +302,7 @@ export function saveStoredUserPost(newPost: Post): void {
     const current = getStoredUserPosts();
     // Prepend and filter duplicates
     const updated = [newPost, ...current.filter(p => p.id !== newPost.id)];
-    localStorage.setItem(USER_POSTS_KEY, JSON.stringify(updated.slice(0, 30)));
+    localStorage.setItem(getUserPostsKey(), JSON.stringify(updated.slice(0, 30)));
   } catch {}
 }
 

@@ -10,6 +10,7 @@ import {
   FirebaseUser
 } from '../lib/firebase.ts';
 import { UserProfile, UserRole, SupportedLanguage } from '../types/index.ts';
+import { setCurrentUserId } from '../lib/engagementStorage.ts';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -114,8 +115,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
       setFirebaseUser(fUser);
       if (fUser) {
+        setCurrentUserId(fUser.uid);       // ← scope all engagement data to this user
         await syncWithBackend(fUser);
       } else {
+        setCurrentUserId('anonymous');     // ← reset to anonymous on logout
         setUser(null);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
@@ -186,6 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       setUser(userProfile);
+      setCurrentUserId(userProfile.id);   // ← scope engagement data to phone user
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(userProfile));
 
       // Sync with Postgres database
@@ -216,6 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       await firebaseSignOut(auth);
+      setCurrentUserId('anonymous');      // ← clear user scope on logout
       setFirebaseUser(null);
       setUser(null);
       localStorage.removeItem(LOCAL_STORAGE_KEY);

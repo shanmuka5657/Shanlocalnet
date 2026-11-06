@@ -329,6 +329,8 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [loginPromptAction, setLoginPromptAction] = useState('');
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'find' | 'my'>('find');
@@ -340,7 +342,8 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
   const [isOfferOpen, setIsOfferOpen] = useState(false);
   const [bookingRide, setBookingRide] = useState<RideListing | null>(null);
 
-  const driverId = user?.id || 'current_user_1';
+  // Real user ID only — no shared fallback
+  const driverId = user?.id || null;
 
   // ── Fetch all rides ───────────────────────────────────────────────────────
   const fetchRides = useCallback(async (params?: {
@@ -363,8 +366,9 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
     }
   }, []);
 
-  // ── Fetch my rides ────────────────────────────────────────────────────────
+  // ── Fetch my rides (only when authenticated) ─────────────────────────────
   const fetchMyRides = useCallback(async () => {
+    if (!driverId) { setMyRides([]); return; }
     try {
       const res = await fetch(`/api/rides/my?driverId=${encodeURIComponent(driverId)}`);
       if (!res.ok) return;
@@ -416,6 +420,16 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
     setIsLoading(false);
   };
 
+  // ── Auth guard — require login before protected actions ─────────────────
+  const requireAuth = (action: string): boolean => {
+    if (!user) {
+      setLoginPromptAction(action);
+      setShowLoginPrompt(true);
+      return false;
+    }
+    return true;
+  };
+
   // ── Post a ride ───────────────────────────────────────────────────────────
   const handleRidePosted = async (ride: RideListing) => {
     setMyRides(prev => [ride, ...prev]);
@@ -424,15 +438,16 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
     await fetchRides(); // Refresh global list so others see it
   };
 
-  // ── Book a seat (live API) ────────────────────────────────────────────────
+  // ── Book a seat (live API, requires auth) ────────────────────────────────
   const handleConfirmBooking = async (ride: RideListing, seatsBooked: number) => {
+    if (!user) throw new Error('Please sign in to book a seat.');
     const res = await fetch(`/api/rides/${ride.id}/book`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        passengerId: driverId,
-        passengerName: user?.name || 'Passenger',
-        passengerAvatar: user?.avatar || '',
+        passengerId: user.id,
+        passengerName: user.name,
+        passengerAvatar: user.avatar || '',
         seatsBooked,
       }),
     });
@@ -488,7 +503,7 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
             <button
-              onClick={() => setIsOfferOpen(true)}
+              onClick={() => requireAuth('offer a ride') && setIsOfferOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow active:scale-95 transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -664,7 +679,7 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
                 ) : (
                   <div className="space-y-3">
                     {rides.map(ride => (
-                      <RideCard key={ride.id} ride={ride} onBook={r => setBookingRide(r)} />
+                      <RideCard key={ride.id} ride={ride} onBook={r => requireAuth('book a seat') && setBookingRide(r)} />
                     ))}
                   </div>
                 )}
@@ -775,6 +790,50 @@ export const RidesView: React.FC<RidesViewProps> = ({ onRidePosted }) => {
             await handleConfirmBooking(bookingRide, seats);
           }}
         />
+      )}
+
+      {/* ── Login Required Prompt ─────────────────────────────────────────── */}
+      {showLoginPrompt && (
+        <div
+          onClick={() => setShowLoginPrompt(false)}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="w-full sm:max-w-sm bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border-t sm:border border-slate-200 dark:border-slate-800 p-6 space-y-4"
+          >
+            <div className="sm:hidden w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto" />
+            <div className="flex flex-col items-center gap-3 text-center py-2">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
+                <Car className="w-7 h-7 text-amber-500" />
+              </div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Sign in to {loginPromptAction}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs">
+                Create a free LocalNet account to {loginPromptAction}, track your rides, and connect with fellow travellers.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowLoginPrompt(false);
+                  // Trigger the global auth modal via a custom event
+                  window.dispatchEvent(new CustomEvent('localnet:open-auth'));
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow"
+              >
+                Sign In / Sign Up
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

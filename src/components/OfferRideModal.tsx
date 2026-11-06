@@ -72,6 +72,7 @@ export const OfferRideModal: React.FC<OfferRideModalProps> = ({ isOpen, onClose,
     e.preventDefault();
     setError('');
 
+    if (!user) return setError('Please sign in to offer a ride.');
     if (!toCity) return setError('Please select a destination city.');
     if (!departureDate) return setError('Please pick a departure date.');
     if (!departureTime) return setError('Please pick a departure time.');
@@ -83,9 +84,9 @@ export const OfferRideModal: React.FC<OfferRideModalProps> = ({ isOpen, onClose,
     try {
       const newRide: RideListing = {
         id: `ride_${Date.now()}`,
-        driverId: user?.id || 'current_user_1',
-        driverName: user?.name || 'You',
-        driverAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
+        driverId: user.id,
+        driverName: user.name || 'Driver',
+        driverAvatar: user.avatar || '',
         driverRating: 5.0,
         driverTotalRides: 0,
         driverVerified: false,
