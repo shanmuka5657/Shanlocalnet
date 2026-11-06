@@ -370,3 +370,48 @@ export interface NotificationItem {
   read: boolean;
   linkTab?: string;
 }
+
+export type VehicleType = 'bike' | 'auto' | 'car' | 'suv' | 'van';
+
+export interface RideListing {
+  id: string;
+  driverId: string;
+  driverName: string;
+  driverAvatar: string;
+  driverRating: number;
+  driverTotalRides: number;
+  driverVerified: boolean;
+
+  fromCity: string;
+  fromArea: string;
+  fromLat: number;
+  fromLon: number;
+
+  toCity: string;
+  toArea: string;
+  toLat: number;
+  toLon: number;
+
+  waypoints: string[];
+
+  departureDate: string; // YYYY-MM-DD
+  departureTime: string; // HH:MM (24h)
+  estimatedDuration: string; // e.g. "4h 30m"
+  distanceKm: number;
+
+  totalSeats: number;
+  availableSeats: number;
+  pricePerSeat: number; // INR
+
+  vehicleType: VehicleType;
+  vehicleModel: string;
+  vehicleColor: string;
+  vehicleNumber?: string;
+
+  preferences: string[]; // e.g. ["No smoking", "Women only", "Luggage OK"]
+  notes: string;
+
+  status: 'active' | 'full' | 'completed' | 'cancelled';
+  createdAt: string;
+  bookedSeats: number;
+}

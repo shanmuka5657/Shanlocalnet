@@ -13,6 +13,7 @@ import { HomeFeed } from './components/HomeFeed.tsx';
 import { ReelsView } from './components/ReelsView.tsx';
 import { ExploreView } from './components/ExploreView.tsx';
 import { LocalHubView } from './components/LocalHubView.tsx';
+import { RidesView } from './components/RidesView.tsx';
 import { BusinessAdHub } from './components/BusinessAdHub.tsx';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { DistributionEngineLab } from './components/DistributionEngineLab.tsx';
@@ -33,7 +34,8 @@ import {
   INITIAL_JOBS,
   INITIAL_SERVICES,
   INITIAL_EVENTS,
-  INITIAL_NOTIFICATIONS
+  INITIAL_NOTIFICATIONS,
+  INITIAL_RIDES
 } from './lib/mockData.ts';
 import {
   evaluateOrganicEligibility,
@@ -52,7 +54,8 @@ import {
   LocalEvent,
   NotificationItem,
   EligibilityResult,
-  SupportedLanguage
+  SupportedLanguage,
+  RideListing
 } from './types/index.ts';
 
 function LocalNetContent() {
@@ -162,6 +165,7 @@ function LocalNetContent() {
   const [services, setServices] = useState<LocalServiceProvider[]>([]);
   const [events, setEvents] = useState<LocalEvent[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [rides, setRides] = useState<RideListing[]>(INITIAL_RIDES);
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch ecosystem data whenever location or feed tab updates
@@ -438,7 +442,15 @@ function LocalNetContent() {
           />
         )}
 
-        {/* 4. PROFILE (Screen 14: Multi-Role Switcher, Creator Studio, Language) */}
+        {/* 4. RIDES (BlaBlaCar-style carpooling — find & offer rides) */}
+        {currentTab === 'rides' && !isFullScreenReelsOpen && (
+          <RidesView
+            rides={rides}
+            onRidePosted={(ride) => setRides(prev => [ride, ...prev])}
+          />
+        )}
+
+        {/* 5. PROFILE (Screen 14: Multi-Role Switcher, Creator Studio, Language) */}
         {currentTab === 'profile' && !isFullScreenReelsOpen && (
           <ProfileView
             posts={feedPosts.map(p => p.post)}

@@ -21,7 +21,7 @@ import {
   User
 } from 'lucide-react';
 
-export type MainNavigationTab = 'home' | 'explore' | 'local' | 'profile' | 'lab';
+export type MainNavigationTab = 'home' | 'explore' | 'local' | 'profile' | 'lab' | 'rides';
 
 interface TopNavigationProps {
   currentTab: MainNavigationTab;
@@ -61,6 +61,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const navLinks: { id: MainNavigationTab; label: string }[] = [
     { id: 'home', label: t('navHome') },
     { id: 'explore', label: t('navExplore') },
+    { id: 'rides', label: 'Rides' },
     { id: 'local', label: t('navLocal') },
     { id: 'profile', label: t('navProfile') }
   ];
