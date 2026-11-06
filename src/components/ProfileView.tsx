@@ -43,12 +43,21 @@ interface ProfileViewProps {
 // ── Seed Videos Admin Panel ────────────────────────────────────────────────
 const SeedVideosPanel: React.FC<{ userId: string }> = ({ userId }) => {
   const [apiKey, setApiKey] = useState('');
+  const [keyConfigured, setKeyConfigured] = useState(false); // env key pre-set
   const [source, setSource] = useState<'pixabay' | 'pexels'>('pixabay');
   const [targetCount, setTargetCount] = useState(1000);
   const [isStarting, setIsStarting] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [message, setMessage] = useState('');
   const [isPolling, setIsPolling] = useState(false);
+
+  // Check if PIXABAY_API_KEY is pre-configured in env
+  useEffect(() => {
+    fetch('/api/admin/seed-status')
+      .then(r => r.json())
+      .then(d => { if (d.keyConfigured) setKeyConfigured(true); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!isPolling) return;
@@ -174,16 +183,27 @@ const SeedVideosPanel: React.FC<{ userId: string }> = ({ userId }) => {
 
       {/* API Key input */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-2">
           {source === 'pixabay' ? 'Pixabay' : 'Pexels'} API Key
+          {keyConfigured && source === 'pixabay' && (
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold">
+              ✅ Saved in .env
+            </span>
+          )}
         </label>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
-          placeholder={`Paste your free ${source === 'pixabay' ? 'Pixabay' : 'Pexels'} API key...`}
-          className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-amber-500 outline-none"
-        />
+        {keyConfigured && source === 'pixabay' ? (
+          <div className="w-full px-3 py-2.5 text-xs rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-mono">
+            ●●●●●●●●●●●●●●●●●●●●●●●●●●●●●● (PIXABAY_API_KEY from .env)
+          </div>
+        ) : (
+          <input
+            type="password"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            placeholder={`Paste your free ${source === 'pixabay' ? 'Pixabay' : 'Pexels'} API key...`}
+            className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-amber-500 outline-none"
+          />
+        )}
       </div>
 
       {/* Count selector */}

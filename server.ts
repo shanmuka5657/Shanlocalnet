@@ -1655,7 +1655,11 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
 
   // GET /api/admin/seed-status — check current seeder progress
   app.get('/api/admin/seed-status', (_req: Request, res: Response) => {
-    res.json({ running: isSeederRunning(), progress: getSeedProgress() });
+    res.json({
+      running: isSeederRunning(),
+      progress: getSeedProgress(),
+      keyConfigured: !!(process.env.PIXABAY_API_KEY)
+    });
   });
 
   // GET /api/admin/grant-admin — show HTML form (browser-friendly)
@@ -1770,11 +1774,12 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
       return res.status(403).json({ error: 'Only platform_admin users can seed videos.' });
     }
     const { apiKey, pexelsApiKey, source = 'pixabay', targetCount = 10000 } = req.body;
-    const key = apiKey || pexelsApiKey; // support both field names
+    // Use key from request body, fallback to PIXABAY_API_KEY env var
+    const key = apiKey || pexelsApiKey || process.env.PIXABAY_API_KEY || '';
 
     if (!key || typeof key !== 'string' || key.length < 8) {
       return res.status(400).json({
-        error: 'apiKey is required. Get your free Pixabay key at https://pixabay.com/accounts/api/'
+        error: 'apiKey is required. Get your free Pixabay key at https://pixabay.com/accounts/api/ or set PIXABAY_API_KEY in .env'
       });
     }
 
