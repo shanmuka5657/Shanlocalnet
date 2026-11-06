@@ -1691,6 +1691,11 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
       if (!body.vehicleModel) {
         return res.status(400).json({ error: 'vehicleModel is required' });
       }
+      // Block anonymous / test fallback driver IDs
+      const blockedDriverIds = ['current_user_1', 'anonymous', 'guest_user', 'driver_live_1', 'driver_test'];
+      if (!body.driverId || blockedDriverIds.includes(body.driverId)) {
+        return res.status(401).json({ error: 'Authentication required. Please sign in before posting a ride.' });
+      }
 
       const ride = {
         ...body,
@@ -1722,9 +1727,15 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
         return res.status(400).json({ error: 'seatsBooked must be >= 1' });
       }
 
+      // Block anonymous / test fallback passenger IDs
+      const blockedIds = ['current_user_1', 'anonymous', 'guest_user', 'passenger_test_1'];
+      if (!passengerId || blockedIds.includes(passengerId)) {
+        return res.status(401).json({ error: 'Authentication required. Please sign in before booking a ride.' });
+      }
+
       const result = await ridesRepo.bookSeat({
         rideId: id,
-        passengerId: passengerId || 'guest_user',
+        passengerId,
         passengerName: passengerName || 'Passenger',
         passengerAvatar: passengerAvatar || '',
         seatsBooked: seats,
