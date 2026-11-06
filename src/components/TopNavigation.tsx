@@ -98,6 +98,20 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           </button>
         </div>
 
+        {/* Mobile-Only Center Search Pill (Fills empty header space responsively) */}
+        <div className="flex-1 md:hidden mx-1.5 sm:mx-2 min-w-0">
+          <button
+            onClick={onOpenSearch}
+            className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-500 dark:text-slate-400 text-xs transition-all border border-slate-200/80 dark:border-slate-700/80 shadow-inner group cursor-pointer text-left"
+            title="Search LocalNet"
+          >
+            <Search className="w-3.5 h-3.5 text-amber-500 shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+              {getTranslation(language, 'searchPlaceholder')}
+            </span>
+          </button>
+        </div>
+
         {/* Center Zone: Desktop Navigation Links + Search Pill */}
         <div className="hidden md:flex items-center gap-3 lg:gap-5 flex-1 max-w-xl mx-2">
           {/* Desktop Search Trigger */}
@@ -139,16 +153,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 
         {/* Right Zone: Controls (Responsive across all screens) */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-
-          {/* Search Trigger Button (Always visible on mobile, icon on tablet) */}
-          <button
-            onClick={onOpenSearch}
-            className="md:hidden p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 transition-colors"
-            title="Search"
-            aria-label="Search"
-          >
-            <Search className="w-4 h-4 text-amber-500" />
-          </button>
 
           {/* Desktop-only: Language Dropdown */}
           <div className="hidden lg:relative lg:block group">
