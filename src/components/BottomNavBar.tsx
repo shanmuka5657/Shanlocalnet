@@ -1,6 +1,6 @@
 import React from 'react';
 import { MainNavigationTab } from './TopNavigation.tsx';
-import { Home, Compass, Plus, Store, User, Car } from 'lucide-react';
+import { Home, Plus, Store, User, Car } from 'lucide-react';
 import { SupportedLanguage } from '../types/index.ts';
 import { getTranslation } from '../lib/i18n.ts';
 import { triggerHaptic } from '../lib/haptics.ts';
@@ -32,8 +32,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 safe-area-bottom shadow-lg">
-      <div className="w-full grid grid-cols-6 items-center h-14 sm:h-16 px-1">
-        
+      <div className="w-full grid grid-cols-5 items-center h-14 sm:h-16 px-1">
+
         {/* 1. Home */}
         <button
           onClick={() => handleTabClick('home')}
@@ -50,20 +50,18 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
           </span>
         </button>
 
-        {/* 2. Explore */}
+        {/* 2. Rides (replaces Explore in bottom nav) */}
         <button
-          onClick={() => handleTabClick('explore')}
+          onClick={() => handleTabClick('rides')}
           className={`w-full min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors ${
-            currentTab === 'explore'
+            currentTab === 'rides'
               ? 'text-amber-600 dark:text-amber-400 font-bold'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
-          aria-label={t('navExplore')}
+          aria-label="Rides"
         >
-          <Compass className="w-5 h-5 shrink-0" />
-          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">
-            {t('navExplore')}
-          </span>
+          <Car className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">Rides</span>
         </button>
 
         {/* 3. Create (Elevated Action trigger) */}
@@ -80,21 +78,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
           </span>
         </button>
 
-        {/* 4. Rides */}
-        <button
-          onClick={() => handleTabClick('rides')}
-          className={`w-full min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors ${
-            currentTab === 'rides'
-              ? 'text-amber-600 dark:text-amber-400 font-bold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-          aria-label="Rides"
-        >
-          <Car className="w-5 h-5 shrink-0" />
-          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">Rides</span>
-        </button>
-
-        {/* 5. Local (Local Hub) */}
+        {/* 4. Local (Local Hub) */}
         <button
           onClick={() => handleTabClick('local')}
           className={`w-full min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors ${

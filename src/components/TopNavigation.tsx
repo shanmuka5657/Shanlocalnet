@@ -61,7 +61,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const navLinks: { id: MainNavigationTab; label: string }[] = [
     { id: 'home', label: t('navHome') },
     { id: 'explore', label: t('navExplore') },
-    { id: 'rides', label: 'Rides' },
     { id: 'local', label: t('navLocal') },
     { id: 'profile', label: t('navProfile') }
   ];
