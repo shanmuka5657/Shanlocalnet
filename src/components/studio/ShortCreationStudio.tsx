@@ -618,11 +618,11 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
             </button>
 
             {/* Quick Action Tools */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
+            <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
               {/* Text */}
               <button
                 onClick={() => setIsTextEditorOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
                 title="Add Text"
               >
                 <Type className="w-3.5 h-3.5 text-cyan-400" />
@@ -632,7 +632,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               {/* Custom Emoji / Stickers */}
               <button
                 onClick={() => setIsEmojiDrawerOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
                 title="Draw or Upload Emoji"
               >
                 <Smile className="w-3.5 h-3.5 text-amber-400" />
@@ -642,7 +642,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               {/* Picture Overlay */}
               <button
                 onClick={() => setIsImagePickerOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
                 title="Insert Picture Inside Video"
               >
                 <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
@@ -652,7 +652,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               {/* Price Tag */}
               <button
                 onClick={() => setIsPriceEditorOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
                 title="Product Price Tag"
               >
                 <Tag className="w-3.5 h-3.5 text-yellow-400" />
@@ -662,7 +662,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               {/* Merchant Presets */}
               <button
                 onClick={() => setIsMerchantPresetsOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
                 title="Merchant Selling Badges"
               >
                 <Store className="w-3.5 h-3.5 text-rose-400" />
@@ -672,7 +672,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               {/* Cover Frame */}
               <button
                 onClick={() => setIsPosterModalOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
                 title="Select Cover Thumbnail"
               >
                 <Camera className="w-3.5 h-3.5 text-purple-400" />
@@ -682,7 +682,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               {/* Filters & Speed */}
               <button
                 onClick={() => setIsFilterAudioOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 border border-slate-800"
                 title="Video Filters & Speed"
               >
                 <Sliders className="w-3.5 h-3.5 text-amber-400" />

@@ -133,12 +133,19 @@ async function startServer() {
   const db: IDatabaseClient = await initDatabase();
   const migrationRunner = new MigrationRunner(db);
 
-  // Run migrations and initial seed data in local runtime (skip on Vercel cold starts)
-  if (!process.env.VERCEL) {
-    console.log('[LocalNet Server] Checking and applying database migrations...');
+  // Run migrations on every startup (local and Vercel production).
+  // The migration runner is idempotent — already-applied migrations are skipped via checksum.
+  // Seed data is skipped on Vercel cold starts to avoid write-latency on every serverless invocation.
+  console.log('[LocalNet Server] Checking and applying database migrations...');
+  try {
     const migrationResult = await migrationRunner.runMigrations();
     console.log(`[LocalNet Server] Migrations verified: ${migrationResult.appliedCount} applied.`);
+  } catch (migErr: any) {
+    console.error('[LocalNet Server] Migration error:', migErr?.message);
+    throw migErr;
+  }
 
+  if (!process.env.VERCEL) {
     console.log('[LocalNet Server] Verifying initial seed data...');
     await seedDatabase(db);
     console.log('[LocalNet Server] Database seeding verified.');

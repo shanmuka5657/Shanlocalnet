@@ -260,6 +260,40 @@ export const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
             </div>
           </div>
 
+          {/* Duration Control */}
+          <div className="flex flex-col gap-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-semibold">Display Duration:</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDurationSec(d => Math.max(1, Math.round((d - 1) * 10) / 10))}
+                  className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold flex items-center justify-center"
+                >−</button>
+                <span className="w-14 text-center text-sm font-bold text-amber-400">{durationSec}s</span>
+                <button
+                  type="button"
+                  onClick={() => setDurationSec(d => Math.min(Math.max(1, Math.floor(videoDuration)), d + 1))}
+                  className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold flex items-center justify-center"
+                >+</button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={Math.max(1, Math.floor(videoDuration))}
+              step={1}
+              value={durationSec}
+              onChange={e => setDurationSec(Number(e.target.value))}
+              className="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-lg"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500">
+              <span>Starts: {Number(Math.max(0, Math.min(currentTime, Math.max(0, videoDuration - 1))).toFixed(1))}s</span>
+              <span>Ends: {Number(Math.min(videoDuration, Math.max(0, Math.min(currentTime, Math.max(0, videoDuration - 1))) + durationSec).toFixed(1))}s</span>
+              <span>Video: {Number(videoDuration.toFixed(1))}s total</span>
+            </div>
+          </div>
+
           {/* Apply Button */}
           <button
             type="button"
@@ -268,7 +302,7 @@ export const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
             className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 disabled:opacity-40 text-slate-950 font-bold rounded-xl text-sm shadow-lg flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4" />
-            Add Text to Video ({durationSec}s Duration)
+            Add Text to Video ({durationSec}s)
           </button>
         </div>
       </div>
