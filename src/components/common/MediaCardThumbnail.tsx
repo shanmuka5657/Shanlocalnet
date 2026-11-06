@@ -140,17 +140,21 @@ export const MediaCardThumbnail: React.FC<MediaCardThumbnailProps> = ({
     );
   }
 
+  // Ensure regional S3 URL for video preview
+  const safeMediaUrl = mediaUrl && mediaUrl.includes('.s3.amazonaws.com') && !mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
+    ? mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+    : mediaUrl;
+
   // Strategy 2: Native HTML5 video frame (renders exact video frame at 1.5s past warmup)
-  if (mediaUrl && isVideoSource && !videoError) {
+  if (safeMediaUrl && isVideoSource && !videoError) {
     return (
       <div className="relative w-full h-full overflow-hidden bg-slate-950">
         <video
           ref={videoRef}
-          src={`${mediaUrl}#t=1.5`}
+          src={`${safeMediaUrl}#t=1.5`}
           preload="metadata"
           muted
           playsInline
-          crossOrigin="anonymous"
           className={className}
           onLoadedMetadata={() => {
             if (videoRef.current && videoRef.current.currentTime === 0) {

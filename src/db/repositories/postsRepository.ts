@@ -514,7 +514,11 @@ export class PostsRepository {
       title: r.title,
       description: r.description,
       mediaAssetId: r.media_asset_id || undefined,
-      mediaUrl: r.media_url || undefined,
+      mediaUrl: r.media_url ? (
+        r.media_url.includes('.s3.amazonaws.com') && !r.media_url.includes('.s3.ap-southeast-2.amazonaws.com')
+          ? r.media_url.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+          : r.media_url
+      ) : undefined,
       mediaThumbnail: r.media_thumbnail || (
         r.media_url?.includes('reel_dance.mp4') ? 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80' :
         r.media_url?.includes('reel_tech.mp4') ? 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80' :

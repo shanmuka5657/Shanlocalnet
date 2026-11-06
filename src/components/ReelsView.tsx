@@ -461,7 +461,11 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
           <>
           <video
             ref={videoRef}
-            src={activeReel.mediaUrl}
+            src={
+              activeReel.mediaUrl && activeReel.mediaUrl.includes('.s3.amazonaws.com') && !activeReel.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
+                ? activeReel.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+                : activeReel.mediaUrl
+            }
             poster={activeReel.mediaThumbnail || (activeReel as any).thumbnailUrl || undefined}
             preload="metadata"
             loop

@@ -540,7 +540,15 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       <video
         ref={videoRef}
         id={`feed-video-${post.id}`}
-        src={post.mediaThumbnail ? post.mediaUrl : `${post.mediaUrl}#t=0.5`}
+        src={
+          post.mediaThumbnail
+            ? (post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
+                ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+                : post.mediaUrl)
+            : `${post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
+                ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+                : post.mediaUrl}#t=0.5`
+        }
         poster={post.mediaThumbnail || undefined}
         onPlay={() => {
           document.querySelectorAll('video').forEach((v) => {
