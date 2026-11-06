@@ -607,18 +607,33 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
       {/* ========================================================================= */}
       {currentStep === 2 && project && (
         <div className="flex-1 flex flex-col justify-between overflow-hidden">
-          {/* Top Studio Toolbar */}
-          <div className="flex items-center justify-between px-3 py-2 bg-slate-950/90 border-b border-slate-800 z-30">
-            <button
-              onClick={() => setCurrentStep(1)}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 flex items-center gap-1 text-xs"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
+          {/* Top Studio Toolbar — 2-row layout for all screen sizes */}
+          <div className="flex flex-col bg-slate-950/90 border-b border-slate-800 z-30">
+            {/* Row 1: Back + Next navigation */}
+            <div className="flex items-center justify-between px-3 pt-2 pb-1">
+              <button
+                onClick={() => setCurrentStep(1)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 flex items-center gap-1 text-xs flex-shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
 
-            {/* Quick Action Tools */}
-            <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {/* Next / Publish Step Button */}
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1 shadow-lg flex-shrink-0"
+              >
+                <span>Next</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Row 2: Scrollable Quick Action Tools */}
+            <div
+              className="flex items-center gap-1.5 overflow-x-auto px-3 pb-2 scrollbar-none"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {/* Text */}
               <button
                 onClick={() => setIsTextEditorOpen(true)}
@@ -689,15 +704,6 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
                 <span>FX</span>
               </button>
             </div>
-
-            {/* Next / Publish Step Button */}
-            <button
-              onClick={() => setCurrentStep(3)}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1 shadow-lg"
-            >
-              <span>Next</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
 
           {/* Center 9:16 Live Canvas */}
