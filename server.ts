@@ -233,9 +233,10 @@ async function startServer() {
     try {
       const viewer = extractViewerLocation(req);
       const tab = ((req.query.tab as string) || 'global') as 'global' | 'around_me' | 'following';
+      const radiusKm = Number(req.query.radiusKm) || 40;
 
       const [eligiblePosts, eligibleAds, eligibleReels, rawBusinesses, rawMarketplace, rawCommunities] = await Promise.all([
-        postsRepo.getFeed(viewer, tab, 30, 0),
+        postsRepo.getFeed(viewer, tab, 30, 0, radiusKm),
         campRepo.getCommercialFeed(viewer),
         postsRepo.getReels(viewer, 30),
         bizRepo.listAll().catch(() => INITIAL_BUSINESSES),
@@ -923,6 +924,96 @@ async function startServer() {
     } catch (err: any) {
       console.error('[Ad View Record Error]:', err);
       res.status(500).json({ error: 'Failed to record ad impression', details: err?.message });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 3.2 AI CAPTION & VIRAL HASHTAG GENERATOR (Powered by Google Gemini Flash)
+  // -------------------------------------------------------------------------
+  app.post('/api/ai/generate-caption', async (req: Request, res: Response) => {
+    try {
+      const {
+        title = '',
+        currentCaption = '',
+        city = 'Kurnool',
+        scope = 'worldwide',
+        overlayTexts = []
+      } = req.body || {};
+
+      const contextHint = [
+        title,
+        currentCaption,
+        ...(Array.isArray(overlayTexts) ? overlayTexts : [])
+      ].filter(Boolean).join(' ');
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      const isValidGeminiKey = typeof apiKey === 'string' && apiKey.length > 20 && !apiKey.includes('MY_GEMINI');
+
+      if (isValidGeminiKey) {
+        try {
+          const prompt = `You are a social media copywriter for short vertical videos (like TikTok / YouTube Shorts) on LocalNet, a hyperlocal and global video platform.
+The user is in "${city}" and distribution scope is "${scope}".
+Context/topic/text overlays: "${contextHint || 'exciting local lifestyle, deals and entertainment'}".
+
+Return ONLY a valid JSON object matching this exact format, with no markdown code fences:
+{"caption": "A catchy, viral 1-2 sentence caption with 2-3 emojis", "hashtags": "shorts, localnet, tag3, tag4, tag5"}`;
+
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.8, maxOutputTokens: 200 }
+              })
+            }
+          );
+
+          if (geminiRes.ok) {
+            const data: any = await geminiRes.json();
+            const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (textResponse) {
+              const cleaned = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+              const parsed = JSON.parse(cleaned);
+              if (parsed.caption && parsed.hashtags) {
+                return res.json({ success: true, caption: parsed.caption, hashtags: parsed.hashtags, source: 'gemini' });
+              }
+            }
+          }
+        } catch (apiErr) {
+          console.warn('[Gemini AI Caption Fallback Triggered]:', apiErr);
+        }
+      }
+
+      // Smart Contextual Local Generator (Instant, 100% reliable)
+      const sanitizedCity = city || 'Kurnool';
+      const citySlug = sanitizedCity.toLowerCase().replace(/\s+/g, '');
+
+      const sampleCaptions = [
+        `✨ Check this out in ${sanitizedCity}! Catch the latest vibes and local highlights right here. 🔥`,
+        `🚀 Trending in ${sanitizedCity}! You don't want to miss this incredible moment. 💯`,
+        `📍 Exclusive from ${sanitizedCity}! Share with friends and let us know what you think in the comments! 👇`,
+        `🌟 Don't miss this local update from ${sanitizedCity}! Best offers and entertainment right near you. 🎉`
+      ];
+
+      const selectedCaption = contextHint
+        ? `🔥 ${contextHint.slice(0, 70)} — Live from ${sanitizedCity}! Check it out and share your thoughts! 🚀`
+        : sampleCaptions[Math.floor(Math.random() * sampleCaptions.length)];
+
+      const hashtags = scope === 'worldwide'
+        ? `shorts, viral, localnet, trending, ${citySlug}, entertainment, foryou`
+        : `shorts, localnet, ${citySlug}, nearme, hyperlocal, localdeals, localcreator`;
+
+      res.json({
+        success: true,
+        caption: selectedCaption,
+        hashtags,
+        source: 'smart_local_generator'
+      });
+    } catch (err: any) {
+      console.error('[AI Caption Error]:', err);
+      res.status(500).json({ error: 'Failed to generate caption', details: err?.message });
     }
   });
 

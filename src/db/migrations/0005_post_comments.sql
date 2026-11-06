@@ -33,3 +33,4 @@ CREATE INDEX IF NOT EXISTS idx_post_comments_user_id ON post_comments (user_id, 
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS comment_count INTEGER NOT NULL DEFAULT 0;
 
 COMMIT;
+

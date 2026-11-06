@@ -142,3 +142,4 @@ export class CommentsRepository {
     return result.rows[0]?.comment_count ?? 0;
   }
 }
+

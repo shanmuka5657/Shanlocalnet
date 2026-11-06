@@ -136,7 +136,8 @@ export class PostsRepository {
     viewer: ViewerLocation | null,
     tab: 'global' | 'around_me' | 'following' = 'global',
     limit = 30,
-    offset = 0
+    offset = 0,
+    radiusKm = 40
   ): Promise<{ post: Post; eligibility: EligibilityResult }[]> {
     const lon = viewer?.coords.longitude ?? 78.0373;
     const lat = viewer?.coords.latitude ?? 15.8281;
@@ -164,12 +165,13 @@ export class PostsRepository {
     const params: any[] = [lon, lat];
 
     if (tab === 'around_me') {
-      // Around Me: within 40 km or matching city
+      // Dynamic PostGIS radius query (capped between 1km and 40km)
+      const radiusMeters = Math.min(40000, Math.max(1000, Number(radiusKm || 40) * 1000));
       queryStr += ` AND (
-        ST_DWithin(p.publishing_point, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 40000)
-        OR LOWER(p.publishing_city) = LOWER($3)
+        ST_DWithin(p.publishing_point, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $${params.length + 1})
+        OR LOWER(p.publishing_city) = LOWER($${params.length + 2})
       )`;
-      params.push(viewer?.cityName || 'Kurnool');
+      params.push(radiusMeters, viewer?.cityName || 'Kurnool');
     }
 
     queryStr += ` ORDER BY p.published_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2};`;

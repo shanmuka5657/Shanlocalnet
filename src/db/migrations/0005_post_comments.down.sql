@@ -8,3 +8,4 @@ ALTER TABLE posts DROP COLUMN IF EXISTS comment_count;
 DROP TABLE IF EXISTS post_comments;
 
 COMMIT;
+

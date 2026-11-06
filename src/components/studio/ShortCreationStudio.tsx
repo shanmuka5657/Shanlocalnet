@@ -97,6 +97,37 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
   const [scope, setScope] = useState<'worldwide' | '40km' | '10km'>('worldwide');
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [isGeneratingAiCaption, setIsGeneratingAiCaption] = useState(false);
+
+  const handleGenerateAiCaption = async () => {
+    setIsGeneratingAiCaption(true);
+    try {
+      const overlayTexts = project?.overlays
+        ?.filter(o => o.type === 'text' && o.text)
+        .map(o => o.text as string) || [];
+
+      const res = await fetch('/api/ai/generate-caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentCaption: caption,
+          city: viewerLocation.cityName,
+          scope,
+          overlayTexts
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.caption) setCaption(data.caption);
+        if (data.hashtags) setTagsInput(data.hashtags);
+      }
+    } catch (e) {
+      console.warn('AI caption generation failed:', e);
+    } finally {
+      setIsGeneratingAiCaption(false);
+    }
+  };
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -793,7 +824,19 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               </div>
 
               <div className="flex-1 flex flex-col gap-2">
-                <label className="text-xs font-semibold text-slate-400">Caption:</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-400">Caption:</label>
+                  <button
+                    type="button"
+                    disabled={isGeneratingAiCaption}
+                    onClick={handleGenerateAiCaption}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/10 hover:from-amber-500/30 hover:to-purple-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    title="Generate viral caption & tags using Gemini AI"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-amber-400 ${isGeneratingAiCaption ? 'animate-spin' : ''}`} />
+                    <span>{isGeneratingAiCaption ? 'AI Writing...' : '✨ AI Caption & Tags'}</span>
+                  </button>
+                </div>
                 <textarea
                   value={caption}
                   onChange={e => setCaption(e.target.value)}
