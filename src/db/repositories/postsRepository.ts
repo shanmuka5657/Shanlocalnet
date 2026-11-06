@@ -489,7 +489,7 @@ export class PostsRepository {
         INSERT INTO reel_views (post_id, viewer_user_id, watch_duration_ms, viewer_city, created_at)
         VALUES ($1, $2, 3000, $3, NOW());
       `, [postId, userId, city]);
-    } catch {}
+    } catch { }
 
     await this.client.query(
       'UPDATE posts SET views_count = views_count + 1, updated_at = NOW() WHERE id = $1;',
@@ -521,8 +521,8 @@ export class PostsRepository {
       ) : undefined,
       mediaThumbnail: r.media_thumbnail || (
         r.media_url?.includes('reel_dance.mp4') ? 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80' :
-        r.media_url?.includes('reel_tech.mp4') ? 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80' :
-        r.media_url?.includes('reel_music.mp4') ? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80' : ''
+          r.media_url?.includes('reel_tech.mp4') ? 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80' :
+            r.media_url?.includes('reel_music.mp4') ? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80' : ''
       ),
       mediaGradient: r.media_gradient || 'from-amber-600 via-rose-600 to-indigo-900',
       aspectRatio: r.aspect_ratio || '9:16',

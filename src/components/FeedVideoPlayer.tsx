@@ -130,7 +130,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
                 setIsPreviewPlaying(true);
                 isPreviewRef.current = true;
               })
-              .catch(() => {});
+              .catch(() => { });
           }
         } else if (!entry.isIntersecting && isPreviewRef.current) {
           // Scrolled off screen -> pause preview and reset
@@ -213,7 +213,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     if (!post.mediaThumbnail && !isCurrentlyPlaying && videoRef.current.currentTime === 0) {
       try {
         videoRef.current.currentTime = 0.5;
-      } catch {}
+      } catch { }
     }
   };
 
@@ -287,7 +287,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     const isFs = document.fullscreenElement || (document as any).webkitFullscreenElement;
     if (!isFs) {
       if (containerRef.current.requestFullscreen) {
-        containerRef.current.requestFullscreen().catch(() => {});
+        containerRef.current.requestFullscreen().catch(() => { });
       } else if ((containerRef.current as any).webkitRequestFullscreen) {
         (containerRef.current as any).webkitRequestFullscreen();
       } else if ((videoRef.current as any)?.webkitEnterFullscreen) {
@@ -295,7 +295,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       }
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       } else if ((document as any).webkitExitFullscreen) {
         (document as any).webkitExitFullscreen();
       }
@@ -487,9 +487,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           setHasError(false);
           onPlayRequest();
         }}
-        className={`w-full h-full aspect-[4/3] bg-gradient-to-br ${
-          post.mediaGradient || 'from-amber-600 via-rose-700 to-indigo-950'
-        } flex flex-col items-center justify-center p-4 text-center text-white relative cursor-pointer`}
+        className={`w-full h-full aspect-[4/3] bg-gradient-to-br ${post.mediaGradient || 'from-amber-600 via-rose-700 to-indigo-950'
+          } flex flex-col items-center justify-center p-4 text-center text-white relative cursor-pointer`}
       >
         <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 active:scale-90 transition-transform">
           <Play className="w-6 h-6 text-white ml-0.5" />
@@ -515,7 +514,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           videoRef.current.play().then(() => {
             setIsPreviewPlaying(true);
             isPreviewRef.current = true;
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }}
       onMouseLeave={() => {
@@ -530,11 +529,10 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           isPreviewRef.current = false;
         }
       }}
-      className={`group/player relative w-full bg-black overflow-hidden select-none outline-none ${
-        isFullscreen
+      className={`group/player relative w-full bg-black overflow-hidden select-none outline-none ${isFullscreen
           ? 'fixed inset-0 z-50 h-screen w-screen flex items-center justify-center'
           : 'aspect-[4/3] max-h-[560px] rounded-b-none'
-      }`}
+        }`}
     >
       {/* Video Element */}
       <video
@@ -543,11 +541,11 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         src={
           post.mediaThumbnail
             ? (post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
-                ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
-                : post.mediaUrl)
+              ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+              : post.mediaUrl)
             : `${post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
-                ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
-                : post.mediaUrl}#t=0.5`
+              ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+              : post.mediaUrl}#t=0.5`
         }
         poster={post.mediaThumbnail || undefined}
         onPlay={() => {
@@ -571,9 +569,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         onCanPlay={() => setIsBuffering(false)}
         onError={() => setHasError(true)}
         onClick={handleStageClick}
-        className={`w-full h-full cursor-pointer ${
-          isFullscreen ? 'max-h-screen object-contain' : 'object-cover'
-        }`}
+        className={`w-full h-full cursor-pointer ${isFullscreen ? 'max-h-screen object-contain' : 'object-cover'
+          }`}
       />
 
       {/* Double Tap Heart Animation (Instagram Style) */}
@@ -652,16 +649,14 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
 
       {/* Top Gradient Overlay */}
       <div
-        className={`absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/70 to-transparent pointer-events-none transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/70 to-transparent pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'
+          }`}
       />
 
       {/* Top Floating Badge (Reels link & Duration) */}
       <div
-        className={`absolute top-3 left-3 right-3 z-20 flex items-center justify-between text-white transition-opacity duration-300 pointer-events-auto ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`absolute top-3 left-3 right-3 z-20 flex items-center justify-between text-white transition-opacity duration-300 pointer-events-auto ${showControls ? 'opacity-100' : 'opacity-0'
+          }`}
       >
         {post.audioTrack && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md border border-white/20 text-white text-[11px] font-medium shadow mr-2 max-w-[160px] truncate">
@@ -693,9 +688,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
 
       {/* Bottom Controls Bar (YouTube/Instagram Frosted Glass) */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-20 pt-8 pb-2.5 px-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${
-          showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
+        className={`absolute bottom-0 left-0 right-0 z-20 pt-8 pb-2.5 px-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
       >
         {/* Scrubber Timeline with Expanded Touch/Click Target (30px tall touch zone) */}
         <div
