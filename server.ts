@@ -114,6 +114,7 @@ import { CampaignsRepository } from './src/db/repositories/campaignsRepository.t
 import { MarketplaceRepository } from './src/db/repositories/marketplaceRepository.ts';
 import { CommunityRepository } from './src/db/repositories/communityRepository.ts';
 import { AuditRepository, GeoDecisionRecord } from './src/db/repositories/auditRepository.ts';
+import { RidesRepository } from './src/db/repositories/ridesRepository.ts';
 import {
   defaultStorageService,
   validateMagicBytes,
@@ -160,6 +161,7 @@ async function startServer() {
   const mktRepo = new MarketplaceRepository(db);
   const commRepo = new CommunityRepository(db);
   const auditRepo = new AuditRepository(db);
+  const ridesRepo = new RidesRepository(db);
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -1635,6 +1637,117 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
         success: false,
         error: err?.message || 'Privileged origin correction rejected by database trigger.'
       });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RIDES API — BlaBlaCar-style carpooling
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // GET /api/rides — list available rides (with optional search filters)
+  app.get('/api/rides', async (req: Request, res: Response) => {
+    try {
+      const { from, to, date, seats } = req.query;
+      const rides = await ridesRepo.listRides({
+        fromCity: from as string | undefined,
+        toCity: to as string | undefined,
+        date: date as string | undefined,
+        minSeats: seats ? parseInt(seats as string, 10) : undefined,
+      });
+      res.json({ rides, count: rides.length });
+    } catch (err: any) {
+      console.error('[Rides] List error:', err);
+      res.status(500).json({ error: err.message || 'Failed to fetch rides' });
+    }
+  });
+
+  // GET /api/rides/my — get rides posted by a specific driver
+  app.get('/api/rides/my', async (req: Request, res: Response) => {
+    try {
+      const { driverId } = req.query;
+      if (!driverId) {
+        return res.status(400).json({ error: 'driverId query param is required' });
+      }
+      const rides = await ridesRepo.getRidesByDriver(driverId as string);
+      res.json({ rides, count: rides.length });
+    } catch (err: any) {
+      console.error('[Rides] My-rides error:', err);
+      res.status(500).json({ error: err.message || 'Failed to fetch your rides' });
+    }
+  });
+
+  // POST /api/rides/create — post a new ride
+  app.post('/api/rides/create', async (req: Request, res: Response) => {
+    try {
+      const body = req.body;
+      if (!body.fromCity || !body.toCity || !body.departureDate || !body.departureTime) {
+        return res.status(400).json({
+          error: 'Missing required fields: fromCity, toCity, departureDate, departureTime'
+        });
+      }
+      if (!body.pricePerSeat || Number(body.pricePerSeat) < 0) {
+        return res.status(400).json({ error: 'pricePerSeat must be a non-negative number' });
+      }
+      if (!body.vehicleModel) {
+        return res.status(400).json({ error: 'vehicleModel is required' });
+      }
+
+      const ride = {
+        ...body,
+        id: body.id || `ride_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        status: 'active',
+        driverRating: body.driverRating || 5.0,
+        driverTotalRides: body.driverTotalRides || 0,
+        driverVerified: body.driverVerified || false,
+        availableSeats: body.totalSeats,
+        bookedSeats: 0,
+      };
+
+      const created = await ridesRepo.createRide(ride);
+      res.status(201).json({ ride: created });
+    } catch (err: any) {
+      console.error('[Rides] Create error:', err);
+      res.status(500).json({ error: err.message || 'Failed to create ride' });
+    }
+  });
+
+  // POST /api/rides/:id/book — book seats on a ride
+  app.post('/api/rides/:id/book', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { passengerId, passengerName, passengerAvatar, seatsBooked } = req.body;
+
+      const seats = parseInt(seatsBooked, 10);
+      if (!seats || seats < 1) {
+        return res.status(400).json({ error: 'seatsBooked must be >= 1' });
+      }
+
+      const result = await ridesRepo.bookSeat({
+        rideId: id,
+        passengerId: passengerId || 'guest_user',
+        passengerName: passengerName || 'Passenger',
+        passengerAvatar: passengerAvatar || '',
+        seatsBooked: seats,
+      });
+
+      res.json({ success: true, ride: result.ride, bookingId: result.bookingId });
+    } catch (err: any) {
+      console.error('[Rides] Book error:', err);
+      res.status(400).json({ error: err.message || 'Booking failed' });
+    }
+  });
+
+  // POST /api/rides/:id/cancel — cancel a ride (driver only)
+  app.post('/api/rides/:id/cancel', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { driverId } = req.body;
+      if (!driverId) return res.status(400).json({ error: 'driverId required' });
+      await ridesRepo.cancelRide(id, driverId);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('[Rides] Cancel error:', err);
+      res.status(400).json({ error: err.message || 'Cancel failed' });
     }
   });
 
