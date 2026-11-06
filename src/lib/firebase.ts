@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyACX8sWQWhow_ZnPj0GQ7SE3nZxafCCaF0",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyACX8sWQWhoW_ZnPj0GQ7SE3nZxafCCaF0",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "localnet-8fe40.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "localnet-8fe40",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "localnet-8fe40.firebasestorage.app",
