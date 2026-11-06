@@ -110,8 +110,8 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
     setIsGeneratingAiCaption(true);
     try {
       const overlayTexts = project?.overlays
-        ?.filter(o => o.type === 'text' && o.text)
-        .map(o => o.text as string) || [];
+        ?.filter(o => o.type === 'text' && o.content)
+        .map(o => o.content as string) || [];
 
       const res = await fetch('/api/ai/generate-caption', {
         method: 'POST',

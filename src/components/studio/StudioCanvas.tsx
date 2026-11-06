@@ -347,12 +347,12 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                   </span>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-sm font-black">₹{overlay.metadata.discountPrice}</span>
-                    {overlay.metadata.originalPrice > overlay.metadata.discountPrice && (
+                    {(overlay.metadata.originalPrice || 0) > (overlay.metadata.discountPrice || 0) && (
                       <span className="text-[9px] line-through opacity-70">₹{overlay.metadata.originalPrice}</span>
                     )}
                   </div>
                 </div>
-                {overlay.metadata.discountPercent > 0 && (
+                {(overlay.metadata.discountPercent || 0) > 0 && (
                   <span className="px-1.5 py-0.5 rounded bg-black/40 text-[9px] font-black text-white uppercase">
                     {overlay.metadata.discountPercent}% OFF
                   </span>
