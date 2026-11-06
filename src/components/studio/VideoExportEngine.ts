@@ -119,13 +119,42 @@ export class VideoExportEngine {
           throw new Error('Canvas 2D context not available');
         }
 
-        // Setup Audio context if needed
+        // Setup Audio context with original video audio + optional background music mixing
         let audioStream: MediaStream | null = null;
         try {
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const source = audioCtx.createMediaElementSource(video);
           const dest = audioCtx.createMediaStreamDestination();
-          source.connect(dest);
+
+          // Original video audio with volume control
+          const videoSource = audioCtx.createMediaElementSource(video);
+          const videoGain = audioCtx.createGain();
+          videoGain.gain.value = project.isOriginalAudioMuted ? 0 : (project.originalAudioVolume ?? 1.0);
+          videoSource.connect(videoGain);
+          videoGain.connect(dest);
+
+          // Mix in background music if selected
+          if (project.backgroundMusicUrl) {
+            try {
+              const bgAudio = new Audio();
+              bgAudio.crossOrigin = 'anonymous';
+              bgAudio.src = project.backgroundMusicUrl;
+              bgAudio.loop = true;
+              await new Promise<void>((res) => {
+                bgAudio.oncanplaythrough = () => res();
+                bgAudio.onerror = () => res();
+                setTimeout(res, 3000); // Don't wait forever
+              });
+              const bgSource = audioCtx.createMediaElementSource(bgAudio);
+              const bgGain = audioCtx.createGain();
+              bgGain.gain.value = project.backgroundMusicVolume ?? 0.8;
+              bgSource.connect(bgGain);
+              bgGain.connect(dest);
+              bgAudio.play().catch(() => {});
+            } catch {
+              // BG music mixing is optional — skip silently on error
+            }
+          }
+
           audioStream = dest.stream;
         } catch {
           // Audio routing not strictly required if browser restricts
@@ -223,11 +252,27 @@ export class VideoExportEngine {
               }
 
               if (overlay.type === 'text' && overlay.content) {
-                // Draw styled text
+                // Resolve font family from stored key
+                const FONT_MAP: Record<string, string> = {
+                  sans: 'Arial, sans-serif',
+                  serif: 'Georgia, serif',
+                  mono: '"Courier New", monospace',
+                  impact: 'Impact, "Arial Black", sans-serif',
+                  glow: 'Arial, sans-serif',
+                };
+                const resolvedFont = FONT_MAP[overlay.style?.fontFamily || 'sans'] || 'Arial, sans-serif';
                 const fontSize = (overlay.style?.fontSize || 22) * (canvas.width / 340);
-                ctx.font = `${overlay.style?.fontWeight || 'bold'} ${fontSize}px sans-serif`;
+                ctx.font = `${overlay.style?.fontWeight || 'bold'} ${fontSize}px ${resolvedFont}`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+
+                // Neon glow effect
+                if (overlay.style?.textShadow && overlay.style.textShadow !== 'none' && overlay.style.textShadow.includes('0 0')) {
+                  ctx.shadowColor = overlay.style.color || '#ffffff';
+                  ctx.shadowBlur = 18;
+                } else {
+                  ctx.shadowBlur = 0;
+                }
 
                 if (overlay.style?.backgroundColor && overlay.style.backgroundColor !== 'transparent') {
                   const textMetrics = ctx.measureText(overlay.content);
@@ -247,6 +292,7 @@ export class VideoExportEngine {
 
                 ctx.fillStyle = overlay.style?.color || '#ffffff';
                 ctx.fillText(overlay.content, 0, 0);
+                ctx.shadowBlur = 0;
               } else if (overlay.assetUrl && loadedImages.has(overlay.assetUrl)) {
                 // Draw Image / Emoji / Sticker
                 const img = loadedImages.get(overlay.assetUrl)!;
@@ -257,18 +303,74 @@ export class VideoExportEngine {
                 // Draw Price Tag
                 const tagW = width;
                 const tagH = 65;
+                const pScale = canvas.width / 340;
                 ctx.fillStyle = '#f59e0b';
                 ctx.beginPath();
                 ctx.roundRect(-tagW / 2, -tagH / 2, tagW, tagH, 12);
                 ctx.fill();
-
                 ctx.fillStyle = '#0f172a';
-                ctx.font = 'bold 22px sans-serif';
+                ctx.font = `bold ${Math.round(22 * pScale)}px Arial, sans-serif`;
                 ctx.textAlign = 'left';
                 ctx.fillText(`₹${overlay.metadata.discountPrice}`, -tagW / 2 + 16, 5);
-
-                ctx.font = 'bold 14px sans-serif';
+                ctx.font = `bold ${Math.round(14 * pScale)}px Arial, sans-serif`;
                 ctx.fillText(overlay.metadata.productName || 'Offer', -tagW / 2 + 16, -14);
+                if ((overlay.metadata.discountPercent || 0) > 0) {
+                  ctx.textAlign = 'right';
+                  ctx.font = `bold ${Math.round(11 * pScale)}px Arial, sans-serif`;
+                  ctx.fillText(`${overlay.metadata.discountPercent}% OFF`, tagW / 2 - 10, 5);
+                }
+              } else if (overlay.type === 'merchant' && overlay.metadata) {
+                // Draw Merchant Badge or Store Location Pill
+                const mW = width;
+                const mH = 55;
+                const mScale = canvas.width / 340;
+                if (overlay.metadata.presetType === 'discount') {
+                  const mGrad = ctx.createLinearGradient(-mW / 2, 0, mW / 2, 0);
+                  mGrad.addColorStop(0, '#dc2626');
+                  mGrad.addColorStop(1, '#f59e0b');
+                  ctx.fillStyle = mGrad;
+                  ctx.beginPath();
+                  ctx.roundRect(-mW / 2, -mH / 2, mW, mH, 12);
+                  ctx.fill();
+                  ctx.fillStyle = '#ffffff';
+                  ctx.font = `bold ${Math.round(18 * mScale)}px Arial, sans-serif`;
+                  ctx.textAlign = 'center';
+                  ctx.fillText(overlay.content || '', 0, 8);
+                } else if (overlay.metadata.presetType === 'store') {
+                  ctx.fillStyle = 'rgba(15,23,42,0.92)';
+                  ctx.beginPath();
+                  ctx.roundRect(-mW / 2, -mH / 2, mW, mH, 12);
+                  ctx.fill();
+                  ctx.strokeStyle = '#f59e0b';
+                  ctx.lineWidth = 2;
+                  ctx.stroke();
+                  ctx.fillStyle = '#ffffff';
+                  ctx.font = `bold ${Math.round(15 * mScale)}px Arial, sans-serif`;
+                  ctx.textAlign = 'left';
+                  ctx.fillText(String(overlay.metadata.storeName || ''), -mW / 2 + 28, -4);
+                  ctx.fillStyle = '#94a3b8';
+                  ctx.font = `${Math.round(11 * mScale)}px Arial, sans-serif`;
+                  ctx.fillText(String(overlay.metadata.storeAddress || ''), -mW / 2 + 28, 14);
+                }
+              } else if (overlay.type === 'coupon' && overlay.metadata) {
+                // Draw Coupon Overlay
+                const cW = width;
+                const cH = 55;
+                const cScale = canvas.width / 340;
+                const cGrad = ctx.createLinearGradient(-cW / 2, 0, cW / 2, 0);
+                cGrad.addColorStop(0, '#059669');
+                cGrad.addColorStop(1, '#0d9488');
+                ctx.fillStyle = cGrad;
+                ctx.beginPath();
+                ctx.roundRect(-cW / 2, -cH / 2, cW, cH, 12);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${Math.round(14 * cScale)}px Arial, sans-serif`;
+                ctx.textAlign = 'left';
+                ctx.fillText(String(overlay.content || ''), -cW / 2 + 28, -4);
+                ctx.fillStyle = '#a7f3d0';
+                ctx.font = `${Math.round(11 * cScale)}px Arial, sans-serif`;
+                ctx.fillText(`Code: ${String(overlay.metadata.couponCode || '')}`, -cW / 2 + 28, 14);
               }
 
               ctx.restore();

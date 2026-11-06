@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VideoOverlay } from './types.ts';
 import {
   X,
@@ -82,6 +82,35 @@ export const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
   const [durationSec, setDurationSec] = useState<number>(
     initialOverlay ? (initialOverlay.endTime - initialOverlay.startTime) : 8
   );
+  const [selectedFont, setSelectedFont] = useState<string>(
+    initialOverlay?.style?.fontFamily || 'sans'
+  );
+
+  useEffect(() => {
+    if (isOpen && initialOverlay) {
+      setText(initialOverlay.content || '');
+      setTextColor(initialOverlay.style?.color || '#ffffff');
+      setBgColor(initialOverlay.style?.backgroundColor || 'rgba(0,0,0,0.75)');
+      setFontSize(initialOverlay.style?.fontSize || 22);
+      setTextAlign(initialOverlay.style?.textAlign || 'center');
+      setIsBold((initialOverlay.style?.fontWeight as number) >= 700);
+      setTextShadow(initialOverlay.style?.textShadow || 'none');
+      setBorderRadius(initialOverlay.style?.borderRadius ?? 8);
+      setSelectedFont(initialOverlay.style?.fontFamily || 'sans');
+      setDurationSec(initialOverlay.endTime - initialOverlay.startTime);
+    } else if (isOpen && !initialOverlay) {
+      setText('');
+      setTextColor('#ffffff');
+      setBgColor('rgba(0,0,0,0.75)');
+      setFontSize(22);
+      setTextAlign('center');
+      setIsBold(true);
+      setTextShadow('none');
+      setBorderRadius(8);
+      setSelectedFont('sans');
+      setDurationSec(8);
+    }
+  }, [isOpen, initialOverlay?.id]);
 
   if (!isOpen) return null;
 
@@ -106,6 +135,7 @@ export const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
         color: textColor,
         backgroundColor: bgColor,
         fontSize,
+        fontFamily: selectedFont,
         fontWeight: isBold ? 800 : 500,
         textAlign,
         borderRadius,
@@ -148,6 +178,10 @@ export const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
                 backgroundColor: bgColor,
                 fontSize: `${fontSize}px`,
                 fontWeight: isBold ? 800 : 500,
+                fontFamily: selectedFont === 'serif' ? 'Georgia, serif'
+                  : selectedFont === 'mono' ? '"Courier New", monospace'
+                  : selectedFont === 'impact' ? 'Impact, "Arial Black", sans-serif'
+                  : 'Arial, sans-serif',
                 textAlign,
                 borderRadius: `${borderRadius}px`,
                 textShadow,
@@ -186,6 +220,33 @@ export const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
                   className="px-2 py-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-amber-500 text-xs text-white text-center font-medium transition-colors"
                 >
                   {tpl.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font Family Selector */}
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-slate-400 font-semibold">Font Style:</span>
+            <div className="grid grid-cols-5 gap-1.5">
+              {FONT_PRESETS.map(fp => (
+                <button
+                  key={fp.id}
+                  type="button"
+                  onClick={() => setSelectedFont(fp.id)}
+                  className={`px-1.5 py-2 rounded-lg text-[10px] transition-colors border text-center leading-tight ${
+                    selectedFont === fp.id
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-black'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-amber-500/50'
+                  }`}
+                  style={{
+                    fontFamily: fp.id === 'serif' ? 'Georgia, serif'
+                      : fp.id === 'mono' ? '"Courier New", monospace'
+                      : fp.id === 'impact' ? 'Impact, Arial Black, sans-serif'
+                      : 'Arial, sans-serif'
+                  }}
+                >
+                  {fp.name.split(' ')[0]}
                 </button>
               ))}
             </div>

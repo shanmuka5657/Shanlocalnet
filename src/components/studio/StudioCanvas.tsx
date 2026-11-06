@@ -23,6 +23,7 @@ interface StudioCanvasProps {
   originalAudioVolume: number;
   isOriginalAudioMuted: boolean;
   videoRef: React.RefObject<HTMLVideoElement>;
+  onEditOverlay?: (overlay: VideoOverlay) => void;
 }
 
 export const StudioCanvas: React.FC<StudioCanvasProps> = ({
@@ -44,7 +45,8 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   playbackSpeed,
   originalAudioVolume,
   isOriginalAudioMuted,
-  videoRef
+  videoRef,
+  onEditOverlay
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -52,14 +54,35 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
-  const dragStartRef = useRef<{ startX: number; startY: number; origPosX: number; origPosY: number; origWidth: number; origRotation: number }>({
+  const dragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    origPosX: number;
+    origPosY: number;
+    origWidth: number;
+    origHeight: number;
+    origRotation: number;
+    startAngle: number;
+    centerX: number;
+    centerY: number;
+  }>({
     startX: 0,
     startY: 0,
     origPosX: 50,
     origPosY: 50,
     origWidth: 50,
-    origRotation: 0
+    origHeight: 50,
+    origRotation: 0,
+    startAngle: 0,
+    centerX: 0,
+    centerY: 0
   });
+
+  // Alignment guide lines shown while dragging (percentage positions)
+  const [activeGuides, setActiveGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
+
+  // Double-tap detection for text overlays
+  const lastTapRef = useRef<{ id: string; time: number } | null>(null);
 
   // Calculate composite CSS filter string
   const activePreset = FILTER_PRESETS.find(p => p.id === activeFilterId);
@@ -88,7 +111,11 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       origPosX: overlay.position.x,
       origPosY: overlay.position.y,
       origWidth: overlay.size.width,
-      origRotation: overlay.rotation || 0
+      origHeight: overlay.size.height,
+      origRotation: overlay.rotation || 0,
+      startAngle: 0,
+      centerX: 0,
+      centerY: 0
     };
     setIsDragging(true);
   };
@@ -101,20 +128,37 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       origPosX: overlay.position.x,
       origPosY: overlay.position.y,
       origWidth: overlay.size.width,
-      origRotation: overlay.rotation || 0
+      origHeight: overlay.size.height,
+      origRotation: overlay.rotation || 0,
+      startAngle: 0,
+      centerX: 0,
+      centerY: 0
     };
     setIsResizing(true);
   };
 
   const handleRotateStart = (e: React.PointerEvent, overlay: VideoOverlay) => {
     e.stopPropagation();
+    const rect = containerRef.current?.getBoundingClientRect();
+    let centerX = 0;
+    let centerY = 0;
+    let startAngle = 0;
+    if (rect) {
+      centerX = rect.left + (overlay.position.x / 100) * rect.width;
+      centerY = rect.top + (overlay.position.y / 100) * rect.height;
+      startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+    }
     dragStartRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       origPosX: overlay.position.x,
       origPosY: overlay.position.y,
       origWidth: overlay.size.width,
-      origRotation: overlay.rotation || 0
+      origHeight: overlay.size.height,
+      origRotation: overlay.rotation || 0,
+      startAngle,
+      centerX,
+      centerY
     };
     setIsRotating(true);
   };
@@ -129,9 +173,21 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     if (isDragging) {
       const deltaXPercent = ((e.clientX - dragStartRef.current.startX) / rect.width) * 100;
       const deltaYPercent = ((e.clientY - dragStartRef.current.startY) / rect.height) * 100;
+      let newX = Math.max(5, Math.min(95, dragStartRef.current.origPosX + deltaXPercent));
+      let newY = Math.max(5, Math.min(95, dragStartRef.current.origPosY + deltaYPercent));
 
-      const newX = Math.max(5, Math.min(95, dragStartRef.current.origPosX + deltaXPercent));
-      const newY = Math.max(5, Math.min(95, dragStartRef.current.origPosY + deltaYPercent));
+      // Snap to center and rule-of-thirds guide lines (within 4%)
+      const SNAP = 4;
+      const GUIDES = [50, 33.3, 66.7];
+      let guideX: number | null = null;
+      let guideY: number | null = null;
+      for (const g of GUIDES) {
+        if (Math.abs(newX - g) < SNAP) { newX = g; guideX = g; break; }
+      }
+      for (const g of GUIDES) {
+        if (Math.abs(newY - g) < SNAP) { newY = g; guideY = g; break; }
+      }
+      setActiveGuides({ x: guideX, y: guideY });
 
       onUpdateOverlay(selectedOverlayId, {
         position: { x: Number(newX.toFixed(1)), y: Number(newY.toFixed(1)) }
@@ -139,14 +195,23 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     } else if (isResizing) {
       const deltaXPercent = ((e.clientX - dragStartRef.current.startX) / rect.width) * 100;
       const newWidth = Math.max(15, Math.min(95, dragStartRef.current.origWidth + deltaXPercent));
-
+      // Maintain proportional height if original height is known
+      const aspectRatio = dragStartRef.current.origHeight > 0
+        ? dragStartRef.current.origHeight / dragStartRef.current.origWidth
+        : overlay.size.height / overlay.size.width;
       onUpdateOverlay(selectedOverlayId, {
-        size: { ...overlay.size, width: Number(newWidth.toFixed(1)) }
+        size: {
+          width: Number(newWidth.toFixed(1)),
+          height: Number((newWidth * aspectRatio).toFixed(1))
+        }
       });
     } else if (isRotating) {
-      const deltaY = e.clientY - dragStartRef.current.startY;
-      const newRot = (dragStartRef.current.origRotation + deltaY * 0.8) % 360;
-
+      // Calculate true angle from overlay center to pointer
+      const dx = e.clientX - dragStartRef.current.centerX;
+      const dy = e.clientY - dragStartRef.current.centerY;
+      const currentAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+      const deltaAngle = currentAngle - dragStartRef.current.startAngle;
+      const newRot = ((dragStartRef.current.origRotation + deltaAngle) % 360 + 360) % 360;
       onUpdateOverlay(selectedOverlayId, {
         rotation: Math.round(newRot)
       });
@@ -157,6 +222,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     setIsDragging(false);
     setIsResizing(false);
     setIsRotating(false);
+    setActiveGuides({ x: null, y: null });
   };
 
   return (
@@ -187,6 +253,20 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         className="w-full h-full object-cover cursor-pointer"
       />
 
+      {/* Alignment Guide Lines (visible while dragging) */}
+      {activeGuides.x !== null && (
+        <div
+          style={{ left: `${activeGuides.x}%` }}
+          className="absolute top-0 bottom-0 w-px bg-cyan-400/80 z-40 pointer-events-none"
+        />
+      )}
+      {activeGuides.y !== null && (
+        <div
+          style={{ top: `${activeGuides.y}%` }}
+          className="absolute left-0 right-0 h-px bg-cyan-400/80 z-40 pointer-events-none"
+        />
+      )}
+
       {/* Render Active Overlays */}
       {overlays.map(overlay => {
         // Evaluate Visibility according to Multi-Layer Timeline Engine
@@ -202,6 +282,16 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             onClick={(e) => {
               e.stopPropagation();
               onSelectOverlay(overlay.id);
+              // Double-tap to edit text overlay
+              if (overlay.type === 'text' && onEditOverlay) {
+                const now = Date.now();
+                if (lastTapRef.current?.id === overlay.id && now - lastTapRef.current.time < 400) {
+                  onEditOverlay(overlay);
+                  lastTapRef.current = null;
+                } else {
+                  lastTapRef.current = { id: overlay.id, time: now };
+                }
+              }
             }}
             style={{
               left: `${overlay.position.x}%`,

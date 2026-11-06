@@ -65,9 +65,38 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
   onAutoSnapAllToBeats
 }) => {
   const timelineRef = useRef<HTMLDivElement | null>(null);
+  const trimDragRef = useRef<'start' | 'end' | null>(null);
 
   const safeDuration = Math.max(0.1, duration);
   const progressPercent = Math.min(100, Math.max(0, (currentTime / safeDuration) * 100));
+
+  const handleTrimHandleDown = (e: React.PointerEvent, type: 'start' | 'end') => {
+    e.stopPropagation();
+    trimDragRef.current = type;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleTimelinePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Trim handle dragging
+    if (trimDragRef.current && timelineRef.current) {
+      const rect = timelineRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const time = (x / rect.width) * safeDuration;
+      if (trimDragRef.current === 'start') {
+        const newStart = Math.max(0, Math.min(time, trimEnd - 0.5));
+        onUpdateTrim(Number(newStart.toFixed(2)), trimEnd);
+        onSeek(newStart);
+      } else {
+        const newEnd = Math.max(trimStart + 0.5, Math.min(time, safeDuration));
+        onUpdateTrim(trimStart, Number(newEnd.toFixed(2)));
+        onSeek(newEnd);
+      }
+    }
+  };
+
+  const handleTimelinePointerUp = () => {
+    trimDragRef.current = null;
+  };
 
   // Timeline click to seek with Beat Snapping
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -187,7 +216,10 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
       <div
         ref={timelineRef}
         onClick={handleTimelineClick}
-        className="relative w-full h-8 bg-slate-900 rounded-lg cursor-pointer overflow-hidden border border-slate-800"
+        onPointerMove={handleTimelinePointerMove}
+        onPointerUp={handleTimelinePointerUp}
+        onPointerLeave={handleTimelinePointerUp}
+        className="relative w-full h-8 bg-slate-900 rounded-lg cursor-pointer overflow-visible border border-slate-800"
       >
         {/* Video Filmstrip Base */}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 opacity-60" />
@@ -219,14 +251,48 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
           </div>
         )}
 
-        {/* Trimming Active Region */}
+        {/* Trimming Active Region with Draggable Handles */}
         <div
           style={{
             left: `${(trimStart / safeDuration) * 100}%`,
             width: `${((trimEnd - trimStart) / safeDuration) * 100}%`
           }}
-          className="absolute top-0 bottom-0 bg-amber-500/10 border-x-2 border-amber-400 z-20 pointer-events-none"
-        />
+          className="absolute top-0 bottom-0 bg-amber-500/10 z-20"
+        >
+          {/* Trim Start Handle */}
+          <div
+            onPointerDown={(e) => handleTrimHandleDown(e, 'start')}
+            className="absolute left-0 top-0 bottom-0 w-4 -translate-x-1/2 cursor-ew-resize z-30 flex items-center justify-center group select-none"
+            title="Drag to set trim start"
+          >
+            <div className="w-2 h-6 bg-amber-400 group-active:bg-amber-300 rounded-sm shadow-md flex flex-col items-center justify-center gap-0.5 border border-amber-500">
+              <div className="w-0.5 h-1.5 bg-amber-900 rounded-full" />
+              <div className="w-0.5 h-1.5 bg-amber-900 rounded-full" />
+            </div>
+            {trimStart > 0 && (
+              <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-mono text-amber-400 whitespace-nowrap pointer-events-none">
+                {trimStart.toFixed(1)}s
+              </span>
+            )}
+          </div>
+
+          {/* Trim End Handle */}
+          <div
+            onPointerDown={(e) => handleTrimHandleDown(e, 'end')}
+            className="absolute right-0 top-0 bottom-0 w-4 translate-x-1/2 cursor-ew-resize z-30 flex items-center justify-center group select-none"
+            title="Drag to set trim end"
+          >
+            <div className="w-2 h-6 bg-amber-400 group-active:bg-amber-300 rounded-sm shadow-md flex flex-col items-center justify-center gap-0.5 border border-amber-500">
+              <div className="w-0.5 h-1.5 bg-amber-900 rounded-full" />
+              <div className="w-0.5 h-1.5 bg-amber-900 rounded-full" />
+            </div>
+            {trimEnd < safeDuration && (
+              <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-mono text-amber-400 whitespace-nowrap pointer-events-none">
+                {trimEnd.toFixed(1)}s
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* Playhead Vertical Line */}
         <div

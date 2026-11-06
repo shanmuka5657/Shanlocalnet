@@ -100,10 +100,11 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
   // Publishing State
   const [caption, setCaption] = useState('');
   const [tagsInput, setTagsInput] = useState('shorts, localnet, viral');
-  const [scope, setScope] = useState<'worldwide' | '40km' | '10km'>('worldwide');
+  const [scope, setScope] = useState<'1km' | '10km' | '40km' | '100km' | 'country' | 'worldwide'>('worldwide');
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [isGeneratingAiCaption, setIsGeneratingAiCaption] = useState(false);
+  const [editingOverlay, setEditingOverlay] = useState<VideoOverlay | null>(null);
 
   const handleGenerateAiCaption = async () => {
     setIsGeneratingAiCaption(true);
@@ -238,6 +239,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
       playbackSpeed: 1.0,
       originalAudioVolume: 1.0,
       isOriginalAudioMuted: false,
+      backgroundMusicVolume: 0.8,
       posterTimestamp: 0.5,
       updatedAt: Date.now()
     };
@@ -254,7 +256,13 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        setProject(parsed);
+        // Blob URLs are invalid after page reload — discard the draft
+        if (!parsed.sourceUrl || parsed.sourceUrl.startsWith('blob:')) {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+          setHasSavedDraft(false);
+          return;
+        }
+        setProject({ ...parsed, backgroundMusicVolume: parsed.backgroundMusicVolume ?? 0.8 });
         setCurrentStep(2);
       }
     } catch {
@@ -346,6 +354,17 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
     };
     pushOverlayHistory([...project.overlays, copy]);
     setSelectedOverlayId(copy.id);
+  };
+
+  // Edit an existing overlay (double-tap from canvas)
+  const handleEditOverlay = (overlay: VideoOverlay) => {
+    if (overlay.type === 'text') {
+      setEditingOverlay(overlay);
+      setIsTextEditorOpen(true);
+    } else if (overlay.type === 'price') {
+      setEditingOverlay(overlay);
+      setIsPriceEditorOpen(true);
+    }
   };
 
   // Play / Pause Toggle
@@ -531,7 +550,11 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
         audienceDistribution: {
           engine: 'ORGANIC_ENTERTAINMENT',
           scope,
-          maxRadiusKm: scope === 'worldwide' ? null : scope === '40km' ? 40 : 10
+          maxRadiusKm: scope === 'worldwide' || scope === 'country' ? null
+            : scope === '100km' ? 100
+            : scope === '40km' ? 40
+            : scope === '10km' ? 10
+            : 1
         },
         tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
         stats: {
@@ -820,6 +843,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
               onSelectOverlay={setSelectedOverlayId}
               onUpdateOverlay={handleUpdateOverlay}
               onDeleteOverlay={handleDeleteOverlay}
+              onEditOverlay={handleEditOverlay}
               activeFilterId={project.activeFilter}
               brightness={project.brightness}
               contrast={project.contrast}
@@ -939,42 +963,28 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
             <div>
               <label className="text-xs font-semibold text-slate-400 mb-1 block">Distribution Scope:</label>
               <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScope('worldwide')}
-                  className={`p-2 rounded-xl text-xs font-bold border transition-colors flex flex-col items-center gap-1 ${
-                    scope === 'worldwide'
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                      : 'bg-slate-900 border-slate-800 text-slate-300'
-                  }`}
-                >
-                  <Globe className="w-4 h-4" />
-                  Worldwide
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScope('40km')}
-                  className={`p-2 rounded-xl text-xs font-bold border transition-colors flex flex-col items-center gap-1 ${
-                    scope === '40km'
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                      : 'bg-slate-900 border-slate-800 text-slate-300'
-                  }`}
-                >
-                  <MapPin className="w-4 h-4" />
-                  Around Me (40km)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScope('10km')}
-                  className={`p-2 rounded-xl text-xs font-bold border transition-colors flex flex-col items-center gap-1 ${
-                    scope === '10km'
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                      : 'bg-slate-900 border-slate-800 text-slate-300'
-                  }`}
-                >
-                  <Store className="w-4 h-4" />
-                  Hyperlocal (10km)
-                </button>
+                {([
+                  { value: '1km', label: 'Street (1 km)', icon: MapPin },
+                  { value: '10km', label: 'Nearby (10 km)', icon: MapPin },
+                  { value: '40km', label: 'Local (40 km)', icon: MapPin },
+                  { value: '100km', label: 'Region (100 km)', icon: Globe },
+                  { value: 'country', label: 'Country', icon: Globe },
+                  { value: 'worldwide', label: 'Worldwide', icon: Globe },
+                ] as const).map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setScope(value)}
+                    className={`p-2 rounded-xl text-[10px] font-bold border transition-colors flex flex-col items-center gap-1 leading-tight ${
+                      scope === value
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-amber-500/40'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1074,10 +1084,21 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
       {project && (
         <TextOverlayEditor
           isOpen={isTextEditorOpen}
-          onClose={() => setIsTextEditorOpen(false)}
+          onClose={() => {
+            setIsTextEditorOpen(false);
+            setEditingOverlay(null);
+          }}
           currentTime={currentTime}
           videoDuration={project.duration}
-          onAddTextOverlay={handleAddOverlay}
+          initialOverlay={editingOverlay?.type === 'text' ? editingOverlay : null}
+          onAddTextOverlay={(overlayData) => {
+            if (editingOverlay) {
+              handleUpdateOverlay(editingOverlay.id, overlayData);
+              setEditingOverlay(null);
+            } else {
+              handleAddOverlay(overlayData);
+            }
+          }}
         />
       )}
 

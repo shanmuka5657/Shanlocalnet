@@ -10,7 +10,8 @@ import {
   Check,
   X,
   AlertCircle,
-  Clock
+  Clock,
+  Grid3X3
 } from 'lucide-react';
 
 interface CameraRecorderProps {
@@ -31,12 +32,15 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
   const [hasTorch, setHasTorch] = useState<boolean>(false);
   const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [showGrid, setShowGrid] = useState<boolean>(false);
 
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
+  const countdownIntervalRef = useRef<any>(null);
 
   // Review state
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -103,6 +107,11 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
   };
 
   const toggleTorch = async () => {
@@ -230,6 +239,23 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
     onClose();
   };
 
+  const handleRecordButtonPress = () => {
+    if (countdown !== null) return;
+    setCountdown(3);
+    let count = 3;
+    countdownIntervalRef.current = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        setCountdown(null);
+        startRecording();
+      } else {
+        setCountdown(count);
+      }
+    }, 1000);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -274,19 +300,56 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
           )}
 
           {recordingState !== 'review' && (
-            <button
-              onClick={flipCamera}
-              className="p-2 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-colors"
-              title="Flip Camera"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
+            <>
+              <button
+                onClick={() => setShowGrid(prev => !prev)}
+                className={`p-2 rounded-full backdrop-blur-md transition-colors ${showGrid ? 'bg-white/20 text-white' : 'bg-black/40 text-white/60 hover:text-white'}`}
+                title="Toggle Rule-of-Thirds Grid"
+              >
+                <Grid3X3 className="w-5 h-5" />
+              </button>
+              <button
+                onClick={flipCamera}
+                className="p-2 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-colors"
+                title="Flip Camera"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </>
           )}
         </div>
       </div>
 
       {/* Center Viewport */}
       <div className="absolute inset-0 z-0 flex items-center justify-center bg-black">
+
+        {/* Rule-of-Thirds Grid Overlay */}
+        {showGrid && recordingState !== 'review' && (
+          <div className="absolute inset-0 z-10 pointer-events-none">
+            <div className="absolute top-1/3 left-0 right-0 h-px bg-white/25" />
+            <div className="absolute top-2/3 left-0 right-0 h-px bg-white/25" />
+            <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/25" />
+            <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/25" />
+            <div className="absolute w-2 h-2 rounded-full bg-white/50" style={{ top: 'calc(33.33% - 4px)', left: 'calc(33.33% - 4px)' }} />
+            <div className="absolute w-2 h-2 rounded-full bg-white/50" style={{ top: 'calc(33.33% - 4px)', left: 'calc(66.67% - 4px)' }} />
+            <div className="absolute w-2 h-2 rounded-full bg-white/50" style={{ top: 'calc(66.67% - 4px)', left: 'calc(33.33% - 4px)' }} />
+            <div className="absolute w-2 h-2 rounded-full bg-white/50" style={{ top: 'calc(66.67% - 4px)', left: 'calc(66.67% - 4px)' }} />
+          </div>
+        )}
+
+        {/* Countdown Overlay */}
+        {countdown !== null && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+            <span
+              key={countdown}
+              className="text-white font-black drop-shadow-2xl select-none"
+              style={{ fontSize: '160px', lineHeight: 1, textShadow: '0 0 40px rgba(251,191,36,0.8)' }}
+            >
+              {countdown}
+            </span>
+          </div>
+        )}
+
         {permissionError ? (
           <div className="p-6 text-center max-w-sm flex flex-col items-center gap-3">
             <AlertCircle className="w-12 h-12 text-red-400" />
@@ -337,8 +400,9 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
       <div className="relative z-20 p-6 flex items-center justify-center gap-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
         {recordingState === 'idle' && (
           <button
-            onClick={startRecording}
+            onClick={handleRecordButtonPress}
             className="w-20 h-20 rounded-full border-4 border-white p-1 flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-2xl"
+            title="Tap to record (3s countdown)"
           >
             <div className="w-full h-full rounded-full bg-red-500 hover:bg-red-400" />
           </button>

@@ -118,22 +118,35 @@ export const FilterAudioControls: React.FC<FilterAudioControlsProps> = ({
                 <Gauge className="w-4 h-4 text-amber-400" />
                 <span>Playback Speed:</span>
               </div>
-              <span className="text-xs font-mono font-bold text-amber-400">{playbackSpeed}x</span>
+              <span className="text-xs font-mono font-bold text-amber-400">{playbackSpeed.toFixed(1)}x</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[0.5, 1.0, 2.0].map(s => (
+            <div className="grid grid-cols-5 gap-1.5">
+              {[0.3, 0.5, 1.0, 1.5, 2.0].map(s => (
                 <button
                   key={s}
                   onClick={() => onChangeSpeed(s)}
-                  className={`py-2 rounded-lg text-xs font-bold transition-colors ${
-                    playbackSpeed === s
+                  className={`py-2 rounded-lg text-[10px] font-bold transition-colors ${
+                    Math.abs(playbackSpeed - s) < 0.05
                       ? 'bg-amber-500 text-slate-950 shadow'
                       : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
-                  {s === 0.5 ? '0.5x Slow-mo' : s === 1.0 ? '1.0x Normal' : '2.0x Fast'}
+                  {s === 0.3 ? '0.3x' : s === 0.5 ? '0.5x' : s === 1.0 ? '1x' : s === 1.5 ? '1.5x' : '2x'}
                 </button>
               ))}
+            </div>
+            <div className="flex items-center gap-2 pt-1.5">
+              <span className="text-[10px] text-slate-500 w-6 shrink-0">0.1x</span>
+              <input
+                type="range"
+                min="0.1"
+                max="3.0"
+                step="0.1"
+                value={playbackSpeed}
+                onChange={e => onChangeSpeed(Number(e.target.value))}
+                className="flex-1 accent-amber-500 h-1.5 bg-slate-800 rounded-lg"
+              />
+              <span className="text-[10px] text-slate-500 w-6 shrink-0">3.0x</span>
             </div>
           </div>
 
