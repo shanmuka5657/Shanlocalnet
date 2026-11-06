@@ -51,7 +51,21 @@ export class PostsRepository {
       else if (km <= 25) { scope = '25km'; maxRadiusMeters = 25000; }
       else { scope = '40km'; maxRadiusMeters = 40000; }
     }
-    const safeMediaAssetId = isUuid(post.mediaAssetId) ? post.mediaAssetId : null;
+    let safeMediaAssetId: string | null = null;
+    if (isUuid(post.mediaAssetId)) {
+      try {
+        const assetCheck = await this.client.query(
+          'SELECT id FROM media_assets WHERE id = $1 LIMIT 1;',
+          [post.mediaAssetId]
+        );
+        if (assetCheck.rows && assetCheck.rows.length > 0) {
+          safeMediaAssetId = post.mediaAssetId;
+        }
+      } catch (e) {
+        console.warn('[PostsRepo] Could not verify mediaAssetId foreign key, setting to null:', e);
+        safeMediaAssetId = null;
+      }
+    }
 
     // Ensure creator user exists
     await this.client.query(`

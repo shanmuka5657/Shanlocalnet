@@ -704,11 +704,17 @@ async function startServer() {
       let resolvedDuration: number | undefined = req.body.videoDurationSeconds;
       let resolvedAspectRatio = req.body.aspectRatio || (contentType === 'reel' ? '9:16' : '4:3');
 
+      let safeMediaId: string | undefined = undefined;
       if (mediaAssetId && isUuid(mediaAssetId)) {
-        const asset = await mediaRepo.getAssetById(mediaAssetId);
-        if (asset) {
-          resolvedMediaUrl = asset.cloudfrontUrl || defaultStorageService.getPublicUrl(asset.s3Key);
-          if (asset.durationSeconds) resolvedDuration = asset.durationSeconds;
+        try {
+          const asset = await mediaRepo.getAssetById(mediaAssetId);
+          if (asset) {
+            safeMediaId = asset.id;
+            resolvedMediaUrl = asset.cloudfrontUrl || defaultStorageService.getPublicUrl(asset.s3Key);
+            if (asset.durationSeconds) resolvedDuration = asset.durationSeconds;
+          }
+        } catch {
+          safeMediaId = undefined;
         }
       }
 
@@ -722,7 +728,7 @@ async function startServer() {
         classification: isCommercial ? 'sponsored_creator' : 'organic',
         title,
         description,
-        mediaAssetId: (mediaAssetId && isUuid(mediaAssetId)) ? mediaAssetId : undefined,
+        mediaAssetId: safeMediaId,
         mediaUrl: resolvedMediaUrl,
         mediaThumbnail: req.body.mediaThumbnail || undefined,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',

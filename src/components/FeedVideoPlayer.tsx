@@ -483,11 +483,15 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   if (hasError || !post.mediaUrl) {
     return (
       <div
+        onClick={() => {
+          setHasError(false);
+          onPlayRequest();
+        }}
         className={`w-full h-full aspect-[4/3] bg-gradient-to-br ${
           post.mediaGradient || 'from-amber-600 via-rose-700 to-indigo-950'
-        } flex flex-col items-center justify-center p-4 text-center text-white relative`}
+        } flex flex-col items-center justify-center p-4 text-center text-white relative cursor-pointer`}
       >
-        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 animate-pulse">
+        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 active:scale-90 transition-transform">
           <Play className="w-6 h-6 text-white ml-0.5" />
         </div>
         <p className="font-bold text-xs sm:text-sm line-clamp-1 max-w-xs">{post.title}</p>
@@ -550,7 +554,6 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         loop
         muted={isMuted}
         playsInline
-        crossOrigin="anonymous"
         preload={isCurrentlyPlaying ? 'auto' : (post.mediaThumbnail ? 'none' : 'metadata')}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}

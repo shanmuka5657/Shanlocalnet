@@ -478,9 +478,15 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
             newPost.id = createData.post.id;
           }
         } else {
-          const errBody = await createRes.text();
-          console.error('[Short Studio] Backend post creation error:', createRes.status, errBody);
-          throw new Error(`Failed to save post to shared cloud database (HTTP ${createRes.status}).`);
+          let errorMsg = `HTTP ${createRes.status}`;
+          try {
+            const errJson = await createRes.json();
+            errorMsg = errJson.details || errJson.error || JSON.stringify(errJson);
+          } catch {
+            errorMsg = await createRes.text();
+          }
+          console.error('[Short Studio] Backend post creation error:', createRes.status, errorMsg);
+          throw new Error(`Failed to save post to shared cloud database: ${errorMsg}`);
         }
       } catch (err: any) {
         console.error('[Short Studio] Publishing error:', err);
