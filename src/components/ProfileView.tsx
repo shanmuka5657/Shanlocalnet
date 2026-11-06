@@ -52,16 +52,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const { viewerLocation } = useLocation();
   const { user, loginWithGoogle, logout, loading: authLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'posts' | 'creator_studio' | 'roles' | 'admin_audit'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'creator_studio' | 'roles' | 'admin_audit'>('posts');
   const [activeRole, setActiveRole] = useState<UserRole>('creator');
 
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
 
+  const [savedPostIds, setSavedPostIds] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem('localnet_saved_posts');
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+
   const t = (key: string) => getTranslation(language, key);
 
-  const myPosts = posts.filter(p => (user && p.creatorId === user.id) || p.creatorId === 'creator_arjun' || p.creatorId === 'current_user');
+  const myPosts = posts.filter(p => (user && p.creatorId === user.id) || p.creatorId === 'creator_arjun' || p.creatorId === 'current_user' || p.creatorId === 'current_user_1');
+  const savedPostsList = posts.filter(p => savedPostIds[p.id]);
+
+  // Dynamic Live Creator Analytics
+  const totalViews = myPosts.reduce((acc, p) => acc + (p.stats?.views || (p as any).viewsCount || 0), 0);
+  const totalLikes = myPosts.reduce((acc, p) => acc + (p.stats?.likes || (p as any).likesCount || 0), 0);
+  const totalComments = myPosts.reduce((acc, p) => acc + (p.stats?.comments || (p as any).commentsCount || 0), 0);
+  const totalDurationSecs = myPosts.reduce((acc, p) => acc + ((p.videoDurationSeconds || 15) * Math.max(1, p.stats?.views || 1)), 0);
+  const watchHours = (totalDurationSecs / 3600).toFixed(1);
+  const avgWatchSecs = myPosts.length > 0
+    ? (myPosts.reduce((acc, p) => acc + (p.videoDurationSeconds || 15), 0) / myPosts.length).toFixed(1)
+    : '15.0';
+
+  const worldwidePosts = myPosts.filter(p => p.audienceDistribution?.scope === 'worldwide').length;
+  const local40kmPosts = myPosts.filter(p => p.audienceDistribution?.scope === '40km').length;
+  const hyperlocalPosts = myPosts.filter(p => p.audienceDistribution?.scope === '10km' || p.audienceDistribution?.scope === '5km').length;
+  const totalScopedPosts = Math.max(1, myPosts.length);
+
+  const worldwidePercent = myPosts.length > 0 ? Math.round((worldwidePosts / totalScopedPosts) * 100) : 70;
+  const local40kmPercent = myPosts.length > 0 ? Math.round((local40kmPosts / totalScopedPosts) * 100) : 20;
+  const hyperlocalPercent = Math.max(0, 100 - worldwidePercent - local40kmPercent);
 
   const rolesList: { role: UserRole; labelKey: string; icon: React.ReactNode; desc: string }[] = [
     { role: 'viewer', labelKey: 'roleViewer', icon: <User className="w-4 h-4" />, desc: 'Watch global entertainment, discover local deals, and order within 40 km.' },
@@ -114,7 +141,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {user ? `${user.handle} · ${user.email}` : `@arjun_grooves · Publishing from ${viewerLocation.cityName}`}
+                {user ? `${user.handle} Â· ${user.email}` : `@arjun_grooves Â· Publishing from ${viewerLocation.cityName}`}
               </p>
             </div>
 
@@ -165,27 +192,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-2.5 sm:gap-4 pt-2 text-xs text-center sm:text-left border-t border-slate-100 dark:border-slate-800/80">
             <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 sm:bg-transparent sm:dark:bg-transparent">
               <span className="font-bold text-slate-900 dark:text-white font-mono text-sm block">
-                24.5K
+                {myPosts.length}
               </span>
-              <span className="text-slate-500 text-[11px]">Followers</span>
+              <span className="text-slate-500 text-[11px]">Published Shorts</span>
             </div>
             <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 sm:bg-transparent sm:dark:bg-transparent">
               <span className="font-bold text-slate-900 dark:text-white font-mono text-sm block">
-                318
+                {totalViews.toLocaleString()}
               </span>
-              <span className="text-slate-500 text-[11px]">Following</span>
+              <span className="text-slate-500 text-[11px]">Total Views</span>
             </div>
             <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 sm:bg-transparent sm:dark:bg-transparent">
               <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono text-sm block">
-                98.5K
+                {totalLikes.toLocaleString()}
               </span>
-              <span className="text-slate-500 text-[11px]">Worldwide Organic</span>
+              <span className="text-slate-500 text-[11px]">Total Likes</span>
             </div>
             <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 sm:bg-transparent sm:dark:bg-transparent">
               <span className="font-bold text-amber-600 dark:text-amber-400 font-mono text-sm block">
-                12.4K
+                {totalComments.toLocaleString()}
               </span>
-              <span className="text-slate-500 text-[11px]">40km Local</span>
+              <span className="text-slate-500 text-[11px]">Total Comments</span>
             </div>
           </div>
         </div>
@@ -202,6 +229,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         >
           <Grid className="w-4 h-4" />
           <span>My Posts ({myPosts.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('saved')}
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${activeTab === 'saved'
+              ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white font-bold'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
+        >
+          <Bookmark className="w-4 h-4 text-amber-500" />
+          <span>Saved ({savedPostsList.length})</span>
         </button>
 
         <button
@@ -276,6 +314,69 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       )}
 
+      {/* TAB: SAVED BOOKMARKS */}
+      {activeTab === 'saved' && (
+        <div className="space-y-4">
+          <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Bookmark className="w-4 h-4 text-amber-500 fill-amber-500" />
+                Saved Shorts & Community Media
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Videos, local offers, and reels you've bookmarked to watch later.
+              </p>
+            </div>
+            <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-800">
+              {savedPostsList.length} Saved
+            </span>
+          </div>
+
+          {savedPostsList.length === 0 ? (
+            <div className="w-full text-center py-12 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <Bookmark className="w-10 h-10 text-slate-400 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">No Saved Shorts Yet</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                Tap the bookmark ribbon on any video on your home feed to save it here for fast re-watching!
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {savedPostsList.map(p => (
+                <div
+                  key={p.id}
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm flex flex-col justify-between"
+                >
+                  <div className="aspect-[9/16] relative bg-slate-950">
+                    <MediaCardThumbnail
+                      postId={p.id}
+                      thumbnailUrl={p.mediaThumbnail || (p as any).thumbnailUrl}
+                      mediaUrl={p.mediaUrl}
+                      alt={p.title}
+                      className="w-full h-full object-cover"
+                      gradient={p.mediaGradient}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 p-3 flex flex-col justify-between">
+                      <span className="self-end px-2 py-0.5 rounded-full bg-black/60 text-[10px] text-white font-mono">
+                        {p.videoDurationSeconds ? `${p.videoDurationSeconds}s` : 'Short'}
+                      </span>
+                      <div>
+                        <h4 className="text-white font-bold text-xs line-clamp-1">{p.title}</h4>
+                        <p className="text-white/70 text-[10px] truncate">@{p.creatorHandle || (p as any).author?.handle || 'creator'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800">
+                    <span>{p.stats?.likes || (p as any).likesCount || 0} likes</span>
+                    <span>{p.stats?.views || (p as any).viewsCount || 0} views</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* TAB 2: CREATOR STUDIO (SCREEN 13) */}
       {activeTab === 'creator_studio' && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
@@ -293,25 +394,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
               <span className="text-xs text-slate-400">Total Video Views</span>
               <p className="text-2xl font-black font-mono mt-1 text-slate-900 dark:text-white">
-                343.5K
+                {totalViews.toLocaleString()}
               </p>
-              <span className="text-[11px] text-emerald-500 font-semibold">+18.4% this month</span>
+              <span className="text-[11px] text-emerald-500 font-semibold">{myPosts.length} published shorts</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
               <span className="text-xs text-slate-400">Total Watch Time</span>
               <p className="text-2xl font-black font-mono mt-1 text-slate-900 dark:text-white">
-                1,840h
+                {watchHours}h
               </p>
-              <span className="text-[11px] text-slate-400">Avg 19.2s per reel</span>
+              <span className="text-[11px] text-slate-400">Avg {avgWatchSecs}s per reel</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-              <span className="text-xs text-slate-400">Audience Retention</span>
+              <span className="text-xs text-slate-400">Total Engagement</span>
               <p className="text-2xl font-black font-mono mt-1 text-indigo-600 dark:text-indigo-400">
-                82.4%
+                {(totalLikes + totalComments).toLocaleString()}
               </p>
-              <span className="text-[11px] text-slate-400">High completion rate</span>
+              <span className="text-[11px] text-slate-400">{totalLikes} likes · {totalComments} comments</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
@@ -319,38 +420,44 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <p className="text-2xl font-black font-mono mt-1 text-emerald-600 dark:text-emerald-400">
                 ACTIVE
               </p>
-              <span className="text-[11px] text-emerald-500 font-semibold">Eligible for brand deals</span>
+              <span className="text-[11px] text-emerald-500 font-semibold">Eligible for local offers</span>
             </div>
           </div>
 
           {/* Geographical Reach Breakdown */}
           <div className="p-5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 space-y-3">
             <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
-              Worldwide Reach Distribution Breakdown
+              Audience Reach & Distribution Breakdown
             </h3>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between items-center font-medium">
-                <span>India (Kurnool, Hyderabad, Mumbai, Delhi)</span>
-                <span className="font-mono font-bold">78% (76,800 views)</span>
-              </div>
-              <div className="w-full h-2 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-600 rounded-full w-[78%]" />
-              </div>
-
-              <div className="flex justify-between items-center font-medium pt-2">
-                <span>United Kingdom & Europe</span>
-                <span className="font-mono font-bold">14% (13,800 views)</span>
-              </div>
-              <div className="w-full h-2 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full w-[14%]" />
+            <div className="space-y-3 text-xs">
+              <div>
+                <div className="flex justify-between items-center font-medium mb-1">
+                  <span>Worldwide Organic Reach (Global Scope)</span>
+                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-300">{worldwidePercent}% ({worldwidePosts} shorts)</span>
+                </div>
+                <div className="w-full h-2 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-600 rounded-full transition-all duration-500" style={{ width: `${worldwidePercent}%` }} />
+                </div>
               </div>
 
-              <div className="flex justify-between items-center font-medium pt-2">
-                <span>United States & Americas</span>
-                <span className="font-mono font-bold">8% (7,900 views)</span>
+              <div>
+                <div className="flex justify-between items-center font-medium mb-1">
+                  <span>Hyperlocal 40 km Reach (City & Surrounding Mandals)</span>
+                  <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{local40kmPercent}% ({local40kmPosts} shorts)</span>
+                </div>
+                <div className="w-full h-2 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${local40kmPercent}%` }} />
+                </div>
               </div>
-              <div className="w-full h-2 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden">
-                <div className="h-full bg-rose-500 rounded-full w-[8%]" />
+
+              <div>
+                <div className="flex justify-between items-center font-medium mb-1">
+                  <span>Neighborhood 10 km Commercial Proximity</span>
+                  <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{hyperlocalPercent}% ({hyperlocalPosts} shorts)</span>
+                </div>
+                <div className="w-full h-2 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden">
+                  <div className="h-full bg-rose-500 rounded-full transition-all duration-500" style={{ width: `${hyperlocalPercent}%` }} />
+                </div>
               </div>
             </div>
           </div>
@@ -459,11 +566,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-600 dark:text-slate-300">
-                    <span>Origin: <strong>{log.originCity}</strong> → Viewer: <strong>{log.viewerCity}</strong></span>
+                    <span>Origin: <strong>{log.originCity}</strong> â†’ Viewer: <strong>{log.viewerCity}</strong></span>
                     <span className="font-mono">Distance: {log.viewerDistanceKm} km</span>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
-                    Rule: <code className="font-mono text-amber-600 dark:text-amber-400">{log.ruleCode}</code> · {log.notes}
+                    Rule: <code className="font-mono text-amber-600 dark:text-amber-400">{log.ruleCode}</code> Â· {log.notes}
                   </p>
                 </div>
               ))

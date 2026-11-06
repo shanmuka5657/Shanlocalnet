@@ -161,7 +161,12 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>(() => getStoredLikes());
   const [postViews, setPostViews] = useState<Record<string, number>>(() => getStoredViews());
   const [adViews, setAdViews] = useState<Record<string, number>>(() => getStoredAdViews());
-  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem('localnet_saved_posts');
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
   const [followingCreators, setFollowingCreators] = useState<Record<string, boolean>>({
     creator_arjun: true
   });
@@ -317,7 +322,13 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   const toggleSave = (postId: string) => {
     triggerHaptic('light');
-    setSavedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+    setSavedPosts(prev => {
+      const next = { ...prev, [postId]: !prev[postId] };
+      try {
+        localStorage.setItem('localnet_saved_posts', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const toggleFollow = (creatorId: string) => {
