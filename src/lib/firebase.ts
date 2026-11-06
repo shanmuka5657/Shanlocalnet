@@ -11,12 +11,12 @@ import {
 } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCRf4yzpOPwP4TajyyiR0DMP-kTmK-sPyg",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "studio-9503295832-7bdc9.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "studio-9503295832-7bdc9",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "studio-9503295832-7bdc9.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1037511833028",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1037511833028:web:4126c824e42726c0cde091"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyACX8sWQWhow_ZnPj0GQ7SE3nZxafCCaF0",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "localnet-8fe40.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "localnet-8fe40",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "localnet-8fe40.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "268165556142",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:268165556142:web:01d1b467569b94b2b28a3f"
 };
 
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);

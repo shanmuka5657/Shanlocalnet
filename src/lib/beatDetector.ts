@@ -210,3 +210,4 @@ export async function detectBeatsFromUrl(url: string, fallbackDuration = 30): Pr
     return generateSyntheticBeats(fallbackDuration, 124);
   }
 }
+
