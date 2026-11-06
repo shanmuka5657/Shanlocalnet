@@ -115,7 +115,7 @@ import { MarketplaceRepository } from './src/db/repositories/marketplaceReposito
 import { CommunityRepository } from './src/db/repositories/communityRepository.ts';
 import { AuditRepository, GeoDecisionRecord } from './src/db/repositories/auditRepository.ts';
 import { RidesRepository } from './src/db/repositories/ridesRepository.ts';
-import { seedVideosFromPexels, getSeedProgress, isSeederRunning } from './src/db/seeders/pexelsVideoSeeder.ts';
+import { seedVideos, getSeedProgress, isSeederRunning } from './src/db/seeders/pexelsVideoSeeder.ts';
 import {
   defaultStorageService,
   validateMagicBytes,
@@ -1651,13 +1651,14 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
   });
 
   // POST /api/admin/seed-videos — start seeding (runs in background)
-  // Body: { pexelsApiKey: "YOUR_KEY", targetCount: 10000 }
+  // Body: { apiKey: "YOUR_KEY", source: "pixabay"|"pexels", targetCount: 10000 }
   app.post('/api/admin/seed-videos', async (req: Request, res: Response) => {
-    const { pexelsApiKey, targetCount = 10000 } = req.body;
+    const { apiKey, pexelsApiKey, source = 'pixabay', targetCount = 10000 } = req.body;
+    const key = apiKey || pexelsApiKey; // support both field names
 
-    if (!pexelsApiKey || typeof pexelsApiKey !== 'string' || pexelsApiKey.length < 10) {
+    if (!key || typeof key !== 'string' || key.length < 8) {
       return res.status(400).json({
-        error: 'pexelsApiKey is required. Get your free key at https://www.pexels.com/api/'
+        error: 'apiKey is required. Get your free Pixabay key at https://pixabay.com/accounts/api/'
       });
     }
 
@@ -1669,16 +1670,20 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     }
 
     const count = Math.min(50000, Math.max(1, parseInt(targetCount as any, 10) || 10000));
+    const src: 'pixabay' | 'pexels' = source === 'pexels' ? 'pexels' : 'pixabay';
 
-    // Run in background — don't await
-    seedVideosFromPexels(db, pexelsApiKey, count).catch(err => {
+    // Run in background
+    seedVideos(db, key, src, count).catch(err => {
       console.error('[Admin] Seed error:', err.message);
     });
 
     res.json({
       success: true,
-      message: `Seeding ${count} videos in background. Poll /api/admin/seed-status for progress.`,
-      estimatedMinutes: Math.ceil(count / 80 * 0.3 / 60)
+      source: src,
+      message: `Seeding ${count} videos from ${src} in background. Poll /api/admin/seed-status for progress.`,
+      estimatedMinutes: src === 'pixabay'
+        ? Math.ceil(count / 200 * 0.65 / 60)
+        : Math.ceil(count / 80 * 0.3 / 60)
     });
   });
 

@@ -43,7 +43,8 @@ interface ProfileViewProps {
 // ── Seed Videos Admin Panel ────────────────────────────────────────────────
 const SeedVideosPanel: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
-  const [targetCount, setTargetCount] = useState(10000);
+  const [source, setSource] = useState<'pixabay' | 'pexels'>('pixabay');
+  const [targetCount, setTargetCount] = useState(1000);
   const [isStarting, setIsStarting] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [message, setMessage] = useState('');
@@ -58,7 +59,7 @@ const SeedVideosPanel: React.FC = () => {
         setProgress(d.progress);
         if (d.progress?.isComplete) {
           setIsPolling(false);
-          setMessage(`✅ Done! ${d.progress.inserted} videos seeded.`);
+          setMessage(`✅ Done! ${d.progress.inserted?.toLocaleString()} videos added to the feed.`);
         }
       } catch {}
     }, 2000);
@@ -66,14 +67,14 @@ const SeedVideosPanel: React.FC = () => {
   }, [isPolling]);
 
   const handleStart = async () => {
-    if (!apiKey.trim()) return setMessage('⚠️ Enter your Pexels API key first.');
+    if (!apiKey.trim()) return setMessage('⚠️ Enter your API key first.');
     setIsStarting(true);
     setMessage('');
     try {
       const res = await fetch('/api/admin/seed-videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pexelsApiKey: apiKey.trim(), targetCount })
+        body: JSON.stringify({ apiKey: apiKey.trim(), source, targetCount })
       });
       const data = await res.json();
       if (!res.ok) { setMessage(`❌ ${data.error}`); return; }
@@ -86,6 +87,19 @@ const SeedVideosPanel: React.FC = () => {
     }
   };
 
+  const pixabayInfo = {
+    name: 'Pixabay',
+    url: 'pixabay.com/accounts/api/',
+    status: '✅ Free keys available now',
+    limit: '100 req/min · 200 videos/request',
+    perPage: 200,
+    color: 'emerald'
+  };
+
+  const estimatedMin = source === 'pixabay'
+    ? Math.ceil(targetCount / 200 * 0.65 / 60)
+    : Math.ceil(targetCount / 80 * 0.3 / 60);
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
       <div className="flex items-center gap-2">
@@ -93,76 +107,120 @@ const SeedVideosPanel: React.FC = () => {
           <Play className="w-4 h-4 text-slate-950 fill-slate-950" />
         </div>
         <div>
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">Seed Short Videos</h3>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">Populate the app with real free portrait videos from Pexels API</p>
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">Seed Short Videos (Free)</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">Populate feed with real free portrait videos from Pixabay</p>
         </div>
       </div>
 
-      {/* Step 1 */}
-      <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1">
-        <p className="text-xs font-bold text-blue-800 dark:text-blue-300">Step 1 — Get your FREE Pexels API key (takes 2 min)</p>
-        <p className="text-[11px] text-blue-700 dark:text-blue-400">
-          1. Go to <strong>pexels.com/api</strong> → Sign up free<br/>
-          2. Click "Your API Key" → Copy the key<br/>
-          3. Paste it below — No credit card required
-        </p>
+      {/* Source selector */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setSource('pixabay')}
+          className={`p-3 rounded-xl border text-left transition-all ${
+            source === 'pixabay'
+              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-500'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800'
+          }`}
+        >
+          <p className="text-xs font-black text-slate-900 dark:text-white">Pixabay</p>
+          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">✅ Free keys available</p>
+          <p className="text-[9px] text-slate-400 mt-0.5">pixabay.com/accounts/api/</p>
+        </button>
+        <button
+          onClick={() => setSource('pexels')}
+          className={`p-3 rounded-xl border text-left transition-all ${
+            source === 'pexels'
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-500'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800'
+          }`}
+        >
+          <p className="text-xs font-black text-slate-900 dark:text-white">Pexels</p>
+          <p className="text-[10px] text-rose-500 font-semibold">⏸ Key issuance paused</p>
+          <p className="text-[9px] text-slate-400 mt-0.5">Use if you already have a key</p>
+        </button>
       </div>
 
-      {/* Step 2 */}
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Pexels API Key</label>
+      {/* Step guide */}
+      <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 space-y-1">
+        <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+          How to get your FREE {source === 'pixabay' ? 'Pixabay' : 'Pexels'} API key (2 min)
+        </p>
+        {source === 'pixabay' ? (
+          <ol className="text-[11px] text-emerald-700 dark:text-emerald-400 space-y-0.5 list-none">
+            <li>1. Go to <strong>pixabay.com</strong> → Sign up free (or log in)</li>
+            <li>2. Visit <strong>pixabay.com/accounts/api/</strong></li>
+            <li>3. Your API key is shown on that page — copy it</li>
+            <li>4. Paste below ↓  &nbsp;·&nbsp; No credit card required</li>
+          </ol>
+        ) : (
+          <ol className="text-[11px] text-emerald-700 dark:text-emerald-400 space-y-0.5 list-none">
+            <li>1. Go to <strong>pexels.com/api/</strong> → Log in</li>
+            <li>2. If key issuance is still paused, switch to Pixabay above</li>
+          </ol>
+        )}
+      </div>
+
+      {/* API Key input */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+          {source === 'pixabay' ? 'Pixabay' : 'Pexels'} API Key
+        </label>
         <input
           type="password"
           value={apiKey}
           onChange={e => setApiKey(e.target.value)}
-          placeholder="Paste your free Pexels API key here..."
+          placeholder={`Paste your free ${source === 'pixabay' ? 'Pixabay' : 'Pexels'} API key...`}
           className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-amber-500 outline-none"
         />
       </div>
 
       {/* Count selector */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="space-y-2">
         <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Videos to seed:</span>
-        {[100, 500, 1000, 5000, 10000].map(n => (
-          <button
-            key={n}
-            onClick={() => setTargetCount(n)}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
-              targetCount === n
-                ? 'bg-amber-500 text-slate-950 border-amber-400'
-                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-            }`}
-          >
-            {n.toLocaleString()}
-          </button>
-        ))}
+        <div className="flex flex-wrap gap-1.5">
+          {[100, 500, 1000, 3000, 5000, 10000].map(n => (
+            <button
+              key={n}
+              onClick={() => setTargetCount(n)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                targetCount === n
+                  ? 'bg-amber-500 text-slate-950 border-amber-400'
+                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              {n.toLocaleString()}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-400">
+          ⏱ ~{estimatedMin} min · {Math.ceil(targetCount / (source === 'pixabay' ? 200 : 80))} API calls
+        </p>
       </div>
-
-      {/* Time estimate */}
-      <p className="text-[11px] text-slate-400 dark:text-slate-500">
-        ⏱ Estimated time: ~{Math.ceil(targetCount / 80 * 0.3 / 60)} min · {Math.ceil(targetCount / 80)} API requests · Free quota: 20,000/month
-      </p>
 
       {/* Progress bar */}
       {progress && !progress.isComplete && (
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-[11px] font-mono text-slate-600 dark:text-slate-400">
-            <span>{progress.inserted?.toLocaleString()} / {progress.totalTarget?.toLocaleString()} videos</span>
-            <span>{progress.percentDone}% · ~{progress.estimatedMinutesLeft}m left</span>
+        <div className="space-y-1.5 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+          <div className="flex justify-between text-[11px] font-mono text-slate-600 dark:text-slate-300">
+            <span>{progress.inserted?.toLocaleString()} / {progress.totalTarget?.toLocaleString()}</span>
+            <span>{progress.percentDone}%  ·  ~{progress.estimatedMinutesLeft}m left</span>
           </div>
-          <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
               style={{ width: `${progress.percentDone || 0}%` }}
               className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-500"
             />
           </div>
-          <p className="text-[10px] text-slate-400">Category: <strong className="text-amber-500">{progress.currentCategory}</strong> · Page {progress.currentPage}</p>
+          <p className="text-[10px] text-slate-400">
+            Category: <strong className="text-amber-500">{progress.currentCategory}</strong>
+            &nbsp;·&nbsp; Page {progress.currentPage}
+            &nbsp;·&nbsp; Skipped: {progress.skipped}
+          </p>
         </div>
       )}
 
       {/* Message */}
       {message && (
-        <p className={`text-xs font-semibold rounded-xl p-2.5 ${
+        <p className={`text-xs font-semibold rounded-xl p-3 ${
           message.startsWith('✅') ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
           : message.startsWith('❌') ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400'
           : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
@@ -174,14 +232,12 @@ const SeedVideosPanel: React.FC = () => {
       <button
         onClick={handleStart}
         disabled={isStarting || isPolling}
-        className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black text-sm rounded-xl shadow flex items-center justify-center gap-2 transition-all"
+        className="w-full py-3 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black text-sm rounded-xl shadow flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
       >
         {isPolling ? (
-          <><span className="animate-spin">⚙️</span> Seeding in progress...</>
-        ) : isStarting ? (
-          'Starting...'
-        ) : (
-          <><Play className="w-4 h-4 fill-slate-950" /> Start Seeding {targetCount.toLocaleString()} Videos</>
+          <><span className="inline-block animate-spin mr-1">⚙️</span> Seeding {targetCount.toLocaleString()} videos...</>
+        ) : isStarting ? 'Starting...' : (
+          <><Play className="w-4 h-4 fill-slate-950" /> Seed {targetCount.toLocaleString()} Videos from {source === 'pixabay' ? 'Pixabay' : 'Pexels'}</>
         )}
       </button>
     </div>
