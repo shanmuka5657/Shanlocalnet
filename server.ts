@@ -2,6 +2,44 @@ const isUuid = (val: any): boolean =>
   typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
 /**
+ * parseAndValidateDuration
+ * Validates a raw client-supplied duration value (string or number) and returns
+ * a 3-decimal-place JavaScript number suitable for NUMERIC(10,3) storage.
+ *
+ * Rules:
+ *  - null / undefined / '' → returns null (explicitly missing)
+ *  - Non-finite / NaN / negative / zero → throws TypeError / RangeError
+ *  - > 86400 (24 h) → throws RangeError
+ *  - Rounds to 3 decimal places; rejects result === 0.000 (sub-millisecond)
+ */
+function parseAndValidateDuration(input: any): number | null {
+  if (input === null || input === undefined || input === '') return null;
+  const val = typeof input === 'number' ? input : Number(input);
+  if (!Number.isFinite(val) || isNaN(val)) {
+    throw new TypeError(
+      `[Duration] Expected a finite number; received: "${input}"`
+    );
+  }
+  if (val <= 0) {
+    throw new RangeError(
+      `[Duration] Must be strictly positive (> 0); received: ${val}`
+    );
+  }
+  if (val > 86400) {
+    throw new RangeError(
+      `[Duration] Exceeds maximum 86400 s (24 h); received: ${val}`
+    );
+  }
+  const rounded = Number(val.toFixed(3));
+  if (rounded <= 0) {
+    throw new RangeError(
+      `[Duration] ${val}s is below millisecond resolution (<0.001s) and rounds to 0.000; rejected.`
+    );
+  }
+  return rounded;
+}
+
+/**
  * LocalNet Express Backend Server
  * Global Entertainment. Local Commerce.
  * Launch Market: Kurnool, Andhra Pradesh, India
@@ -500,10 +538,20 @@ async function startServer() {
         return res.status(400).json({ error: 'Uploaded object was not found in storage.' });
       }
 
+      // Validate and round duration to NUMERIC(10,3) precision before writing.
+      // parseAndValidateDuration rejects NaN, Infinity, negative, zero and
+      // sub-millisecond values; returns null for genuinely missing metadata.
+      let validatedDuration: number | null | undefined = undefined;
+      try {
+        validatedDuration = parseAndValidateDuration(durationSeconds) ?? undefined;
+      } catch (durErr: any) {
+        return res.status(400).json({ error: `Invalid durationSeconds: ${durErr.message}` });
+      }
+
       const confirmedAsset = await mediaRepo.confirmAsset(asset.id, {
         processingStatus: 'ready',
         magicBytesVerified: true,
-        durationSeconds: durationSeconds ? Number(durationSeconds) : undefined,
+        durationSeconds: validatedDuration,
         width: width ? Number(width) : undefined,
         height: height ? Number(height) : undefined
       });
@@ -701,21 +749,40 @@ async function startServer() {
 
       // Resolve media asset if provided
       let resolvedMediaUrl: string | undefined = mediaUrl || undefined;
-      let resolvedDuration: number | undefined = req.body.videoDurationSeconds;
+      let resolvedDuration: number | null | undefined = undefined;
       let resolvedAspectRatio = req.body.aspectRatio || (contentType === 'reel' ? '9:16' : '4:3');
 
       let safeMediaId: string | undefined = undefined;
-      if (mediaAssetId && isUuid(mediaAssetId)) {
-        try {
-          const asset = await mediaRepo.getAssetById(mediaAssetId);
-          if (asset) {
-            safeMediaId = asset.id;
-            resolvedMediaUrl = asset.cloudfrontUrl || defaultStorageService.getPublicUrl(asset.s3Key);
-            if (asset.durationSeconds) resolvedDuration = asset.durationSeconds;
-          }
-        } catch {
-          safeMediaId = undefined;
+      if (mediaAssetId) {
+        // Reject non-UUID mediaAssetId values immediately — do not silently ignore them.
+        if (!isUuid(mediaAssetId)) {
+          return res.status(400).json({
+            error: `Invalid mediaAssetId format: "${mediaAssetId}". Expected a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).`
+          });
         }
+        // Bubble database errors (do NOT catch silently — infrastructure failures must surface as HTTP 500).
+        const asset = await mediaRepo.getAssetById(mediaAssetId);
+        if (!asset) {
+          return res.status(404).json({
+            error: `Referenced media asset "${mediaAssetId}" does not exist. Upload and confirm the media before publishing.`
+          });
+        }
+        safeMediaId = asset.id;
+        resolvedMediaUrl = asset.cloudfrontUrl || defaultStorageService.getPublicUrl(asset.s3Key);
+        // Prefer the confirmed asset duration; fall back to client-supplied value.
+        if (asset.durationSeconds != null) {
+          resolvedDuration = asset.durationSeconds;
+        }
+      }
+
+      // Validate the duration that will be written to video_duration_seconds (NUMERIC(10,3)).
+      // Client-supplied videoDurationSeconds is accepted only when the asset has no stored duration.
+      const rawDuration = resolvedDuration !== undefined ? resolvedDuration : req.body.videoDurationSeconds;
+      let validatedPostDuration: number | null = null;
+      try {
+        validatedPostDuration = parseAndValidateDuration(rawDuration);
+      } catch (durErr: any) {
+        return res.status(400).json({ error: `Invalid videoDurationSeconds: ${durErr.message}` });
       }
 
       const postToCreate: Partial<Post> = {
@@ -733,7 +800,7 @@ async function startServer() {
         mediaThumbnail: req.body.mediaThumbnail || undefined,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: resolvedAspectRatio,
-        videoDurationSeconds: resolvedDuration,
+        videoDurationSeconds: validatedPostDuration ?? undefined,
         trimStartSeconds: req.body.trimStartSeconds ? Number(req.body.trimStartSeconds) : undefined,
         trimEndSeconds: req.body.trimEndSeconds ? Number(req.body.trimEndSeconds) : undefined,
         audioTrack: req.body.audioTrack || undefined,

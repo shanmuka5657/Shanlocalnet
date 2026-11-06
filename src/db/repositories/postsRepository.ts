@@ -114,7 +114,7 @@ export class PostsRepository {
       post.mediaThumbnail || '',
       post.mediaGradient || 'from-amber-600 via-rose-600 to-indigo-900',
       post.aspectRatio || '9:16',
-      post.videoDurationSeconds || (post.contentType === 'reel' || post.contentType === 'video' ? 20 : null),
+      post.videoDurationSeconds != null ? post.videoDurationSeconds : null,
       JSON.stringify(post.tags || []),
       lon,
       lat,

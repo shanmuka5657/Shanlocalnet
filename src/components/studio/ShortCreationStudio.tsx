@@ -312,7 +312,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
                   body: JSON.stringify({
                     mediaAssetId: assetId,
                     key,
-                    durationSeconds: project.duration
+                    durationSeconds: project.duration ? Number(project.duration.toFixed(3)) : undefined
                   })
                 });
               } catch {}
@@ -418,7 +418,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
         thumbnailUrl: poster as any,
         mediaGradient: 'from-amber-600 via-rose-600 to-indigo-900',
         aspectRatio: '9:16',
-        videoDurationSeconds: project.duration || 15,
+        videoDurationSeconds: project.duration ? Number(project.duration.toFixed(3)) : undefined,
         publishingLocation: {
           latitude: viewerLocation.coords.latitude,
           longitude: viewerLocation.coords.longitude,
