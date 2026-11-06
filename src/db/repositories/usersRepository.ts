@@ -11,7 +11,7 @@ function toDbRole(role: string): string {
 function toAppRole(role: string): UserRole {
   if (role === 'user') return 'viewer';
   if (role === 'business_owner') return 'merchant';
-  if (role === 'platform_admin') return 'community_admin';
+  if (role === 'platform_admin') return 'platform_admin'; // ← was wrongly mapped to 'community_admin'
   return role as UserRole;
 }
 
@@ -193,5 +193,26 @@ export class UsersRepository {
 
     const profile = await this.getProfile(googleUser.id);
     return profile!;
+  }
+
+  public async grantAdminRole(userId: string): Promise<UserProfile | null> {
+    // Promote user to platform_admin in both tables
+    await this.client.query(`
+      UPDATE users SET active_role = 'platform_admin', updated_at = NOW() WHERE id = $1;
+    `, [userId]);
+    await this.client.query(`
+      INSERT INTO user_roles (user_id, role, status)
+      VALUES ($1, 'platform_admin', 'approved')
+      ON CONFLICT (user_id, role) DO UPDATE SET status = 'approved';
+    `, [userId]);
+    return this.getProfile(userId);
+  }
+
+  public async isAdmin(userId: string): Promise<boolean> {
+    const res = await this.client.query(
+      `SELECT id FROM users WHERE id = $1 AND active_role = 'platform_admin' LIMIT 1;`,
+      [userId]
+    );
+    return res.rows.length > 0;
   }
 }

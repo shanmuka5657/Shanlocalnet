@@ -21,7 +21,8 @@ export type UserRole =
   | 'business_owner'
   | 'merchant'
   | 'service_provider'
-  | 'community_admin';
+  | 'community_admin'
+  | 'platform_admin';
 
 export interface UserProfile {
   id: string;

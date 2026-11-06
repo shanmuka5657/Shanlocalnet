@@ -41,7 +41,7 @@ interface ProfileViewProps {
 }
 
 // ── Seed Videos Admin Panel ────────────────────────────────────────────────
-const SeedVideosPanel: React.FC = () => {
+const SeedVideosPanel: React.FC<{ userId: string }> = ({ userId }) => {
   const [apiKey, setApiKey] = useState('');
   const [source, setSource] = useState<'pixabay' | 'pexels'>('pixabay');
   const [targetCount, setTargetCount] = useState(1000);
@@ -74,7 +74,8 @@ const SeedVideosPanel: React.FC = () => {
       const res = await fetch('/api/admin/seed-videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: apiKey.trim(), source, targetCount })
+        body: JSON.stringify({ apiKey: apiKey.trim(), source, targetCount }),
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId }
       });
       const data = await res.json();
       if (!res.ok) { setMessage(`❌ ${data.error}`); return; }
@@ -283,7 +284,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const t = (key: string) => getTranslation(language, key);
 
-  // Only show posts created by the currently logged-in user — no fallback to demo IDs
+  // Admin check — platform_admin role required for seed panel and audit logs
+  const isAdmin = user?.roles?.includes('platform_admin') || user?.activeRole === 'platform_admin';
+
   const myPosts = user ? posts.filter(p => p.creatorId === user.id) : [];
   const savedPostsList = posts.filter(p => savedPostIds[p.id]);
 
@@ -488,7 +491,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${activeTab === 'admin_audit'
               ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white font-bold'
               : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-            }`}
+            } ${!isAdmin ? 'hidden' : ''}`}
         >
           <ShieldAlert className="w-4 h-4 text-indigo-500" />
           <span>Geo-Policy Audit Logs</span>
@@ -740,11 +743,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {/* TAB 4: AUDIT TRAIL & DECISION RECORDS */}
-      {activeTab === 'admin_audit' && (
+      {activeTab === 'admin_audit' && isAdmin && (
         <div className="space-y-4">
 
           {/* ── Seed Videos Panel ──────────────────────────────────────── */}
-          <SeedVideosPanel />
+          <SeedVideosPanel userId={user?.id || ''} />
 
           {/* ── Geo Audit Logs ─────────────────────────────────────────── */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">

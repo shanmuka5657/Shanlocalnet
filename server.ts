@@ -1291,13 +1291,21 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
       if (!id || !email) {
         return res.status(400).json({ error: 'Missing user id or email' });
       }
-      const user = await usersRepo.upsertGoogleUser({
-        id,
-        email,
+      let user = await usersRepo.upsertGoogleUser({
+        id, email,
         name: name || 'Local User',
         avatar: avatar || '',
         language: language || 'en'
       });
+
+      // Auto-grant platform_admin if email is in ADMIN_EMAILS env variable
+      const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+      if (adminEmails.length > 0 && adminEmails.includes(email.toLowerCase())) {
+        const adminProfile = await usersRepo.grantAdminRole(id);
+        if (adminProfile) user = adminProfile;
+        console.log(`[Auth] Admin role granted to ${email} (${id})`);
+      }
+
       res.json({ success: true, user });
     } catch (err: any) {
       console.error('[Google Auth Error]:', err);
@@ -1650,9 +1658,43 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     res.json({ running: isSeederRunning(), progress: getSeedProgress() });
   });
 
+  // POST /api/admin/grant-admin — promote a user to platform_admin
+  // Body: { userId OR email, adminSecret }
+  app.post('/api/admin/grant-admin', async (req: Request, res: Response) => {
+    const { userId, email, adminSecret } = req.body;
+    const envSecret = process.env.ADMIN_SECRET || '';
+    if (!envSecret || adminSecret !== envSecret) {
+      return res.status(403).json({ error: 'Invalid admin secret. Set ADMIN_SECRET in your .env file.' });
+    }
+    try {
+      let targetId = userId;
+      if (!targetId && email) {
+        const row = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [email]);
+        if (!row.rows.length) return res.status(404).json({ error: `No user found with email: ${email}` });
+        targetId = row.rows[0].id;
+      }
+      if (!targetId) return res.status(400).json({ error: 'Provide userId or email' });
+      const profile = await usersRepo.grantAdminRole(targetId);
+      console.log(`[Admin] Manually granted platform_admin to ${targetId}`);
+      res.json({ success: true, user: profile });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/admin/seed-videos — start seeding (runs in background)
-  // Body: { apiKey: "YOUR_KEY", source: "pixabay"|"pexels", targetCount: 10000 }
+  // Body: { apiKey, source: "pixabay"|"pexels", targetCount }
+  // Requires: x-user-id header of a platform_admin user
   app.post('/api/admin/seed-videos', async (req: Request, res: Response) => {
+    // Admin auth check
+    const requestingUserId = req.headers['x-user-id'] as string;
+    if (!requestingUserId) {
+      return res.status(401).json({ error: 'Authentication required. Send x-user-id header.' });
+    }
+    const isAdmin = await usersRepo.isAdmin(requestingUserId).catch(() => false);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Only platform_admin users can seed videos.' });
+    }
     const { apiKey, pexelsApiKey, source = 'pixabay', targetCount = 10000 } = req.body;
     const key = apiKey || pexelsApiKey; // support both field names
 
