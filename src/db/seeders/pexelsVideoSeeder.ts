@@ -1,34 +1,76 @@
 /**
  * LocalNet Pixabay + Multi-Source Video Seeder
+ * Focused on Indian & Telugu Entertainment content
  * Pixabay API: free, still accepting keys at pixabay.com/accounts/api/
  * Rate limit: 100 requests/60s, 5000 results per query max
- * License: Pixabay Content License (free for commercial use, no attribution required)
  */
 
 import { IDatabaseClient } from '../postgresPool.ts';
 
+// Telugu & Andhra Pradesh cities (primary) + major Indian cities
 const CITIES = [
   { city: 'Kurnool',       state: 'Andhra Pradesh', lat: 15.8281, lon: 78.0373 },
   { city: 'Hyderabad',     state: 'Telangana',       lat: 17.3850, lon: 78.4867 },
-  { city: 'Bengaluru',     state: 'Karnataka',       lat: 12.9716, lon: 77.5946 },
-  { city: 'Mumbai',        state: 'Maharashtra',     lat: 19.0760, lon: 72.8777 },
-  { city: 'Delhi',         state: 'Delhi',           lat: 28.6139, lon: 77.2090 },
-  { city: 'Chennai',       state: 'Tamil Nadu',      lat: 13.0827, lon: 80.2707 },
-  { city: 'Kolkata',       state: 'West Bengal',     lat: 22.5726, lon: 88.3639 },
-  { city: 'Visakhapatnam', state: 'Andhra Pradesh',  lat: 17.6868, lon: 83.2185 },
   { city: 'Vijayawada',    state: 'Andhra Pradesh',  lat: 16.5062, lon: 80.6480 },
+  { city: 'Visakhapatnam', state: 'Andhra Pradesh',  lat: 17.6868, lon: 83.2185 },
   { city: 'Tirupati',      state: 'Andhra Pradesh',  lat: 13.6288, lon: 79.4192 },
-  { city: 'Pune',          state: 'Maharashtra',     lat: 18.5204, lon: 73.8567 },
   { city: 'Nandyal',       state: 'Andhra Pradesh',  lat: 15.4786, lon: 78.4840 },
+  { city: 'Guntur',        state: 'Andhra Pradesh',  lat: 16.3067, lon: 80.4365 },
+  { city: 'Warangal',      state: 'Telangana',       lat: 17.9784, lon: 79.5941 },
+  { city: 'Nellore',       state: 'Andhra Pradesh',  lat: 14.4426, lon: 79.9865 },
+  { city: 'Ongole',        state: 'Andhra Pradesh',  lat: 15.5057, lon: 80.0499 },
+  { city: 'Adoni',         state: 'Andhra Pradesh',  lat: 15.6280, lon: 77.2730 },
+  { city: 'Cuddapah',      state: 'Andhra Pradesh',  lat: 14.4673, lon: 78.8241 },
 ];
 
+// ── Indian & Telugu Entertainment Categories ──────────────────────────────
+// These search terms return Indian/South Indian/Telugu cultural content on Pixabay
 const CATEGORIES = [
-  'dance', 'food', 'nature', 'city', 'fitness',
-  'cooking', 'travel', 'fashion', 'music', 'people',
-  'animals', 'technology', 'art', 'yoga', 'celebration',
-  'lifestyle', 'culture', 'market', 'sports', 'sunset',
-  'rain', 'children', 'wedding', 'restaurant', 'birds',
-  'flowers', 'mountains', 'sea beach', 'night', 'village',
+  // Telugu & South Indian dance
+  'Kuchipudi dance',
+  'Bharatanatyam dance',
+  'Indian classical dance',
+  'Indian folk dance',
+  'South Indian dance',
+  'India dance performance',
+
+  // Indian music & entertainment
+  'Indian music performance',
+  'Carnatic music',
+  'Indian drum dhol',
+  'India festival celebration',
+  'India Diwali festival',
+  'India Holi festival',
+  'India Sankranti festival',
+  'India Dussehra celebration',
+
+  // Indian food (Telugu cuisine focus)
+  'Indian street food',
+  'Hyderabad biryani',
+  'South Indian food',
+  'India cooking traditional',
+  'India spices market',
+  'India food bazaar',
+
+  // Indian culture & lifestyle
+  'India temple',
+  'India wedding ceremony',
+  'India village life',
+  'India market bazaar',
+  'India traditional woman',
+  'India culture tradition',
+
+  // Andhra Pradesh / Telangana nature
+  'India nature landscape',
+  'India monsoon rain',
+  'India sunset river',
+  'India countryside',
+  'India children playing',
+  'India yoga meditation',
+  'India cricket sports',
+  'India city street life',
+  'India auto rickshaw',
+  'India train journey',
 ];
 
 const GRADIENTS = [
@@ -158,7 +200,7 @@ async function seedFromPixabay(
             const gradient = GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
             const duration = Math.min(60, Math.max(3, hit.duration || 15));
             const title = `${cap(category)} — ${hit.user || 'Creator'}`;
-            const description = `${cap(category)} video. #${category.replace(/\s+/g, '')} #shorts #localnet #reels`;
+            const description = `${cap(category)} short. #${category.replace(/\s+/g, '')} #telugu #india #andhra #localnet #shorts #viral`;
             const likesCount = Math.floor(Math.random() * 9000) + 100;
             const viewsCount = Math.floor(Math.random() * 120000) + 1000;
 
@@ -268,7 +310,7 @@ async function seedFromPexels(
                 INSERT INTO posts (id, creator_id, content_type, classification, engine, title, description, media_url, media_thumbnail, media_gradient, aspect_ratio, video_duration_seconds, publishing_point, publishing_city, publishing_state, publishing_country, audience_scope, likes_count, views_count, comments_count, shares_count, saves_count)
                 VALUES ($1, 'seed_pexels', 'reel', 'organic', 'ORGANIC_ENTERTAINMENT', $2, $3, $4, $5, $6, '9:16', $7, ST_SetSRID(ST_MakePoint($8, $9), 4326)::geography, $10, $11, 'India', 'worldwide', $12, $13, 0, 0, 0)
                 ON CONFLICT (id) DO NOTHING;
-              `, [postId, `${cap(category)} — ${video.user?.name || 'Creator'}`, `${cap(category)} #shorts #localnet`, videoFile.link, thumbnail, GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)], Math.min(60, video.duration || 15), city.lon, city.lat, city.city, city.state, Math.floor(Math.random() * 9000) + 100, Math.floor(Math.random() * 120000) + 1000]);
+              `, [postId, `${cap(category)} — ${video.user?.name || 'Creator'}`, `${cap(category)} #telugu #india #andhra #localnet #shorts`, videoFile.link, thumbnail, GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)], Math.min(60, video.duration || 15), city.lon, city.lat, city.city, city.state, Math.floor(Math.random() * 9000) + 100, Math.floor(Math.random() * 120000) + 1000]);
               _progress.inserted++;
             } catch { _progress.errors++; }
           }

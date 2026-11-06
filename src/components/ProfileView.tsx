@@ -108,9 +108,20 @@ const SeedVideosPanel: React.FC<{ userId: string }> = ({ userId }) => {
           <Play className="w-4 h-4 text-slate-950 fill-slate-950" />
         </div>
         <div>
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">Seed Short Videos (Free)</h3>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">Populate feed with real free portrait videos from Pixabay</p>
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">Seed Indian & Telugu Videos (Free)</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">Populate feed with Indian & Telugu cultural content from Pixabay</p>
         </div>
+      </div>
+
+      <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 space-y-1">
+        <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+          Content: Indian & Telugu Entertainment 🇮🇳
+        </p>
+        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed">
+          Kuchipudi dance · Bharatanatyam · Hyderabad biryani · South Indian food ·
+          Telugu festivals (Sankranti, Dussehra) · Indian classical music ·
+          Andhra Pradesh nature · Indian weddings · India street life · Yoga
+        </p>
       </div>
 
       {/* Source selector */}
