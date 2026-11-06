@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Post, AdCampaign, EligibilityResult, SupportedLanguage } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
+import { useAuth } from '../context/AuthContext.tsx';
 import { MediaCardThumbnail } from './common/MediaCardThumbnail.tsx';
 import { getTranslation } from '../lib/i18n.ts';
+import { getCurrentUserId } from '../lib/engagementStorage.ts';
 import {
   Heart,
   MessageCircle,
@@ -102,6 +104,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onRefreshFeed
 }) => {
   const { viewerLocation } = useLocation();
+  const { user } = useAuth();
+  const savedKey = () => `localnet_saved_posts_${getCurrentUserId()}`;
 
   // Mobile Pull-to-Refresh State
   const [pullDistance, setPullDistance] = useState(0);
@@ -163,13 +167,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const [adViews, setAdViews] = useState<Record<string, number>>(() => getStoredAdViews());
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>(() => {
     try {
-      const raw = localStorage.getItem('localnet_saved_posts');
+      const raw = localStorage.getItem(savedKey());
       return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
   });
-  const [followingCreators, setFollowingCreators] = useState<Record<string, boolean>>({
-    creator_arjun: true
-  });
+  const [followingCreators, setFollowingCreators] = useState<Record<string, boolean>>({});
 
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [shareModalPost, setShareModalPost] = useState<Post | null>(null);
@@ -325,7 +327,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     setSavedPosts(prev => {
       const next = { ...prev, [postId]: !prev[postId] };
       try {
-        localStorage.setItem('localnet_saved_posts', JSON.stringify(next));
+        localStorage.setItem(savedKey(), JSON.stringify(next));
       } catch {}
       return next;
     });

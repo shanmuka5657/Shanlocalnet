@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Post, UserRole, SupportedLanguage } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
@@ -59,16 +59,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
 
+  const savedPostsKey = user ? `localnet_saved_posts_${user.id}` : 'localnet_saved_posts_anonymous';
+
   const [savedPostIds, setSavedPostIds] = useState<Record<string, boolean>>(() => {
     try {
-      const raw = localStorage.getItem('localnet_saved_posts');
+      const key = user ? `localnet_saved_posts_${user.id}` : 'localnet_saved_posts_anonymous';
+      const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
   });
 
+  // Re-load saved posts when user changes (login / logout)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(savedPostsKey);
+      setSavedPostIds(raw ? JSON.parse(raw) : {});
+    } catch { setSavedPostIds({}); }
+  }, [savedPostsKey]);
+
   const t = (key: string) => getTranslation(language, key);
 
-  const myPosts = posts.filter(p => (user && p.creatorId === user.id) || p.creatorId === 'creator_arjun' || p.creatorId === 'current_user' || p.creatorId === 'current_user_1');
+  // Only show posts created by the currently logged-in user — no fallback to demo IDs
+  const myPosts = user ? posts.filter(p => p.creatorId === user.id) : [];
   const savedPostsList = posts.filter(p => savedPostIds[p.id]);
 
   // Dynamic Live Creator Analytics
