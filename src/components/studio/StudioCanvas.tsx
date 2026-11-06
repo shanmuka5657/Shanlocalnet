@@ -234,8 +234,8 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
               </div>
             )}
 
-            {/* 2. IMAGE OR STICKER OVERLAY */}
-            {(overlay.type === 'image' || overlay.type === 'emoji' || overlay.type === 'sticker') && overlay.assetUrl && (
+            {/* 2. IMAGE, STICKER, EMOJI OR ANIMATED (GIF/LOTTIE) OVERLAY */}
+            {(overlay.type === 'image' || overlay.type === 'emoji' || overlay.type === 'sticker' || overlay.type === 'gif') && overlay.assetUrl && (
               <img
                 src={overlay.assetUrl}
                 alt={overlay.label || 'Overlay'}

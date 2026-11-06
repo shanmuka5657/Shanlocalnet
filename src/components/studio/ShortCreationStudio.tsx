@@ -906,11 +906,23 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
       <CustomEmojiDrawer
         isOpen={isEmojiDrawerOpen}
         onClose={() => setIsEmojiDrawerOpen(false)}
-        onSelectSticker={(dataUrl, isDrawn) => {
+        onSelectSticker={(assetUrl, isDrawn) => {
+          // Determine overlay type from the asset:
+          // - isDrawn=true  → user drew it on canvas (base64 PNG)
+          // - .lottie URL   → animated Lottie sticker
+          // - SVG/CDN URL   → Noto emoji or SVGRepo sticker
+          const isLottie = typeof assetUrl === 'string' && assetUrl.includes('.lottie');
+          const overlayType = isDrawn ? 'emoji' : (isLottie ? 'gif' : 'sticker');
+          const overlayLabel = isDrawn
+            ? 'Custom Drawing'
+            : isLottie
+            ? 'Animated Sticker'
+            : 'Emoji/Sticker';
+
           handleAddOverlay({
-            type: isDrawn ? 'emoji' : 'sticker',
-            label: isDrawn ? 'Custom Drawing' : 'Custom Sticker',
-            assetUrl: dataUrl,
+            type: overlayType,
+            label: overlayLabel,
+            assetUrl,
             startTime: Number(currentTime.toFixed(1)),
             endTime: Number(Math.min(project?.duration || 15, currentTime + 6).toFixed(1)),
             position: { x: 50, y: 50 },
