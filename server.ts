@@ -115,6 +115,7 @@ import { MarketplaceRepository } from './src/db/repositories/marketplaceReposito
 import { CommunityRepository } from './src/db/repositories/communityRepository.ts';
 import { AuditRepository, GeoDecisionRecord } from './src/db/repositories/auditRepository.ts';
 import { RidesRepository } from './src/db/repositories/ridesRepository.ts';
+import { seedVideosFromPexels, getSeedProgress, isSeederRunning } from './src/db/seeders/pexelsVideoSeeder.ts';
 import {
   defaultStorageService,
   validateMagicBytes,
@@ -1638,6 +1639,66 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
         error: err?.message || 'Privileged origin correction rejected by database trigger.'
       });
     }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // VIDEO SEEDER API — Populate app with free Pexels short videos
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // GET /api/admin/seed-status — check current seeder progress
+  app.get('/api/admin/seed-status', (_req: Request, res: Response) => {
+    res.json({ running: isSeederRunning(), progress: getSeedProgress() });
+  });
+
+  // POST /api/admin/seed-videos — start seeding (runs in background)
+  // Body: { pexelsApiKey: "YOUR_KEY", targetCount: 10000 }
+  app.post('/api/admin/seed-videos', async (req: Request, res: Response) => {
+    const { pexelsApiKey, targetCount = 10000 } = req.body;
+
+    if (!pexelsApiKey || typeof pexelsApiKey !== 'string' || pexelsApiKey.length < 10) {
+      return res.status(400).json({
+        error: 'pexelsApiKey is required. Get your free key at https://www.pexels.com/api/'
+      });
+    }
+
+    if (isSeederRunning()) {
+      return res.status(409).json({
+        error: 'Seeder is already running.',
+        progress: getSeedProgress()
+      });
+    }
+
+    const count = Math.min(50000, Math.max(1, parseInt(targetCount as any, 10) || 10000));
+
+    // Run in background — don't await
+    seedVideosFromPexels(db, pexelsApiKey, count).catch(err => {
+      console.error('[Admin] Seed error:', err.message);
+    });
+
+    res.json({
+      success: true,
+      message: `Seeding ${count} videos in background. Poll /api/admin/seed-status for progress.`,
+      estimatedMinutes: Math.ceil(count / 80 * 0.3 / 60)
+    });
+  });
+
+  // GET /api/admin/seed-progress-stream — SSE stream for real-time progress
+  app.get('/api/admin/seed-progress-stream', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const interval = setInterval(() => {
+      const progress = getSeedProgress();
+      res.write(`data: ${JSON.stringify(progress)}\n\n`);
+      if (progress.isComplete && !isSeederRunning()) {
+        clearInterval(interval);
+        res.end();
+      }
+    }, 1000);
+
+    req.on('close', () => clearInterval(interval));
   });
 
   // ═══════════════════════════════════════════════════════════════════════

@@ -40,6 +40,154 @@ interface ProfileViewProps {
   onOpenLab: () => void;
 }
 
+// ── Seed Videos Admin Panel ────────────────────────────────────────────────
+const SeedVideosPanel: React.FC = () => {
+  const [apiKey, setApiKey] = useState('');
+  const [targetCount, setTargetCount] = useState(10000);
+  const [isStarting, setIsStarting] = useState(false);
+  const [progress, setProgress] = useState<any>(null);
+  const [message, setMessage] = useState('');
+  const [isPolling, setIsPolling] = useState(false);
+
+  useEffect(() => {
+    if (!isPolling) return;
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch('/api/admin/seed-status');
+        const d = await r.json();
+        setProgress(d.progress);
+        if (d.progress?.isComplete) {
+          setIsPolling(false);
+          setMessage(`✅ Done! ${d.progress.inserted} videos seeded.`);
+        }
+      } catch {}
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isPolling]);
+
+  const handleStart = async () => {
+    if (!apiKey.trim()) return setMessage('⚠️ Enter your Pexels API key first.');
+    setIsStarting(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/seed-videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pexelsApiKey: apiKey.trim(), targetCount })
+      });
+      const data = await res.json();
+      if (!res.ok) { setMessage(`❌ ${data.error}`); return; }
+      setMessage(`🚀 ${data.message}`);
+      setIsPolling(true);
+    } catch (err: any) {
+      setMessage(`❌ ${err.message}`);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center">
+          <Play className="w-4 h-4 text-slate-950 fill-slate-950" />
+        </div>
+        <div>
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">Seed Short Videos</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">Populate the app with real free portrait videos from Pexels API</p>
+        </div>
+      </div>
+
+      {/* Step 1 */}
+      <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1">
+        <p className="text-xs font-bold text-blue-800 dark:text-blue-300">Step 1 — Get your FREE Pexels API key (takes 2 min)</p>
+        <p className="text-[11px] text-blue-700 dark:text-blue-400">
+          1. Go to <strong>pexels.com/api</strong> → Sign up free<br/>
+          2. Click "Your API Key" → Copy the key<br/>
+          3. Paste it below — No credit card required
+        </p>
+      </div>
+
+      {/* Step 2 */}
+      <div className="space-y-2">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Pexels API Key</label>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+          placeholder="Paste your free Pexels API key here..."
+          className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-amber-500 outline-none"
+        />
+      </div>
+
+      {/* Count selector */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Videos to seed:</span>
+        {[100, 500, 1000, 5000, 10000].map(n => (
+          <button
+            key={n}
+            onClick={() => setTargetCount(n)}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+              targetCount === n
+                ? 'bg-amber-500 text-slate-950 border-amber-400'
+                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            {n.toLocaleString()}
+          </button>
+        ))}
+      </div>
+
+      {/* Time estimate */}
+      <p className="text-[11px] text-slate-400 dark:text-slate-500">
+        ⏱ Estimated time: ~{Math.ceil(targetCount / 80 * 0.3 / 60)} min · {Math.ceil(targetCount / 80)} API requests · Free quota: 20,000/month
+      </p>
+
+      {/* Progress bar */}
+      {progress && !progress.isComplete && (
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-[11px] font-mono text-slate-600 dark:text-slate-400">
+            <span>{progress.inserted?.toLocaleString()} / {progress.totalTarget?.toLocaleString()} videos</span>
+            <span>{progress.percentDone}% · ~{progress.estimatedMinutesLeft}m left</span>
+          </div>
+          <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div
+              style={{ width: `${progress.percentDone || 0}%` }}
+              className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-500"
+            />
+          </div>
+          <p className="text-[10px] text-slate-400">Category: <strong className="text-amber-500">{progress.currentCategory}</strong> · Page {progress.currentPage}</p>
+        </div>
+      )}
+
+      {/* Message */}
+      {message && (
+        <p className={`text-xs font-semibold rounded-xl p-2.5 ${
+          message.startsWith('✅') ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+          : message.startsWith('❌') ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400'
+          : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
+        }`}>
+          {message}
+        </p>
+      )}
+
+      <button
+        onClick={handleStart}
+        disabled={isStarting || isPolling}
+        className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black text-sm rounded-xl shadow flex items-center justify-center gap-2 transition-all"
+      >
+        {isPolling ? (
+          <><span className="animate-spin">⚙️</span> Seeding in progress...</>
+        ) : isStarting ? (
+          'Starting...'
+        ) : (
+          <><Play className="w-4 h-4 fill-slate-950" /> Start Seeding {targetCount.toLocaleString()} Videos</>
+        )}
+      </button>
+    </div>
+  );
+};
+
 export const ProfileView: React.FC<ProfileViewProps> = ({
   posts,
   isDarkMode,
@@ -537,56 +685,63 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* TAB 4: AUDIT TRAIL & DECISION RECORDS */}
       {activeTab === 'admin_audit' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 md:p-8 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5 sm:space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-indigo-500 shrink-0" />
-                <span>Auditable Decision Records</span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Every distribution evaluation produces an auditable record documenting Haversine distance, rule codes, and delivery status.
-              </p>
-            </div>
-            <button
-              onClick={onOpenLab}
-              className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-slate-950 rounded-xl hover:bg-amber-400 shrink-0 self-start sm:self-auto"
-            >
-              Open Test Suite
-            </button>
-          </div>
+        <div className="space-y-4">
 
-          <div className="space-y-3">
-            {isLoadingAudit ? (
-              <p className="text-xs text-slate-400">Loading audit trail...</p>
-            ) : auditLogs.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                No decisions recorded yet. Browse feed to generate live records.
-              </p>
-            ) : (
-              auditLogs.slice(0, 10).map(log => (
-                <div
-                  key={log.id}
-                  className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                      {log.engine}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${log.isDelivered ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'}`}>
-                      {log.isDelivered ? 'DELIVERED' : 'BLOCKED'}
-                    </span>
+          {/* ── Seed Videos Panel ──────────────────────────────────────── */}
+          <SeedVideosPanel />
+
+          {/* ── Geo Audit Logs ─────────────────────────────────────────── */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-indigo-500 shrink-0" />
+                  <span>Auditable Decision Records</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Every distribution evaluation produces an auditable record documenting Haversine distance, rule codes, and delivery status.
+                </p>
+              </div>
+              <button
+                onClick={onOpenLab}
+                className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-slate-950 rounded-xl hover:bg-amber-400 shrink-0 self-start sm:self-auto"
+              >
+                Open Test Suite
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {isLoadingAudit ? (
+                <p className="text-xs text-slate-400">Loading audit trail...</p>
+              ) : auditLogs.length === 0 ? (
+                <p className="text-xs text-slate-400">
+                  No decisions recorded yet. Browse feed to generate live records.
+                </p>
+              ) : (
+                auditLogs.slice(0, 10).map(log => (
+                  <div
+                    key={log.id}
+                    className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {log.engine}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${log.isDelivered ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'}`}>
+                        {log.isDelivered ? 'DELIVERED' : 'BLOCKED'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-600 dark:text-slate-300">
+                      <span>Origin: <strong>{log.originCity}</strong> → Viewer: <strong>{log.viewerCity}</strong></span>
+                      <span className="font-mono">Distance: {log.viewerDistanceKm} km</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
+                      Rule: <code className="font-mono text-amber-600 dark:text-amber-400">{log.ruleCode}</code> · {log.notes}
+                    </p>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-600 dark:text-slate-300">
-                    <span>Origin: <strong>{log.originCity}</strong> â†’ Viewer: <strong>{log.viewerCity}</strong></span>
-                    <span className="font-mono">Distance: {log.viewerDistanceKm} km</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
-                    Rule: <code className="font-mono text-amber-600 dark:text-amber-400">{log.ruleCode}</code> Â· {log.notes}
-                  </p>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
