@@ -1658,6 +1658,80 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     res.json({ running: isSeederRunning(), progress: getSeedProgress() });
   });
 
+  // GET /api/admin/grant-admin — show HTML form (browser-friendly)
+  app.get('/api/admin/grant-admin', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LocalNet — Grant Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 1.5rem; padding: 2rem; width: 100%; max-width: 440px; }
+    h1 { font-size: 1.25rem; font-weight: 900; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem; }
+    p { font-size: 0.75rem; color: #94a3b8; margin-bottom: 1.5rem; }
+    label { display: block; font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-bottom: 0.35rem; }
+    input { width: 100%; padding: 0.65rem 0.85rem; border-radius: 0.75rem; border: 1px solid #334155; background: #0f172a; color: #f1f5f9; font-size: 0.8rem; margin-bottom: 1rem; outline: none; }
+    input:focus { border-color: #f59e0b; }
+    button { width: 100%; padding: 0.75rem; border-radius: 0.75rem; background: #f59e0b; color: #0f172a; font-weight: 900; font-size: 0.9rem; border: none; cursor: pointer; }
+    button:hover { background: #fbbf24; }
+    #result { margin-top: 1rem; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.75rem; display: none; }
+    .ok  { background: #064e3b; border: 1px solid #10b981; color: #6ee7b7; }
+    .err { background: #450a0a; border: 1px solid #ef4444; color: #fca5a5; }
+    .badge { display: inline-block; background: #f59e0b; color: #0f172a; border-radius: 0.5rem; padding: 0.1rem 0.5rem; font-size: 0.65rem; font-weight: 900; margin-left: 0.4rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🛡️ LocalNet <span class="badge">ADMIN</span></h1>
+    <p>Grant platform_admin role to a user by their email address.</p>
+
+    <label>Admin Secret (from your .env)</label>
+    <input type="password" id="secret" placeholder="ADMIN_SECRET value..." />
+
+    <label>User Email to promote</label>
+    <input type="email" id="email" placeholder="shanmukha.roomanknl@gmail.com" />
+
+    <button onclick="grant()">🚀 Grant Admin Role</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function grant() {
+      const secret = document.getElementById('secret').value.trim();
+      const email  = document.getElementById('email').value.trim();
+      const el     = document.getElementById('result');
+      if (!secret || !email) { show(el, '⚠️ Both fields are required.', false); return; }
+      try {
+        const res  = await fetch('/api/admin/grant-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, adminSecret: secret })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          show(el, '✅ Success! ' + data.user.name + ' is now ' + data.user.activeRole + '. Sign out and back in on the app.', true);
+        } else {
+          show(el, '❌ ' + (data.error || 'Unknown error'), false);
+        }
+      } catch (e) {
+        show(el, '❌ Network error: ' + e.message, false);
+      }
+    }
+    function show(el, msg, ok) {
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'err';
+      el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>`);
+  });
+
   // POST /api/admin/grant-admin — promote a user to platform_admin
   // Body: { userId OR email, adminSecret }
   app.post('/api/admin/grant-admin', async (req: Request, res: Response) => {
