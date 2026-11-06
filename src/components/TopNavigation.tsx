@@ -171,13 +171,13 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                 onClick={() => onSelectLanguage('te')}
                 className={`px-3 py-1.5 text-left text-xs transition-colors ${language === 'te' ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
               >
-                తెలుగు (Telugu)
+                à°¤à±†à°²à±à°—à± (Telugu)
               </button>
               <button
                 onClick={() => onSelectLanguage('hi')}
                 className={`px-3 py-1.5 text-left text-xs transition-colors ${language === 'hi' ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
               >
-                हिन्दी (Hindi)
+                à¤¹à¤¿à¤¨à¥à¤¦à¥€ (Hindi)
               </button>
             </div>
           </div>
@@ -225,15 +225,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             aria-label="Toggle theme"
           >
             {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-          </button>
-
-          {/* Primary Action: + Create */}
-          <button
-            onClick={onOpenCreate}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
-          >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden min-[360px]:inline">{t('navCreate')}</span>
           </button>
 
           {/* User Profile / Google Sign-In Pill */}
@@ -289,7 +280,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 
           {/* Language Selector in Drawer */}
           <div className="space-y-1">
-            <span className="text-[11px] text-slate-500 font-medium">Language / భాష:</span>
+            <span className="text-[11px] text-slate-500 font-medium">Language / à°­à°¾à°·:</span>
             <div className="grid grid-cols-3 gap-1.5">
               <button
                 onClick={() => {
@@ -313,7 +304,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
               >
-                తెలుగు
+                à°¤à±†à°²à±à°—à±
               </button>
               <button
                 onClick={() => {
@@ -325,7 +316,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
               >
-                हिन्दी
+                à¤¹à¤¿à¤¨à¥à¤¦à¥€
               </button>
             </div>
           </div>

@@ -540,16 +540,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
-                type="button"
-                onClick={onOpenShortStudio || onOpenCreate}
-                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-md flex items-center gap-1 active:scale-95 transition-all"
-                title="Create a 9:16 Short Video"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>+ Create Short</span>
-              </button>
-
-              <button
                 onClick={() => onOpenReels(0)}
                 className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5"
               >
