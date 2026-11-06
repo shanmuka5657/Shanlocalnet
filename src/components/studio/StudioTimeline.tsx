@@ -10,8 +10,11 @@ import {
   Sparkles,
   Tag,
   Type,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Music,
+  Zap
 } from 'lucide-react';
+import { snapTimeToNearestBeat } from '../../lib/beatDetector.ts';
 
 interface StudioTimelineProps {
   duration: number;
@@ -28,6 +31,14 @@ interface StudioTimelineProps {
   onUpdateOverlay: (id: string, updates: Partial<VideoOverlay>) => void;
   onDeleteOverlay: (id: string) => void;
   onDuplicateOverlay: (id: string) => void;
+  // Auto Audio Beat Sync Props
+  beatMarkers?: number[];
+  dropMarkers?: number[];
+  bpm?: number;
+  isBeatSyncActive?: boolean;
+  isAnalyzingBeats?: boolean;
+  onToggleBeatSync?: () => void;
+  onAutoSnapAllToBeats?: () => void;
 }
 
 export const StudioTimeline: React.FC<StudioTimelineProps> = ({
@@ -44,20 +55,36 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
   onSelectOverlay,
   onUpdateOverlay,
   onDeleteOverlay,
-  onDuplicateOverlay
+  onDuplicateOverlay,
+  beatMarkers = [],
+  dropMarkers = [],
+  bpm,
+  isBeatSyncActive = false,
+  isAnalyzingBeats = false,
+  onToggleBeatSync,
+  onAutoSnapAllToBeats
 }) => {
   const timelineRef = useRef<HTMLDivElement | null>(null);
 
   const safeDuration = Math.max(0.1, duration);
   const progressPercent = Math.min(100, Math.max(0, (currentTime / safeDuration) * 100));
 
-  // Timeline click to seek
+  // Timeline click to seek with Beat Snapping
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!timelineRef.current) return;
     const rect = timelineRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const targetPercent = Math.max(0, Math.min(1, clickX / rect.width));
-    onSeek(targetPercent * safeDuration);
+    let targetTime = targetPercent * safeDuration;
+
+    if (isBeatSyncActive && beatMarkers && beatMarkers.length > 0) {
+      const snap = snapTimeToNearestBeat(targetTime, beatMarkers, 0.25);
+      if (snap.isSnapped) {
+        targetTime = snap.snappedTime;
+      }
+    }
+
+    onSeek(targetTime);
   };
 
   const getOverlayColor = (type: string) => {
@@ -82,12 +109,12 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
   return (
     <div className="w-full bg-slate-950/90 border-t border-slate-800 p-2 sm:p-3 flex flex-col gap-2 select-none">
       {/* Timeline Controls Header */}
-      <div className="flex items-center justify-between text-xs font-semibold px-1">
+      <div className="flex items-center justify-between text-xs font-semibold px-1 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onTogglePlay}
-            className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow transition-colors"
+            className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow transition-colors shrink-0"
           >
             {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
           </button>
@@ -95,12 +122,45 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
             <span className="text-amber-400">{currentTime.toFixed(1)}s</span>
             <span className="text-slate-500"> / {safeDuration.toFixed(1)}s</span>
           </div>
+
+          {/* Auto Audio Beat Sync Badge & Trigger */}
+          {onToggleBeatSync && (
+            <button
+              type="button"
+              onClick={onToggleBeatSync}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                isBeatSyncActive
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm shadow-amber-500/20 ring-1 ring-amber-400/30'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+              }`}
+              title="Toggle Audio Beat Sync & Snap-to-Rhythm"
+            >
+              <Music className={`w-3 h-3 ${isBeatSyncActive ? 'text-amber-400' : 'text-slate-500'}`} />
+              <span>{isAnalyzingBeats ? 'Analyzing...' : bpm ? `${bpm} BPM` : 'Beat Sync'}</span>
+              {isBeatSyncActive && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              )}
+            </button>
+          )}
+
+          {/* Snap All Layers to Beat */}
+          {isBeatSyncActive && onAutoSnapAllToBeats && overlays.length > 0 && (
+            <button
+              type="button"
+              onClick={onAutoSnapAllToBeats}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow transition-all active:scale-95"
+              title="Auto-align all text and stickers to the nearest music beat"
+            >
+              <Zap className="w-3 h-3 fill-current" />
+              <span className="hidden sm:inline">Snap Layers</span>
+            </button>
+          )}
         </div>
 
         {/* Selected Overlay Actions */}
         {selectedOverlayId && (
-          <div className="flex items-center gap-1.5 animate-in fade-in">
-            <span className="text-[11px] text-slate-400 truncate max-w-[100px]">
+          <div className="flex items-center gap-1.5 animate-in fade-in shrink-0">
+            <span className="text-[11px] text-slate-400 truncate max-w-[90px] sm:max-w-[120px]">
               {overlays.find(o => o.id === selectedOverlayId)?.label || 'Layer'}
             </span>
             <button
@@ -132,13 +192,40 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
         {/* Video Filmstrip Base */}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 opacity-60" />
 
+        {/* Auto Audio Beat Sync Visual Grid (Glowing rhythm bars & drops) */}
+        {isBeatSyncActive && beatMarkers && beatMarkers.length > 0 && (
+          <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+            {beatMarkers.map((beatTime, idx) => {
+              const beatPercent = (beatTime / safeDuration) * 100;
+              if (beatPercent < 0 || beatPercent > 100) return null;
+              const isDrop = dropMarkers && dropMarkers.length > 0 ? dropMarkers.includes(beatTime) : (idx % 4 === 0);
+
+              return (
+                <div
+                  key={`beat-${idx}`}
+                  style={{ left: `${beatPercent}%` }}
+                  className={`absolute bottom-0 w-0.5 transition-all ${
+                    isDrop
+                      ? 'top-0 bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] z-15'
+                      : 'top-2 bg-amber-400/40 z-10'
+                  }`}
+                >
+                  {isDrop && (
+                    <div className="w-1.5 h-1.5 -ml-0.5 rounded-full bg-amber-300 shadow" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Trimming Active Region */}
         <div
           style={{
             left: `${(trimStart / safeDuration) * 100}%`,
             width: `${((trimEnd - trimStart) / safeDuration) * 100}%`
           }}
-          className="absolute top-0 bottom-0 bg-amber-500/10 border-x-2 border-amber-400"
+          className="absolute top-0 bottom-0 bg-amber-500/10 border-x-2 border-amber-400 z-20 pointer-events-none"
         />
 
         {/* Playhead Vertical Line */}
@@ -150,7 +237,7 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
         </div>
 
         {/* Time Markers */}
-        <div className="absolute inset-0 flex justify-between px-2 items-center text-[9px] text-slate-500 font-mono pointer-events-none">
+        <div className="absolute inset-0 flex justify-between px-2 items-center text-[9px] text-slate-500 font-mono pointer-events-none z-25">
           <span>0s</span>
           <span>{(safeDuration * 0.25).toFixed(1)}s</span>
           <span>{(safeDuration * 0.5).toFixed(1)}s</span>
@@ -198,20 +285,27 @@ export const StudioTimeline: React.FC<StudioTimelineProps> = ({
                   </span>
                 </div>
 
-                {/* Adjust Start Time Handle (When Selected) */}
+                {/* Adjust Start Time Handle (When Selected) with Snap to Beat */}
                 {isSelected && (
                   <input
                     type="range"
                     min="0"
                     max={Math.max(0, overlay.endTime - 0.5)}
-                    step="0.1"
+                    step="0.05"
                     value={overlay.startTime}
                     onChange={(e) => {
                       e.stopPropagation();
-                      onUpdateOverlay(overlay.id, { startTime: Number(e.target.value) });
+                      let newStart = Number(e.target.value);
+                      if (isBeatSyncActive && beatMarkers && beatMarkers.length > 0) {
+                        const snap = snapTimeToNearestBeat(newStart, beatMarkers, 0.2);
+                        if (snap.isSnapped) {
+                          newStart = snap.snappedTime;
+                        }
+                      }
+                      onUpdateOverlay(overlay.id, { startTime: newStart });
                     }}
                     className="absolute inset-0 opacity-0 cursor-ew-resize"
-                    title="Slide to change timing"
+                    title={isBeatSyncActive ? "Slide to change timing (Snapping to audio beats)" : "Slide to change timing"}
                   />
                 )}
               </div>

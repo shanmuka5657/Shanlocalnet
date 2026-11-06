@@ -17,6 +17,12 @@ import { useAuth } from '../../context/AuthContext.tsx';
 import { Post, AudioTrackMetadata } from '../../types/index.ts';
 import { saveStoredUserPost } from '../../lib/engagementStorage.ts';
 import {
+  detectBeatsFromFile,
+  detectBeatsFromUrl,
+  snapTimeToNearestBeat,
+  BeatAnalysisResult
+} from '../../lib/beatDetector.ts';
+import {
   X,
   Camera,
   Upload,
@@ -127,6 +133,69 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
     } finally {
       setIsGeneratingAiCaption(false);
     }
+  };
+
+  // Auto Audio Beat Sync State & Effect
+  const [beatData, setBeatData] = useState<BeatAnalysisResult | null>(null);
+  const [isBeatSyncActive, setIsBeatSyncActive] = useState<boolean>(true);
+  const [isAnalyzingBeats, setIsAnalyzingBeats] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const runBeatAnalysis = async () => {
+      if (!project) return;
+
+      setIsAnalyzingBeats(true);
+      try {
+        let result: BeatAnalysisResult | null = null;
+
+        // 1. Prioritize background music if user selected one
+        if (project.backgroundMusicUrl) {
+          result = await detectBeatsFromUrl(project.backgroundMusicUrl, project.duration || 30);
+        } else if (project.sourceFile) {
+          // 2. Decode native audio from uploaded file
+          result = await detectBeatsFromFile(project.sourceFile);
+        } else if (project.sourceUrl) {
+          // 3. Fallback or URL decode
+          result = await detectBeatsFromUrl(project.sourceUrl, project.duration || 30);
+        }
+
+        if (!isCancelled && result) {
+          setBeatData(result);
+        }
+      } catch (err) {
+        console.warn('Audio beat analysis notice:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsAnalyzingBeats(false);
+        }
+      }
+    };
+
+    runBeatAnalysis();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [project?.backgroundMusicUrl, project?.sourceUrl, project?.sourceFile, project?.duration]);
+
+  // Snap all current overlays to nearest beat markers
+  const handleAutoSnapAllToBeats = () => {
+    if (!beatData || beatData.beats.length === 0 || !project) return;
+    const updatedOverlays = project.overlays.map(overlay => {
+      const snap = snapTimeToNearestBeat(overlay.startTime, beatData.beats, 0.6);
+      if (snap.isSnapped) {
+        const diff = snap.snappedTime - overlay.startTime;
+        return {
+          ...overlay,
+          startTime: snap.snappedTime,
+          endTime: Math.min(project.duration, Math.max(snap.snappedTime + 0.8, overlay.endTime + diff))
+        };
+      }
+      return overlay;
+    });
+    setProject(prev => prev ? ({ ...prev, overlays: updatedOverlays }) : null);
   };
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -783,6 +852,13 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
             onUpdateOverlay={handleUpdateOverlay}
             onDeleteOverlay={handleDeleteOverlay}
             onDuplicateOverlay={handleDuplicateOverlay}
+            beatMarkers={beatData?.beats}
+            dropMarkers={beatData?.drops}
+            bpm={beatData?.bpm}
+            isBeatSyncActive={isBeatSyncActive}
+            isAnalyzingBeats={isAnalyzingBeats}
+            onToggleBeatSync={() => setIsBeatSyncActive(prev => !prev)}
+            onAutoSnapAllToBeats={handleAutoSnapAllToBeats}
           />
         </div>
       )}
@@ -1076,7 +1152,7 @@ export const ShortCreationStudio: React.FC<ShortCreationStudioProps> = ({
           if (track && project) {
             setProject({
               ...project,
-              backgroundMusicUrl: track.url,
+              backgroundMusicUrl: track.audioUrl || (track as any).url,
               backgroundMusicTitle: `${track.title} - ${track.artist}`
             });
           }
