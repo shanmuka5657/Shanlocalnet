@@ -22,12 +22,37 @@ const VEHICLE_ICONS: Record<VehicleType, React.ReactNode> = {
   van: <Truck className="w-3.5 h-3.5" />,
 };
 
+const VEHICLE_EMOJI: Record<VehicleType, string> = {
+  bike: '🏍️',
+  auto: '🛺',
+  car: '🚗',
+  suv: '🚙',
+  van: '🚐',
+};
+
 const VEHICLE_COLOR: Record<VehicleType, string> = {
   bike: 'text-orange-500 bg-orange-50 dark:bg-orange-950/30',
   auto: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30',
   car: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30',
   suv: 'text-violet-600 bg-violet-50 dark:bg-violet-950/30',
   van: 'text-slate-600 bg-slate-100 dark:bg-slate-800',
+};
+
+// ── Emoji symbols for preference chips ────────────────────────────────────
+const PREF_EMOJI: Record<string, string> = {
+  'No smoking':          '🚭',
+  'Women only':          '👩',
+  'Men only':            '👨',
+  'Luggage OK':          '🧳',
+  'Light luggage only':  '👜',
+  'Music OK':            '🎵',
+  'Pets allowed':        '🐾',
+  'AC only':             '❄️',
+  'No eating':           '🍽️',
+  'Night drive OK':      '🌙',
+  'Devotional music':    '🙏',
+  'Women preferred':     '💁‍♀️',
+  'Luggage limited':     '🎒',
 };
 
 const AP_CITIES = [
@@ -189,7 +214,7 @@ const RideCard: React.FC<{ ride: RideListing; onBook: (ride: RideListing) => voi
           </div>
         </div>
         <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${VEHICLE_COLOR[ride.vehicleType]}`}>
-          {VEHICLE_ICONS[ride.vehicleType]}
+          <span>{VEHICLE_EMOJI[ride.vehicleType]}</span>
           {ride.vehicleType.toUpperCase()}
         </div>
       </div>
@@ -250,7 +275,11 @@ const RideCard: React.FC<{ ride: RideListing; onBook: (ride: RideListing) => voi
         {ride.preferences.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {ride.preferences.map(p => (
-              <span key={p} className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[9px] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+              <span
+                key={p}
+                className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1"
+              >
+                {PREF_EMOJI[p] && <span>{PREF_EMOJI[p]}</span>}
                 {p}
               </span>
             ))}

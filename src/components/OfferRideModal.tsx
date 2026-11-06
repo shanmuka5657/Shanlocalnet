@@ -14,17 +14,17 @@ interface OfferRideModalProps {
 }
 
 const VEHICLE_OPTIONS: { type: VehicleType; label: string; icon: React.ReactNode; seats: number }[] = [
-  { type: 'bike', label: 'Bike', icon: <Bike className="w-4 h-4" />, seats: 1 },
-  { type: 'auto', label: 'Auto', icon: <Car className="w-4 h-4" />, seats: 3 },
-  { type: 'car', label: 'Car', icon: <Car className="w-4 h-4" />, seats: 4 },
-  { type: 'suv', label: 'SUV', icon: <Truck className="w-4 h-4" />, seats: 6 },
-  { type: 'van', label: 'Van', icon: <Truck className="w-4 h-4" />, seats: 8 },
+  { type: 'bike', label: 'Bike 🏍️', icon: <Bike className="w-4 h-4" />, seats: 1 },
+  { type: 'auto', label: 'Auto 🛺', icon: <Car className="w-4 h-4" />, seats: 3 },
+  { type: 'car', label: 'Car 🚗', icon: <Car className="w-4 h-4" />, seats: 4 },
+  { type: 'suv', label: 'SUV 🚙', icon: <Truck className="w-4 h-4" />, seats: 6 },
+  { type: 'van', label: 'Van 🚐', icon: <Truck className="w-4 h-4" />, seats: 8 },
 ];
 
 const PREFERENCE_OPTIONS = [
-  'No smoking', 'Women only', 'Men only', 'Luggage OK',
-  'Light luggage only', 'Music OK', 'Pets allowed', 'AC only',
-  'No eating', 'Night drive OK',
+  '🚭 No smoking', '👩 Women only', '👨 Men only', '🧳 Luggage OK',
+  '👜 Light luggage only', '🎵 Music OK', '🐾 Pets allowed', '❄️ AC only',
+  '🍽️ No eating', '🌙 Night drive OK',
 ];
 
 const AP_CITIES = [
