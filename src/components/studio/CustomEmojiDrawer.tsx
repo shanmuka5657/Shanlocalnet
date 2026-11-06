@@ -191,8 +191,16 @@ const EMOJI_CATEGORIES: { label: string; icon: string; items: EmojiEntry[] }[] =
 
 const ALL_EMOJI: EmojiEntry[] = EMOJI_CATEGORIES.flatMap(c => c.items);
 
-// ─── 2. SVGREPO CC0 STICKER PACKS (Public Domain — Free for any use) ──────────
-// Source: svgrepo.com CC0 licensed SVG stickers
+// ─── 2. OPENMOJI STICKER PACKS (CC0 / CC-BY-SA 4.0 — Free for any use) ────────
+// CDN: cdn.jsdelivr.net/gh/hfg-gmuend/openmoji@15.1.0/color/svg/{UNICODE}.svg
+// OpenMoji is CC0 / CC-BY-SA 4.0 — no attribution required for CC0 set
+// All unicode codes verified against OpenMoji 15.1 release
+
+const OPENMOJI_CDN = 'https://cdn.jsdelivr.net/gh/hfg-gmuend/openmoji@15.1.0/color/svg';
+
+function mojiUrl(unicode: string) {
+  return `${OPENMOJI_CDN}/${unicode.toUpperCase()}.svg`;
+}
 
 interface StickerEntry { url: string; name: string; }
 
@@ -201,54 +209,54 @@ const STICKER_PACKS: { packName: string; icon: string; stickers: StickerEntry[] 
     packName: 'Reactions',
     icon: '😂',
     stickers: [
-      { url: 'https://www.svgrepo.com/show/13700/like.svg', name: 'Like' },
-      { url: 'https://www.svgrepo.com/show/13677/dislike.svg', name: 'Dislike' },
-      { url: 'https://www.svgrepo.com/show/506484/fire.svg', name: 'Fire' },
-      { url: 'https://www.svgrepo.com/show/13655/star.svg', name: 'Star' },
-      { url: 'https://www.svgrepo.com/show/13656/heart.svg', name: 'Heart' },
-      { url: 'https://www.svgrepo.com/show/13692/check.svg', name: 'Check' },
-      { url: 'https://www.svgrepo.com/show/13693/close.svg', name: 'Close' },
-      { url: 'https://www.svgrepo.com/show/532100/thunder.svg', name: 'Lightning' },
-      { url: 'https://www.svgrepo.com/show/13651/crown.svg', name: 'Crown' },
-      { url: 'https://www.svgrepo.com/show/532120/bell.svg', name: 'Bell' },
-      { url: 'https://www.svgrepo.com/show/532101/music-note.svg', name: 'Music' },
-      { url: 'https://www.svgrepo.com/show/532102/gift.svg', name: 'Gift' },
+      { url: mojiUrl('1F44D'), name: 'Like 👍' },
+      { url: mojiUrl('1F44E'), name: 'Dislike 👎' },
+      { url: mojiUrl('1F525'), name: 'Fire 🔥' },
+      { url: mojiUrl('2B50'), name: 'Star ⭐' },
+      { url: mojiUrl('2764-FE0F'), name: 'Heart ❤️' },
+      { url: mojiUrl('2705'), name: 'Check ✅' },
+      { url: mojiUrl('274C'), name: 'Cross ❌' },
+      { url: mojiUrl('26A1'), name: 'Lightning ⚡' },
+      { url: mojiUrl('1F451'), name: 'Crown 👑' },
+      { url: mojiUrl('1F514'), name: 'Bell 🔔' },
+      { url: mojiUrl('1F3B5'), name: 'Music 🎵' },
+      { url: mojiUrl('1F381'), name: 'Gift 🎁' },
     ]
   },
   {
     packName: 'Business',
     icon: '💼',
     stickers: [
-      { url: 'https://www.svgrepo.com/show/532099/shopping-bag.svg', name: 'Shop Bag' },
-      { url: 'https://www.svgrepo.com/show/532098/tag.svg', name: 'Price Tag' },
-      { url: 'https://www.svgrepo.com/show/532097/percent.svg', name: 'Percent' },
-      { url: 'https://www.svgrepo.com/show/532096/money.svg', name: 'Money' },
-      { url: 'https://www.svgrepo.com/show/13704/diamond.svg', name: 'Diamond' },
-      { url: 'https://www.svgrepo.com/show/532104/delivery.svg', name: 'Delivery' },
-      { url: 'https://www.svgrepo.com/show/532103/store.svg', name: 'Store' },
-      { url: 'https://www.svgrepo.com/show/532105/chart.svg', name: 'Chart' },
-      { url: 'https://www.svgrepo.com/show/532106/rupee.svg', name: 'Rupee' },
-      { url: 'https://www.svgrepo.com/show/532107/coupon.svg', name: 'Coupon' },
-      { url: 'https://www.svgrepo.com/show/532108/sale.svg', name: 'Sale' },
-      { url: 'https://www.svgrepo.com/show/532109/rocket.svg', name: 'Rocket' },
+      { url: mojiUrl('1F6CD-FE0F'), name: 'Shop Bag 🛍️' },
+      { url: mojiUrl('1F3F7-FE0F'), name: 'Price Tag 🏷️' },
+      { url: mojiUrl('1F4B9'), name: 'Percent 💹' },
+      { url: mojiUrl('1F4B0'), name: 'Money 💰' },
+      { url: mojiUrl('1F48E'), name: 'Diamond 💎' },
+      { url: mojiUrl('1F69A'), name: 'Delivery 🚚' },
+      { url: mojiUrl('1F3EA'), name: 'Store 🏪' },
+      { url: mojiUrl('1F4C8'), name: 'Chart 📈' },
+      { url: mojiUrl('1F4B9'), name: 'Rupee 💹' },
+      { url: mojiUrl('1F3AB'), name: 'Coupon 🎫' },
+      { url: mojiUrl('1F6D2'), name: 'Cart 🛒' },
+      { url: mojiUrl('1F680'), name: 'Rocket 🚀' },
     ]
   },
   {
     packName: 'Nature',
     icon: '🌿',
     stickers: [
-      { url: 'https://www.svgrepo.com/show/13726/sun.svg', name: 'Sun' },
-      { url: 'https://www.svgrepo.com/show/13727/moon.svg', name: 'Moon' },
-      { url: 'https://www.svgrepo.com/show/13728/cloud.svg', name: 'Cloud' },
-      { url: 'https://www.svgrepo.com/show/13729/rain.svg', name: 'Rain' },
-      { url: 'https://www.svgrepo.com/show/13730/snowflake.svg', name: 'Snowflake' },
-      { url: 'https://www.svgrepo.com/show/13731/lightning.svg', name: 'Storm' },
-      { url: 'https://www.svgrepo.com/show/13732/tree.svg', name: 'Tree' },
-      { url: 'https://www.svgrepo.com/show/13733/flower.svg', name: 'Flower' },
-      { url: 'https://www.svgrepo.com/show/13734/leaf.svg', name: 'Leaf' },
-      { url: 'https://www.svgrepo.com/show/13735/mountain.svg', name: 'Mountain' },
-      { url: 'https://www.svgrepo.com/show/13736/wave.svg', name: 'Wave' },
-      { url: 'https://www.svgrepo.com/show/13737/rainbow.svg', name: 'Rainbow' },
+      { url: mojiUrl('2600-FE0F'), name: 'Sun ☀️' },
+      { url: mojiUrl('1F319'), name: 'Moon 🌙' },
+      { url: mojiUrl('2601-FE0F'), name: 'Cloud ☁️' },
+      { url: mojiUrl('1F327-FE0F'), name: 'Rain 🌧️' },
+      { url: mojiUrl('2744-FE0F'), name: 'Snowflake ❄️' },
+      { url: mojiUrl('26A1'), name: 'Storm ⚡' },
+      { url: mojiUrl('1F333'), name: 'Tree 🌳' },
+      { url: mojiUrl('1F33A'), name: 'Flower 🌺' },
+      { url: mojiUrl('1F343'), name: 'Leaf 🍃' },
+      { url: mojiUrl('26F0-FE0F'), name: 'Mountain ⛰️' },
+      { url: mojiUrl('1F30A'), name: 'Wave 🌊' },
+      { url: mojiUrl('1F308'), name: 'Rainbow 🌈' },
     ]
   }
 ];
@@ -688,7 +696,7 @@ export const CustomEmojiDrawer: React.FC<CustomEmojiDrawerProps> = ({
             </div>
 
             <div className="px-3 pb-2 text-[10px] text-slate-600 text-center">
-              SVGRepo CC0 · Public Domain · Free commercial use
+              OpenMoji CC0 · Public Domain · Free commercial use
             </div>
           </div>
         )}
