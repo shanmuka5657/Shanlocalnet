@@ -74,6 +74,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   } | null>(null);
   const [isSearchingServer, setIsSearchingServer] = useState(false);
 
+  // YouTube search results (shown when LocalNet results are few)
+  const [ytResults, setYtResults] = useState<any[]>([]);
+  const [isSearchingYT, setIsSearchingYT] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load recent searches from localStorage
@@ -95,6 +99,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     } else {
       setQuery('');
       setServerResults(null);
+      setYtResults([]);
     }
   }, [isOpen]);
 
@@ -147,16 +152,19 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Debounced server search to complement client-side index
+  // Debounced server search + YouTube fallback search
   useEffect(() => {
     const trimmed = query.trim();
     if (!trimmed || trimmed.length < 2) {
       setServerResults(null);
       setIsSearchingServer(false);
+      setYtResults([]);
+      setIsSearchingYT(false);
       return;
     }
 
     const timer = setTimeout(async () => {
+      // 1. Search LocalNet DB
       setIsSearchingServer(true);
       try {
         const queryParams = new URLSearchParams({
@@ -171,12 +179,24 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           const data = await res.json();
           setServerResults(data);
         }
-      } catch (err) {
-        // Fallback to client-side search seamlessly
-      } finally {
+      } catch { } finally {
         setIsSearchingServer(false);
       }
-    }, 280);
+
+      // 2. Search YouTube via Invidious (runs in parallel, shows when ready)
+      if (activeTab === 'all' || activeTab === 'videos') {
+        setIsSearchingYT(true);
+        try {
+          const ytRes = await fetch(`/api/search/youtube?q=${encodeURIComponent(trimmed)}&count=10`);
+          if (ytRes.ok) {
+            const ytData = await ytRes.json();
+            setYtResults(ytData.videos || []);
+          }
+        } catch { } finally {
+          setIsSearchingYT(false);
+        }
+      }
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [query, activeTab, distanceFilterKm, viewerLocation]);
@@ -518,15 +538,15 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         {query.trim() && (
           <div className="space-y-6">
 
-            {/* Empty Results Case */}
+            {/* Empty Results Case — show YouTube loading or no results */}
             {totalResultsCount === 0 && !isSearchingServer && (
               <div className="text-center py-12 px-4 space-y-3">
                 <div className="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center mx-auto text-slate-500">
                   <Search className="w-7 h-7" />
                 </div>
-                <h3 className="text-base font-bold text-white">No results found for "{query}"</h3>
+                <h3 className="text-base font-bold text-white">No LocalNet results for "{query}"</h3>
                 <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto">
-                  Try checking your spelling, using broader keywords, or exploring trending topics in {viewerLocation.cityName}.
+                  {isSearchingYT ? '🔴 Searching YouTube...' : 'Showing YouTube results below.'}
                 </p>
                 <div className="pt-2 flex justify-center gap-2">
                   <button
@@ -722,6 +742,115 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* SECTION 4: YouTube Results (shown always when searching videos) */}
+            {(activeTab === 'all' || activeTab === 'videos') && query.trim().length >= 2 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="w-4 h-4 fill-red-500 shrink-0" viewBox="0 0 24 24"><path d="M21.582 7.186a2.506 2.506 0 0 0-1.762-1.774C18.254 5 12 5 12 5s-6.254 0-7.82.412A2.506 2.506 0 0 0 2.418 7.186 26.26 26.26 0 0 0 2 12a26.26 26.26 0 0 0 .418 4.814 2.506 2.506 0 0 0 1.762 1.774C5.746 19 12 19 12 19s6.254 0 7.82-.412a2.506 2.506 0 0 0 1.762-1.774A26.26 26.26 0 0 0 22 12a26.26 26.26 0 0 0-.418-4.814zM10 15V9l5.2 3-5.2 3z"/></svg>
+                    YouTube Results
+                  </span>
+                  {isSearchingYT && (
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1.5 animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                      Searching...
+                    </span>
+                  )}
+                  {!isSearchingYT && ytResults.length > 0 && (
+                    <span className="text-[11px] text-slate-400">{ytResults.length} videos</span>
+                  )}
+                </div>
+
+                {isSearchingYT && ytResults.length === 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[1,2,3,4,5,6].map(i => (
+                      <div key={i} className="aspect-[9/16] rounded-2xl bg-slate-800 animate-pulse" />
+                    ))}
+                  </div>
+                )}
+
+                {!isSearchingYT && ytResults.length === 0 && (
+                  <div className="py-6 text-center text-xs text-slate-500">
+                    No YouTube results found. Check your connection or try a different search.
+                  </div>
+                )}
+
+                {ytResults.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {ytResults.map((video: any) => (
+                      <div
+                        key={video.id}
+                        onClick={() => {
+                          saveSearchQuery(query);
+                          // Build a Post-like object for the reel viewer
+                          const ytPost = {
+                            id: video.id,
+                            creatorId: 'seed_stream',
+                            creatorName: video.channel || 'YouTube',
+                            creatorHandle: '@youtube',
+                            creatorAvatar: '',
+                            creatorVerified: false,
+                            contentType: 'reel' as const,
+                            classification: 'organic' as const,
+                            title: video.title,
+                            description: video.title,
+                            mediaUrl: video.mediaUrl,
+                            mediaThumbnail: video.thumbnail,
+                            mediaGradient: 'from-red-600 via-rose-600 to-slate-900',
+                            aspectRatio: '9:16',
+                            videoDurationSeconds: video.duration,
+                            publishingLocation: { latitude: 0, longitude: 0, cityName: 'YouTube', country: 'Global', isVerified: false },
+                            audienceDistribution: { engine: 'ORGANIC_ENTERTAINMENT' as const, scope: 'worldwide' as const, maxRadiusKm: null },
+                            tags: ['youtube'],
+                            stats: { likes: video.viewCount || 0, comments: 0, shares: 0, saves: 0, views: video.viewCount || 0 },
+                            moderation: { status: 'approved' as const },
+                            createdAt: new Date().toISOString(),
+                          };
+                          onClose();
+                          onSelectReel(ytPost as any);
+                        }}
+                        className="group relative aspect-[9/16] rounded-2xl overflow-hidden bg-slate-800 border border-slate-800 hover:border-red-500/50 cursor-pointer shadow-md transition-all hover:-translate-y-0.5"
+                      >
+                        {/* YouTube Thumbnail */}
+                        {video.thumbnail ? (
+                          <img
+                            src={video.thumbnail}
+                            alt={video.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-red-600 via-rose-600 to-slate-900" />
+                        )}
+
+                        {/* Scrim */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent pointer-events-none" />
+
+                        {/* YouTube badge */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/80 text-[9px] font-bold text-white pointer-events-none">
+                          <svg className="w-2.5 h-2.5 fill-red-500" viewBox="0 0 24 24"><path d="M21.582 7.186a2.506 2.506 0 0 0-1.762-1.774C18.254 5 12 5 12 5s-6.254 0-7.82.412A2.506 2.506 0 0 0 2.418 7.186 26.26 26.26 0 0 0 2 12a26.26 26.26 0 0 0 .418 4.814 2.506 2.506 0 0 0 1.762 1.774C5.746 19 12 19 12 19s6.254 0 7.82-.412a2.506 2.506 0 0 0 1.762-1.774A26.26 26.26 0 0 0 22 12a26.26 26.26 0 0 0-.418-4.814zM10 15V9l5.2 3-5.2 3z"/></svg>
+                          YT
+                        </div>
+
+                        {/* Duration */}
+                        {video.duration > 0 && (
+                          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/70 text-[10px] font-mono text-white pointer-events-none">
+                            {Math.floor(video.duration / 60)}:{String(video.duration % 60).padStart(2,'0')}
+                          </div>
+                        )}
+
+                        {/* Info */}
+                        <div className="absolute bottom-2 left-2 right-2 pointer-events-none">
+                          <p className="text-xs font-bold text-white line-clamp-2 leading-tight drop-shadow-md">{video.title}</p>
+                          <p className="text-[11px] text-slate-300 truncate mt-0.5">{video.channel}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

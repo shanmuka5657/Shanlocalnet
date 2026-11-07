@@ -586,7 +586,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       ref={containerRef}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      onMouseMove={resetControlsTimer}
+      onMouseMove={() => resetControlsTimer()}
       onTouchStart={() => {
         lastTouchTimeRef.current = Date.now();
         resetControlsTimer();

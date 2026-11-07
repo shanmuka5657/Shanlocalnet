@@ -388,6 +388,71 @@ async function startServer() {
   // -------------------------------------------------------------------------
   // UNIFIED SMART SEARCH API (Global Videos + Hyperlocal 40km Businesses)
   // -------------------------------------------------------------------------
+
+  // GET /api/search/youtube?q=biryani&count=10
+  // Searches YouTube via Invidious API (free, no API key, works on Vercel).
+  // Falls back through multiple Invidious instances for reliability.
+  // Returns video metadata + proxy stream URLs.
+  app.get('/api/search/youtube', async (req: Request, res: Response) => {
+    const q = (req.query.q as string || '').trim();
+    const count = Math.min(20, Math.max(1, parseInt(req.query.count as string, 10) || 10));
+    if (!q) return res.status(400).json({ error: 'q param required' });
+
+    // Multiple Invidious instances — try each until one works
+    const INVIDIOUS_INSTANCES = [
+      'https://inv.tux.pizza',
+      'https://invidious.nerdvpn.de',
+      'https://invidious.privacydev.net',
+      'https://iv.melmac.space',
+      'https://y.com.sb',
+    ];
+
+    for (const instance of INVIDIOUS_INSTANCES) {
+      try {
+        const url = `${instance}/api/v1/search?q=${encodeURIComponent(q)}&type=video&page=1&fields=videoId,title,author,lengthSeconds,viewCount,videoThumbnails`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+
+        const invRes = await fetch(url, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'LocalNet/1.0' }
+        });
+        clearTimeout(timeout);
+
+        if (!invRes.ok) continue;
+        const data = await invRes.json() as any[];
+        if (!Array.isArray(data)) continue;
+
+        const videos = data.slice(0, count).map((v: any) => {
+          const ytId = v.videoId || '';
+          const thumb = (v.videoThumbnails || []).find((t: any) => t.quality === 'medium' || t.quality === 'default')?.url
+            || (v.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`);
+
+          return {
+            id: `yt_search_${ytId}`,
+            ytId,
+            title: v.title || q,
+            thumbnail: thumb.startsWith('//') ? `https:${thumb}` : thumb,
+            duration: v.lengthSeconds || 0,
+            channel: v.author || 'YouTube',
+            viewCount: v.viewCount || 0,
+            mediaUrl: `/api/proxy-stream?id=${ytId}`,
+            source: 'youtube'
+          };
+        }).filter((v: any) => v.ytId);
+
+        res.setHeader('X-Invidious-Instance', instance);
+        return res.json({ query: q, count: videos.length, source: 'invidious', videos });
+      } catch (err: any) {
+        // Try next instance
+        continue;
+      }
+    }
+
+    // All instances failed — return empty (not an error, just no results)
+    res.json({ query: q, count: 0, source: 'unavailable', videos: [] });
+  });
+
   app.get('/api/search', async (req: Request, res: Response) => {
     try {
       const q = ((req.query.q as string) || '').trim().toLowerCase();
