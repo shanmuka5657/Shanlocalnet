@@ -61,11 +61,21 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const [hoverPositionPx, setHoverPositionPx] = useState<number | null>(null);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastTouchTimeRef = useRef<number>(0); // track last touch to suppress fake mouseenter
+  // FIX: track last real touch event so we can ignore the synthesized
+  // mouseenter that the browser fires on every tap (mobile only).
+  const lastTouchTimeRef = useRef<number>(0);
   const lastTapRef = useRef<number>(0);
   const singleTapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // FIX: track showControls in a ref so the single-tap handler always
+  // reads the current value without needing it in its closure.
+  const showControlsRef = useRef(true);
 
-  // Global listener to ensure strictly ONE video plays at any time across the entire app
+  // Keep showControlsRef in sync with state
+  useEffect(() => {
+    showControlsRef.current = showControls;
+  }, [showControls]);
+
+  // Global listener to ensure strictly ONE video plays at any time
   useEffect(() => {
     const handleGlobalVideoPlay = (e: Event) => {
       const customEvent = e as CustomEvent<{ id: string }>;
@@ -86,10 +96,14 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   useEffect(() => {
     if (!videoRef.current) return;
     if (isCurrentlyPlaying) {
+      // FIX: only clear preview flags here; do NOT call play() if the video
+      // is already playing (it may be in preview, which is fine — we just
+      // let it keep playing and the tap handler will unmute it).
       setIsPreviewPlaying(false);
-      isPreviewRef.current = false;
+      // FIX: only clear isPreviewRef if we are sure the preview .then()
+      // has already resolved (i.e., don't race with IntersectionObserver).
+      // We leave isPreviewRef as-is here; togglePlayPause clears it on tap.
       if (videoRef.current.paused) {
-        // Pause all other video elements on the page immediately
         document.querySelectorAll('video').forEach((v) => {
           if (v !== videoRef.current && !v.paused) v.pause();
         });
@@ -105,7 +119,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     }
   }, [isCurrentlyPlaying, onPauseRequest, post.id]);
 
-  // YouTube-style: Auto-play 5-second muted promo preview ONLY for the single most visible video
+  // YouTube-style: Auto-play 5-second muted promo preview
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -113,7 +127,6 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && !isCurrentlyPlaying) {
-          // Check if any video is already playing before auto-previewing
           const anyPlaying = Array.from(document.querySelectorAll('video')).some(
             (v) => v !== videoRef.current && !v.paused
           );
@@ -123,7 +136,6 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
             videoRef.current.muted = true;
             setIsMuted(true);
             videoRef.current.currentTime = 0;
-            // Notify all other players to pause
             window.dispatchEvent(new CustomEvent('localnet:video-play', { detail: { id: post.id } }));
             videoRef.current
               .play()
@@ -134,7 +146,6 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               .catch(() => { });
           }
         } else if (!entry.isIntersecting && isPreviewRef.current) {
-          // Scrolled off screen -> pause preview and reset
           if (videoRef.current && !videoRef.current.paused) {
             videoRef.current.pause();
             videoRef.current.currentTime = 0;
@@ -194,7 +205,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     const cur = videoRef.current.currentTime;
     setCurrentTime(cur);
 
-    // YouTube 5-second promo preview loop
+    // 5-second promo preview loop (only in preview mode)
     if (isPreviewRef.current && cur >= 5.0) {
       videoRef.current.currentTime = 0;
     }
@@ -210,8 +221,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     if (d && !isNaN(d) && isFinite(d) && d > 0) {
       setDuration(d);
     }
-    // Seek to 0.5s so browsers render a real frame thumbnail instead of a black box
-    // Only do this on cold-start (not mid-watch) and only if no poster is available
+    // Seek to 0.5s so browsers render a real frame instead of a black box.
+    // Only on cold-start (currentTime === 0) and only when no poster exists.
     if (!post.mediaThumbnail && !isCurrentlyPlaying && videoRef.current.currentTime === 0) {
       try {
         videoRef.current.currentTime = 0.5;
@@ -219,19 +230,49 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     }
   };
 
-  // Play / Pause toggle
+  // FIX: Exit preview mode and transition to full playback WITHOUT restarting.
+  // Saves currentTime before any state changes and restores it afterward.
+  const exitPreviewAndPlay = () => {
+    if (!videoRef.current) return;
+
+    // 1. Save the current position immediately.
+    const savedTime = videoRef.current.currentTime;
+
+    // 2. Clear preview flags BEFORE calling onPlayRequest so the
+    //    isCurrentlyPlaying effect does not race with them.
+    setIsPreviewPlaying(false);
+    isPreviewRef.current = false;
+
+    // 3. Unmute the video element directly (instant, no async).
+    videoRef.current.muted = false;
+    setIsMuted(false);
+
+    // 4. Tell parent this video is now the active one.
+    onPlayRequest();
+
+    // 5. Restore position if anything reset it during the state transition.
+    //    Use requestAnimationFrame so it runs after React flushes effects.
+    requestAnimationFrame(() => {
+      if (videoRef.current && Math.abs(videoRef.current.currentTime - savedTime) > 0.3) {
+        videoRef.current.currentTime = savedTime;
+      }
+      // Ensure the video is actually playing (it may have been paused by the effect).
+      if (videoRef.current && videoRef.current.paused) {
+        videoRef.current.play().catch(() => { });
+      }
+    });
+  };
+
+  // Play / Pause toggle — called only from the explicit play/pause button,
+  // never from a tap on the video surface (taps only show/hide controls).
   const togglePlayPause = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     triggerHaptic('light');
     if (!videoRef.current) return;
 
     if (isPreviewPlaying || isPreviewRef.current) {
-      // Tap on promo preview -> immediately start full video with unmuted audio!
-      setIsPreviewPlaying(false);
-      isPreviewRef.current = false;
-      onPlayRequest();
-      videoRef.current.muted = false;
-      setIsMuted(false);
+      // FIX: transition from preview to full play; save & restore position.
+      exitPreviewAndPlay();
       setCenterIconFlash('play');
       setTimeout(() => setCenterIconFlash(null), 600);
       resetControlsTimer();
@@ -265,7 +306,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     resetControlsTimer();
   };
 
-  // Picture-in-Picture toggle (YouTube Style)
+  // Picture-in-Picture toggle
   const togglePiP = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!videoRef.current) return;
@@ -367,7 +408,18 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     setHoverPositionPx(null);
   };
 
-  // Video Stage Click: handles Single Tap (play/pause) & Double Tap (Rewind, Forward, or Like)
+  // FIX: Video stage click handler.
+  //
+  // OLD behaviour: single tap → togglePlayPause() → could restart video.
+  // NEW behaviour:
+  //   • Double-tap left (< 35% width) → rewind 10 s
+  //   • Double-tap right (> 65% width) → forward 10 s
+  //   • Double-tap centre              → like animation
+  //   • Single tap, in preview mode   → exit preview & start full play
+  //   • Single tap, controls hidden   → show controls (never play/pause)
+  //   • Single tap, controls visible  → hide controls  (never play/pause)
+  //
+  // Play/Pause is ONLY triggered by the explicit ▶/⏸ button in the controls bar.
   const handleStageClick = (e: React.MouseEvent<HTMLElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -379,20 +431,17 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     lastTapRef.current = now;
 
     if (timeDiff < 400) {
-      // Double tap detected! Cancel pending single tap
+      // ── Double tap ──────────────────────────────────────────────────────
       if (singleTapTimeoutRef.current) {
         clearTimeout(singleTapTimeoutRef.current);
         singleTapTimeoutRef.current = null;
       }
 
       if (xRatio < 0.35) {
-        // Double tap left side -> Rewind 10s (YouTube Style)
         handleSkip(-10);
       } else if (xRatio > 0.65) {
-        // Double tap right side -> Forward 10s (YouTube Style)
         handleSkip(10);
       } else {
-        // Double tap center -> Instagram Like Heart Animation
         if (onDoubleTapLike) {
           triggerHaptic('doubleTap');
           const y = e.clientY - rect.top;
@@ -402,12 +451,28 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         }
       }
     } else {
-      // Single tap: queue play/pause after short delay (wait to see if double-tap follows)
+      // ── Single tap ──────────────────────────────────────────────────────
       singleTapTimeoutRef.current = setTimeout(() => {
-        togglePlayPause();
+        if (isPreviewPlaying || isPreviewRef.current) {
+          // In preview mode: tap exits preview and starts full play.
+          exitPreviewAndPlay();
+          setCenterIconFlash('play');
+          setTimeout(() => setCenterIconFlash(null), 600);
+          resetControlsTimer();
+        } else {
+          // In full-play / paused mode: tap ONLY toggles control visibility.
+          // It must never reset, reload, or restart the video.
+          if (showControlsRef.current) {
+            // Controls are visible → hide them.
+            setShowControls(false);
+            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+          } else {
+            // Controls are hidden → show them and start auto-hide timer.
+            resetControlsTimer();
+          }
+        }
       }, 220);
     }
-    resetControlsTimer();
   };
 
   // Mute / Volume toggle
@@ -436,7 +501,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     resetControlsTimer();
   };
 
-  // Playback rate cycle (1x -> 1.25x -> 1.5x -> 2x)
+  // Playback rate cycle (1x → 1.25x → 1.5x → 2x)
   const cyclePlaybackRate = (e: React.MouseEvent) => {
     e.stopPropagation();
     const rates = [1, 1.25, 1.5, 2];
@@ -508,22 +573,26 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       onKeyDown={handleKeyDown}
       onMouseMove={resetControlsTimer}
       onTouchStart={() => {
-        // Record that a real touch happened — used to ignore the
-        // synthesized mouseenter that fires on every mobile tap
+        // FIX: record the timestamp of every real touch event.
+        // onMouseEnter checks this and skips the preview-reset logic
+        // if a touch happened within the last 500 ms (synthesized event).
         lastTouchTimeRef.current = Date.now();
         setShowControls(true);
       }}
       onMouseEnter={() => {
         setShowControls(true);
-        // If a touch happened within the last 500ms this is a synthesized
-        // mouseenter from a tap, NOT a real desktop hover — skip preview
-        const touchRecently = Date.now() - lastTouchTimeRef.current < 500;
-        if (touchRecently) return;
+        // FIX: if a touch happened within the last 500 ms, this is a
+        // synthesized mouseenter fired by the browser after a tap — not a
+        // real desktop hover. Skip the preview-restart logic entirely.
+        const touchedRecently = Date.now() - lastTouchTimeRef.current < 500;
+        if (touchedRecently) return;
 
+        // Real desktop mouse hover → start muted 5 s preview from the
+        // beginning ONLY if the video hasn't been watched yet.
         if (!isCurrentlyPlaying && videoRef.current && videoRef.current.paused) {
           videoRef.current.muted = true;
           setIsMuted(true);
-          // Only reset to start on cold start (not after user has been watching)
+          // Only reset to 0 on a truly cold start (never mid-watch).
           if (videoRef.current.currentTime < 0.5) {
             videoRef.current.currentTime = 0;
           }
@@ -550,27 +619,36 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           : 'aspect-[4/3] max-h-[560px] rounded-b-none'
         }`}
     >
-      {/* Video Element */}
+      {/* Video Element — single element, never remounted */}
       <video
         ref={videoRef}
         id={`feed-video-${post.id}`}
         src={
-          // Normalize S3 region in URL — always use the explicit regional endpoint
+          // Normalise S3 region — always use the explicit regional endpoint.
+          // FIX: removed the #t=0.5 URL fragment that was present in older
+          // versions; it caused seek resets on some mobile browsers.
+          // The 0.5 s thumbnail seek is now handled in onLoadedMetadata.
           (post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com'))
             ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
             : post.mediaUrl
-          // Removed #t=0.5 fragment — it caused seek resets on some mobile browsers
-          // Instead we seek to 0.5s in onLoadedMetadata below
         }
         poster={post.mediaThumbnail || undefined}
         onPlay={() => {
-          document.querySelectorAll('video').forEach((v) => {
-            if (v !== videoRef.current && !v.paused) {
-              v.pause();
-            }
-          });
-          window.dispatchEvent(new CustomEvent('localnet:video-play', { detail: { id: post.id } }));
-          onPlayRequest();
+          // FIX: do NOT call onPlayRequest() when the video fires its onPlay
+          // event during the auto-preview — that would wrongly set
+          // isCurrentlyPlaying=true and trigger effects that race with the
+          // IntersectionObserver, ultimately resetting currentTime to 0.
+          // Only broadcast "I am the active video" when we are in real
+          // (non-preview) playback, i.e. when isPreviewRef is already false.
+          if (!isPreviewRef.current) {
+            document.querySelectorAll('video').forEach((v) => {
+              if (v !== videoRef.current && !v.paused) {
+                v.pause();
+              }
+            });
+            window.dispatchEvent(new CustomEvent('localnet:video-play', { detail: { id: post.id } }));
+            onPlayRequest();
+          }
         }}
         loop
         muted={isMuted}
@@ -635,7 +713,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Large Center Play Button when Paused */}
+      {/* Large Centre Play Button when Paused and not previewing */}
       {!isCurrentlyPlaying && !isBuffering && !isPreviewPlaying && (
         <div
           onClick={togglePlayPause}
@@ -647,7 +725,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 5-Second Promo Preview Badge (YouTube Style) */}
+      {/* 5-Second Promo Preview Badge */}
       {isPreviewPlaying && !isCurrentlyPlaying && (
         <div className="absolute top-3 left-3 z-30 flex items-center gap-2 pointer-events-none animate-fade-in">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/80 backdrop-blur-md border border-rose-500/40 text-white shadow-xl">
@@ -706,12 +784,14 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         className={`absolute bottom-0 left-0 right-0 z-20 pt-8 pb-2.5 px-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
       >
-        {/* Scrubber Timeline with Expanded Touch/Click Target (30px tall touch zone) */}
+        {/* Scrubber Timeline */}
         <div
           ref={progressBarRef}
           onMouseDown={handleScrubStart}
           onTouchStart={(e) => {
-            e.stopPropagation(); // prevent touch bubbling to parent mouseenter
+            // FIX: stop propagation so a scrubber drag does not bubble up
+            // to the container's onTouchStart and trigger a fake mouseenter.
+            e.stopPropagation();
             handleScrubStart(e);
           }}
           onMouseMove={handleScrubberMouseMove}
@@ -748,19 +828,16 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
 
           {/* Visual Track */}
           <div className="relative w-full h-1.5 group-hover/scrub:h-2.5 bg-white/25 group-hover/scrub:bg-white/35 rounded-full transition-all overflow-visible">
-            {/* Ghost hover progress bar */}
             {isHoveringScrubber && hoverPercent !== null && (
               <div
                 className="absolute top-0 bottom-0 left-0 bg-white/30 rounded-full pointer-events-none"
                 style={{ width: `${hoverPercent}%` }}
               />
             )}
-            {/* Progress Filled */}
             <div
               className="h-full bg-rose-500 rounded-full relative"
               style={{ width: `${progressPercent}%` }}
             >
-              {/* Scrubber Thumb */}
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover/scrub:scale-100 transition-transform -mr-1.5 ring-2 ring-rose-500/50" />
             </div>
           </div>
@@ -768,9 +845,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
 
         {/* Controls Row */}
         <div className="flex items-center justify-between text-white gap-2 mt-1">
-          {/* Left Controls: Rewind 10s, Play/Pause, Forward 10s, Volume, Time */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Rewind 10s Button */}
+            {/* Rewind 10s */}
             <button
               type="button"
               onClick={(e) => handleSkip(-10, e)}
@@ -795,7 +871,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               )}
             </button>
 
-            {/* Forward 10s Button */}
+            {/* Forward 10s */}
             <button
               type="button"
               onClick={(e) => handleSkip(10, e)}
@@ -806,7 +882,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               <span className="absolute text-[8px] font-bold font-mono tracking-tighter">10</span>
             </button>
 
-            {/* Volume & Mute with Hover Slider */}
+            {/* Volume & Mute */}
             <div className="flex items-center gap-1.5 group/vol ml-1">
               <button
                 type="button"
@@ -841,9 +917,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
             </div>
           </div>
 
-          {/* Right Controls: Playback Speed, Fullscreen */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Playback Speed Pill */}
+            {/* Playback Speed */}
             <button
               type="button"
               onClick={cyclePlaybackRate}
@@ -853,7 +928,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               {playbackRate}x
             </button>
 
-            {/* Picture-in-Picture Button */}
+            {/* Picture-in-Picture */}
             <button
               type="button"
               onClick={togglePiP}
@@ -863,7 +938,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
               <PictureInPicture2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </button>
 
-            {/* Fullscreen Button */}
+            {/* Fullscreen */}
             <button
               type="button"
               onClick={toggleFullscreen}
