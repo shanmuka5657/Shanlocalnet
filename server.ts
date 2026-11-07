@@ -1923,8 +1923,18 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
       return res.status(409).json({ error: 'YouTube seeder is already running.', progress: getYTProgress() });
     }
 
-    const { targetCount = 50 } = req.body;
+    const { targetCount = 50, customQueries } = req.body;
     const count = Math.min(500, Math.max(1, parseInt(targetCount as any, 10) || 50));
+
+    // Parse custom queries: accept string (comma-separated) or array
+    let parsedQueries: string[] | undefined;
+    if (customQueries) {
+      if (Array.isArray(customQueries)) {
+        parsedQueries = customQueries.map((q: string) => q.trim()).filter(Boolean);
+      } else if (typeof customQueries === 'string') {
+        parsedQueries = customQueries.split(',').map((q: string) => q.trim()).filter(Boolean);
+      }
+    }
 
     const s3Config = {
       bucket: process.env.AWS_S3_BUCKET || '',
@@ -1938,15 +1948,20 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     }
 
     // Run in background
-    seedFromYouTube(db, s3Config, count).catch(err => {
+    seedFromYouTube(db, s3Config, count, undefined, parsedQueries).catch(err => {
       console.error('[Admin] YouTube seed error:', err.message);
     });
 
+    const queryLabel = parsedQueries && parsedQueries.length > 0
+      ? `"${parsedQueries.slice(0,2).join('", "')}"${parsedQueries.length > 2 ? ` +${parsedQueries.length - 2} more` : ''}`
+      : 'Telugu/Indian categories';
+
     res.json({
       success: true,
-      message: `Downloading ${count} Telugu/Indian YouTube videos → S3 in background.`,
+      message: `Downloading ${count} videos for: ${queryLabel} → S3 in background.`,
       ytdlpPath,
-      estimatedMinutes: Math.ceil(count * 0.5), // ~30s per video
+      queries: parsedQueries || 'default Telugu categories',
+      estimatedMinutes: Math.ceil(count * 0.5),
     });
   });
 

@@ -43,6 +43,7 @@ interface ProfileViewProps {
 // ── YouTube Seeder Admin Panel ─────────────────────────────────────────────
 const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
   const [targetCount, setTargetCount] = useState(50);
+  const [customSearch, setCustomSearch] = useState('');   // ← new: custom search input
   const [isStarting, setIsStarting] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [message, setMessage] = useState('');
@@ -76,10 +77,15 @@ const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
     setIsStarting(true);
     setMessage('');
     try {
+      // Parse custom search: comma-separated terms
+      const customQueries = customSearch.trim()
+        ? customSearch.split(',').map(q => q.trim()).filter(Boolean)
+        : undefined;
+
       const res = await fetch('/api/admin/seed-youtube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify({ targetCount })
+        body: JSON.stringify({ targetCount, customQueries })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -136,6 +142,32 @@ const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
           Telugu folk music · Carnatic concert · Andhra village life · Telugu wedding ·
           India temple ceremony · South Indian street food · Telugu comedian · India yoga...
         </p>
+      </div>
+
+      {/* ── Custom Search Input ─────────────────────────────────────────── */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          🔍 Custom Search <span className="text-[10px] font-normal text-slate-400">(optional — overrides default categories)</span>
+        </label>
+        <input
+          type="text"
+          value={customSearch}
+          onChange={e => setCustomSearch(e.target.value)}
+          placeholder='e.g. BigBoss Telugu, Allu Arjun songs, Pawan Kalyan, Samantha dance...'
+          className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none placeholder-slate-400"
+        />
+        <p className="text-[10px] text-slate-400">
+          Separate multiple topics with commas · Leave empty to use 25 Telugu default categories
+        </p>
+        {customSearch.trim() && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {customSearch.split(',').map(q => q.trim()).filter(Boolean).map((q, i) => (
+              <span key={i} className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[10px] font-semibold border border-red-200 dark:border-red-800">
+                🔍 {q}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Count selector */}
@@ -199,7 +231,9 @@ const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
         {isPolling ? (
           <><span className="inline-block animate-spin mr-1">⚙️</span> Downloading {targetCount} Telugu videos...</>
         ) : isStarting ? 'Starting...' : (
-          <><Play className="w-4 h-4 fill-white" /> Download {targetCount} Telugu Videos from YouTube</>
+          <><Play className="w-4 h-4 fill-white" /> Download {targetCount} Videos
+            {customSearch.trim() ? ` — "${customSearch.split(',')[0].trim()}"${customSearch.split(',').length > 1 ? ` +${customSearch.split(',').length - 1} more` : ''}` : ' (Telugu/Indian)'}
+          </>
         )}
       </button>
     </div>

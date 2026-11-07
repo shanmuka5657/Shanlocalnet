@@ -241,7 +241,8 @@ export async function seedFromYouTube(
     secretAccessKey: string;
   },
   targetCount: number = 100,
-  onProgress?: (p: YTSeederProgress) => void
+  onProgress?: (p: YTSeederProgress) => void,
+  customQueries?: string[]   // ← optional: use user's own search terms
 ): Promise<YTSeederProgress> {
   if (_ytRunning) throw new Error('YouTube seeder is already running.');
 
@@ -313,11 +314,18 @@ export async function seedFromYouTube(
       console.warn('[YT Seeder] Could not pre-populate archive:', archiveErr);
     }
 
-    // More videos per query to get fresh results across 25 categories
-    const videosPerQuery = Math.max(5, Math.ceil(targetCount / TELUGU_QUERIES.length));
+    // Use custom queries if provided, otherwise use default Telugu categories
+    const queriesToRun = (customQueries && customQueries.length > 0)
+      ? customQueries
+      : TELUGU_QUERIES;
+
+    console.log(`[YT Seeder] Using ${queriesToRun.length} queries: ${queriesToRun.slice(0,3).join(', ')}...`);
+
+    // More videos per query to get fresh results
+    const videosPerQuery = Math.max(5, Math.ceil(targetCount / queriesToRun.length));
 
     outer:
-    for (const query of TELUGU_QUERIES) {
+    for (const query of queriesToRun) {
       if (_ytProgress.uploaded >= targetCount) break;
 
       _ytProgress.currentQuery = query;
