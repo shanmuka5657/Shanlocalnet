@@ -642,6 +642,14 @@ export async function seedTeluguBulk(
   const sharedArchivePath = join(baseDir, 'archive_shared.txt');
   try { appendFileSync(sharedArchivePath, ''); } catch { }
 
+  // ── Shared archive file for all workers (prevents ALL workers re-downloading same YouTube ID)
+  const sharedArchivePath = join(baseDir, 'archive_shared.txt');
+  try {
+    appendFileSync(sharedArchivePath, ''); // Create/truncate archive file once at start
+  } catch (e: any) {
+    console.warn('[BulkSeed] Could not create archive file:', e.message);
+  }
+
   // ── Resume: load already-seeded IDs from DB so restarts skip them
   try {
     await safeQuery(`
@@ -714,8 +722,6 @@ export async function seedTeluguBulk(
     // SINGLE shared archive for all workers — prevents ANY worker re-downloading同一个 video
     const archivePath = join(baseDir, `archive_shared.txt`);
     mkdirSync(workerDir, { recursive: true });
-    // Ensure archive file exists
-    try { appendFileSync(archivePath, ''); } catch { }
 
     while (!_stopRequested && _progress.totalUploaded < target) {
       // Pull next query (queue may be exhausted; refill for another cycle)
