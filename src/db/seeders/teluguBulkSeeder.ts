@@ -640,12 +640,12 @@ export async function seedTeluguBulk(
 
   // ── Resume: load already-seeded IDs from DB so restarts skip them
   try {
-    await db.query(`
+    await safeQuery(`
       INSERT INTO users (id, email, active_role, is_suspended)
       VALUES ('seed_telugu', 'seed_telugu@localnet.in', 'creator', FALSE)
       ON CONFLICT (id) DO NOTHING
     `);
-    const existing = await db.query(
+    const existing = await safeQuery(
       `SELECT id FROM posts WHERE creator_id IN ('seed_youtube', 'seed_telugu')`
     );
     existing.rows.forEach((r: any) => processedIds.add(r.id));
@@ -664,6 +664,26 @@ export async function seedTeluguBulk(
       ? Math.ceil(((target - _progress.totalUploaded) / rate) / 60)
       : 999;
     onProgress?.({ ..._progress, workers: _progress.workers.map(w => ({ ...w })) });
+  };
+
+  // ── DB query wrapper with reconnection on ECONNRESET ─────────────────────
+  const safeQuery = async (text: string, params?: any[]) => {
+    try {
+      return await db.query(text, params);
+    } catch (e: any) {
+      if (e.code === 'ECONNRESET' || e.code === 'EPIPE') {
+        console.warn('[BulkSeed] DB connection lost, reconnecting...');
+        // Try one more time
+        try {
+          await new Promise(r => setTimeout(r, 2000));
+          return await db.query(text, params);
+        } catch (e2: any) {
+          console.error('[BulkSeed] Reconnect failed:', e2.message);
+          throw e2;
+        }
+      }
+      throw e;
+    }
   };
 
   // ── Shared query queue (refilled on cycle completion) ─────────────────────
@@ -736,7 +756,7 @@ export async function seedTeluguBulk(
 
         try {
           // DB dedup check (handles restarts without in-memory state)
-          const exists = await db.query('SELECT id FROM posts WHERE id = $1 LIMIT 1', [postId]);
+          const exists = await safeQuery('SELECT id FROM posts WHERE id = $1 LIMIT 1', [postId]);
           if (exists.rows.length > 0) {
             _progress.totalSkipped++;
             unlinkSafe(video.filepath);
@@ -755,7 +775,7 @@ export async function seedTeluguBulk(
           const likes    = Math.floor(Math.random() * 20000) + 500;
           const views    = Math.floor(Math.random() * 500000) + 5000;
 
-          await db.query(`
+          await safeQuery(`
             INSERT INTO posts (
               id, creator_id, content_type, classification, engine,
               title, description,
