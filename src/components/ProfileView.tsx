@@ -40,6 +40,172 @@ interface ProfileViewProps {
   onOpenLab: () => void;
 }
 
+// ── YouTube Seeder Admin Panel ─────────────────────────────────────────────
+const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
+  const [targetCount, setTargetCount] = useState(50);
+  const [isStarting, setIsStarting] = useState(false);
+  const [progress, setProgress] = useState<any>(null);
+  const [message, setMessage] = useState('');
+  const [isPolling, setIsPolling] = useState(false);
+  const [ytStatus, setYtStatus] = useState<{ ytdlpInstalled: boolean; ytdlpPath: string | null } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/yt-status')
+      .then(r => r.json())
+      .then(d => setYtStatus({ ytdlpInstalled: d.ytdlpInstalled, ytdlpPath: d.ytdlpPath }))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!isPolling) return;
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch('/api/admin/yt-status');
+        const d = await r.json();
+        setProgress(d.progress);
+        if (d.progress?.isComplete) {
+          setIsPolling(false);
+          setMessage(`✅ Done! ${d.progress.uploaded?.toLocaleString()} real Telugu videos uploaded to S3 + added to feed.`);
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isPolling]);
+
+  const handleStart = async () => {
+    setIsStarting(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/seed-youtube', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ targetCount })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(`❌ ${data.error}${data.fix ? '\n👉 ' + data.fix : ''}`);
+        return;
+      }
+      setMessage(`🚀 ${data.message}`);
+      setIsPolling(true);
+    } catch (err: any) {
+      setMessage(`❌ ${err.message}`);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border-2 border-amber-400/50 dark:border-amber-600/40 shadow-sm space-y-4">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-red-500 flex items-center justify-center shrink-0 shadow">
+          <Play className="w-4 h-4 text-white fill-white" />
+        </div>
+        <div>
+          <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+            YouTube → S3 Seeder
+            <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[9px] font-bold">REAL CONTENT</span>
+          </h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Downloads real Telugu/Indian videos from YouTube → uploads to your S3 bucket → adds to feed
+          </p>
+        </div>
+      </div>
+
+      {/* yt-dlp status */}
+      {ytStatus !== null && (
+        <div className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+          ytStatus.ytdlpInstalled
+            ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+            : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
+        }`}>
+          {ytStatus.ytdlpInstalled ? (
+            <>✅ yt-dlp found: <code className="font-mono text-[10px] truncate max-w-[280px]">{ytStatus.ytdlpPath}</code></>
+          ) : (
+            <>❌ yt-dlp not found — run: <code className="font-mono text-[10px] bg-rose-100 dark:bg-rose-900/40 px-1 rounded">pip install yt-dlp</code> then restart server</>
+          )}
+        </div>
+      )}
+
+      {/* Content preview */}
+      <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 space-y-1">
+        <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">📺 Telugu & Indian Content Categories (25 queries)</p>
+        <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">
+          Kuchipudi dance · Bharatanatyam · Sankranti festival · Hyderabad biryani ·
+          Telugu folk music · Carnatic concert · Andhra village life · Telugu wedding ·
+          India temple ceremony · South Indian street food · Telugu comedian · India yoga...
+        </p>
+      </div>
+
+      {/* Count selector */}
+      <div className="space-y-2">
+        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Videos to download:</span>
+        <div className="flex flex-wrap gap-1.5">
+          {[10, 25, 50, 100, 200].map(n => (
+            <button
+              key={n}
+              onClick={() => setTargetCount(n)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                targetCount === n
+                  ? 'bg-red-500 text-white border-red-400'
+                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-400">
+          ⏱ ~{Math.ceil(targetCount * 0.5)} min · Downloads + uploads to S3 · Real Telugu/Indian videos
+        </p>
+      </div>
+
+      {/* Progress */}
+      {progress && !progress.isComplete && (
+        <div className="space-y-1.5 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+          <div className="flex justify-between text-[11px] font-mono text-slate-600 dark:text-slate-300">
+            <span>⬆ {progress.uploaded} uploaded · ⬇ {progress.downloaded} downloaded · ✗ {progress.failed} failed</span>
+            <span>{progress.percentDone}%</span>
+          </div>
+          <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div
+              style={{ width: `${progress.percentDone || 0}%` }}
+              className="h-full bg-gradient-to-r from-red-500 to-amber-500 transition-all duration-500"
+            />
+          </div>
+          <p className="text-[10px] text-slate-400 truncate">
+            📺 {progress.currentVideo || progress.currentQuery}
+          </p>
+        </div>
+      )}
+
+      {/* Message */}
+      {message && (
+        <p className={`text-xs font-semibold rounded-xl p-3 whitespace-pre-line ${
+          message.startsWith('✅') ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+          : message.startsWith('❌') ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400'
+          : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
+        }`}>
+          {message}
+        </p>
+      )}
+
+      <button
+        onClick={handleStart}
+        disabled={isStarting || isPolling || !ytStatus?.ytdlpInstalled}
+        className="w-full py-3 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white font-black text-sm rounded-xl shadow flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+      >
+        {isPolling ? (
+          <><span className="inline-block animate-spin mr-1">⚙️</span> Downloading {targetCount} Telugu videos...</>
+        ) : isStarting ? 'Starting...' : (
+          <><Play className="w-4 h-4 fill-white" /> Download {targetCount} Telugu Videos from YouTube</>
+        )}
+      </button>
+    </div>
+  );
+};
+
 // ── Seed Videos Admin Panel ────────────────────────────────────────────────
 const SeedVideosPanel: React.FC<{ userId: string }> = ({ userId }) => {
   const [apiKey, setApiKey] = useState('');
@@ -777,7 +943,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {activeTab === 'admin_audit' && isAdmin && (
         <div className="space-y-4">
 
-          {/* ── Seed Videos Panel ──────────────────────────────────────── */}
+          {/* ── YouTube Seeder Panel (Primary — Real Telugu content) ─────── */}
+          <YouTubeSeederPanel userId={user?.id || ''} />
+
+          {/* ── Pixabay Seeder Panel (Backup — fast bulk seeding) ────────── */}
           <SeedVideosPanel userId={user?.id || ''} />
 
           {/* ── Geo Audit Logs ─────────────────────────────────────────── */}

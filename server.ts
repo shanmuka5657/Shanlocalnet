@@ -116,6 +116,7 @@ import { CommunityRepository } from './src/db/repositories/communityRepository.t
 import { AuditRepository, GeoDecisionRecord } from './src/db/repositories/auditRepository.ts';
 import { RidesRepository } from './src/db/repositories/ridesRepository.ts';
 import { seedVideos, getSeedProgress, isSeederRunning } from './src/db/seeders/pexelsVideoSeeder.ts';
+import { seedFromYouTube, getYTProgress, isYTRunning, findYtDlp, TELUGU_QUERIES } from './src/db/seeders/youtubeSeeder.ts';
 import {
   defaultStorageService,
   validateMagicBytes,
@@ -1825,6 +1826,71 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     }, 1000);
 
     req.on('close', () => clearInterval(interval));
+  });
+
+  // ── YouTube Seeder API ─────────────────────────────────────────────────
+
+  // GET /api/admin/yt-status — check YouTube seeder status + yt-dlp availability
+  app.get('/api/admin/yt-status', (_req: Request, res: Response) => {
+    const ytdlpPath = findYtDlp();
+    res.json({
+      running: isYTRunning(),
+      progress: getYTProgress(),
+      ytdlpInstalled: !!ytdlpPath,
+      ytdlpPath: ytdlpPath || null,
+      queries: TELUGU_QUERIES,
+    });
+  });
+
+  // POST /api/admin/seed-youtube — download Telugu videos from YouTube → S3 → DB
+  app.post('/api/admin/seed-youtube', async (req: Request, res: Response) => {
+    // Admin auth check
+    const requestingUserId = req.headers['x-user-id'] as string;
+    if (!requestingUserId) {
+      return res.status(401).json({ error: 'Authentication required. Send x-user-id header.' });
+    }
+    const isAdmin = await usersRepo.isAdmin(requestingUserId).catch(() => false);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Only platform_admin users can seed videos.' });
+    }
+
+    const ytdlpPath = findYtDlp();
+    if (!ytdlpPath) {
+      return res.status(500).json({
+        error: 'yt-dlp is not installed.',
+        fix: 'Run: pip install yt-dlp  then restart the server.'
+      });
+    }
+
+    if (isYTRunning()) {
+      return res.status(409).json({ error: 'YouTube seeder is already running.', progress: getYTProgress() });
+    }
+
+    const { targetCount = 50 } = req.body;
+    const count = Math.min(500, Math.max(1, parseInt(targetCount as any, 10) || 50));
+
+    const s3Config = {
+      bucket: process.env.AWS_S3_BUCKET || '',
+      region: process.env.AWS_REGION || 'ap-southeast-2',
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+    };
+
+    if (!s3Config.bucket || !s3Config.accessKeyId) {
+      return res.status(500).json({ error: 'AWS S3 not configured. Check AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY in .env' });
+    }
+
+    // Run in background
+    seedFromYouTube(db, s3Config, count).catch(err => {
+      console.error('[Admin] YouTube seed error:', err.message);
+    });
+
+    res.json({
+      success: true,
+      message: `Downloading ${count} Telugu/Indian YouTube videos → S3 in background.`,
+      ytdlpPath,
+      estimatedMinutes: Math.ceil(count * 0.5), // ~30s per video
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════
