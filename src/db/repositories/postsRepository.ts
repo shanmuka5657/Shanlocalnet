@@ -137,7 +137,8 @@ export class PostsRepository {
     tab: 'global' | 'around_me' | 'following' = 'global',
     limit = 30,
     offset = 0,
-    radiusKm = 40
+    radiusKm = 40,
+    excludeIds: string[] = []   // ← videos already shown to this user
   ): Promise<{ post: Post; eligibility: EligibilityResult }[]> {
     const lon = viewer?.coords.longitude ?? 78.0373;
     const lat = viewer?.coords.latitude ?? 15.8281;
@@ -165,7 +166,6 @@ export class PostsRepository {
     const params: any[] = [lon, lat];
 
     if (tab === 'around_me') {
-      // Dynamic PostGIS radius query (capped between 1km and 40km)
       const radiusMeters = Math.min(40000, Math.max(1000, Number(radiusKm || 40) * 1000));
       queryStr += ` AND (
         ST_DWithin(p.publishing_point, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $${params.length + 1})
@@ -174,7 +174,18 @@ export class PostsRepository {
       params.push(radiusMeters, viewer?.cityName || 'Kurnool');
     }
 
-    queryStr += ` ORDER BY p.published_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2};`;
+    // Exclude videos already seen by this user (sent from client localStorage)
+    // Keep list to max 200 IDs to avoid giant SQL queries
+    const safeExclude = excludeIds.slice(0, 200).filter(id => typeof id === 'string' && id.length > 0);
+    if (safeExclude.length > 0) {
+      const placeholders = safeExclude.map((_, i) => `$${params.length + 1 + i}`).join(',');
+      queryStr += ` AND p.id NOT IN (${placeholders})`;
+      params.push(...safeExclude);
+    }
+
+    // Use RANDOM() ordering so every refresh returns a different set
+    // (ORDER BY published_at DESC always returned the same 30 newest videos)
+    queryStr += ` ORDER BY RANDOM() LIMIT $${params.length + 1} OFFSET $${params.length + 2};`;
     params.push(limit, offset);
 
     const res = await this.client.query(queryStr, params);

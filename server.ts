@@ -252,8 +252,14 @@ async function startServer() {
       const tab = ((req.query.tab as string) || 'global') as 'global' | 'around_me' | 'following';
       const radiusKm = Number(req.query.radiusKm) || 40;
 
+      // Parse seen video IDs from client to exclude from feed (fresh content on refresh)
+      const excludeIdsRaw = (req.query.excludeIds as string || '');
+      const excludeIds = excludeIdsRaw
+        ? excludeIdsRaw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 200)
+        : [];
+
       const [eligiblePosts, eligibleAds, eligibleReels, rawBusinesses, rawMarketplace, rawCommunities] = await Promise.all([
-        postsRepo.getFeed(viewer, tab, 30, 0, radiusKm),
+        postsRepo.getFeed(viewer, tab, 30, 0, radiusKm, excludeIds),
         campRepo.getCommercialFeed(viewer),
         postsRepo.getReels(viewer, 30),
         bizRepo.listAll().catch(() => INITIAL_BUSINESSES),
@@ -319,8 +325,16 @@ async function startServer() {
       const viewer = extractViewerLocation(req);
       const tab = ((req.query.tab as string) || 'global') as 'global' | 'around_me' | 'following';
 
+      // Parse seen video IDs sent from client to exclude from results
+      // This ensures refresh shows genuinely different content
+      const excludeIdsRaw = (req.query.excludeIds as string || '');
+      const excludeIds = excludeIdsRaw
+        ? excludeIdsRaw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 200)
+        : [];
+
       // 1. Fetch eligible organic & creator posts from PostGIS repository
-      const eligiblePosts = await postsRepo.getFeed(viewer, tab, 40, 0);
+      //    Pass excludeIds so server never returns already-seen videos
+      const eligiblePosts = await postsRepo.getFeed(viewer, tab, 40, 0, 40, excludeIds);
 
       // Record decisions in audit logs for trace & compliance
       for (const item of eligiblePosts.slice(0, 10)) {

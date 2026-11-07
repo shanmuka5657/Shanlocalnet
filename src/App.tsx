@@ -42,6 +42,7 @@ import {
   calculateHaversineDistance
 } from './lib/geo.ts';
 import { getStoredUserPosts, saveStoredUserPost, mergeServerComments } from './lib/engagementStorage.ts';
+import { getSeenVideoIds, markVideoSeen } from './lib/watchHistory.ts';
 import {
   Post,
   AdCampaign,
@@ -348,6 +349,12 @@ function LocalNetContent() {
     });
 
     try {
+      // Send seen video IDs so server returns genuinely fresh content
+      const seenIds = Array.from(getSeenVideoIds()).slice(0, 200);
+      if (seenIds.length > 0) {
+        query.set('excludeIds', seenIds.join(','));
+      }
+
       // 1. Single unified ecosystem call (instant load, no lambda queuing, no-cache)
       const initRes = await fetch(`/api/init?${query.toString()}&_t=${Date.now()}`, {
         cache: 'no-store'
@@ -360,6 +367,11 @@ function LocalNetContent() {
           mergeServerComments(data.comments);
         }
         const merged = mergeWithStoredUserPosts(data.posts || [], data.reels || []);
+
+        // Mark all returned posts as seen immediately so next refresh fetches different ones
+        (merged.posts || []).forEach(p => markVideoSeen(p.post.id));
+        (merged.reels || []).forEach(r => markVideoSeen(r.reel.id));
+
         setFeedPosts(merged.posts);
         setFeedAds(data.ads || []);
         setReelsList(merged.reels);
