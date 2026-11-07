@@ -1296,6 +1296,45 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     }
   });
 
+  // POST /api/auth/local-login — localhost dev login (email + password from .env)
+  // Only works on localhost — rejects in production
+  app.post('/api/auth/local-login', async (req: Request, res: Response) => {
+    const host = req.headers.host || '';
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    if (!isLocalhost) {
+      return res.status(403).json({ error: 'Local login only available on localhost.' });
+    }
+
+    const { email, password } = req.body;
+    const expectedEmail    = (process.env.LOCAL_ADMIN_EMAIL || '').trim().toLowerCase();
+    const expectedPassword = (process.env.LOCAL_ADMIN_PASSWORD || '').trim();
+
+    if (!expectedEmail || !expectedPassword) {
+      return res.status(500).json({ error: 'LOCAL_ADMIN_EMAIL and LOCAL_ADMIN_PASSWORD not set in .env' });
+    }
+    if ((email || '').trim().toLowerCase() !== expectedEmail) {
+      return res.status(401).json({ error: 'Invalid email.' });
+    }
+    if ((password || '').trim() !== expectedPassword) {
+      return res.status(401).json({ error: 'Invalid password.' });
+    }
+
+    try {
+      // Upsert the admin user and ensure platform_admin role
+      let user = await usersRepo.upsertGoogleUser({
+        id: `local_${expectedEmail.replace(/[^a-z0-9]/g, '_')}`,
+        email: expectedEmail,
+        name: 'Shanmukha A',
+        avatar: '',
+        language: 'en'
+      });
+      const adminProfile = await usersRepo.grantAdminRole(user.id);
+      res.json({ success: true, user: adminProfile || user });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/auth/google', async (req: Request, res: Response) => {
     try {
       const { id, email, name, avatar, language } = req.body;

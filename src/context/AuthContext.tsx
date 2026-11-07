@@ -19,6 +19,7 @@ interface AuthContextType {
   error: string | null;
   loginWithGoogle: () => Promise<void>;
   loginWithPhone: (phoneNumber: string, name?: string) => Promise<void>;
+  loginWithLocal: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateRole: (role?: UserRole, language?: SupportedLanguage) => Promise<void>;
   clearError: () => void;
@@ -216,6 +217,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithLocal = async (email: string, password: string) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/local-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Local login failed');
+      if (data.user) {
+        setCurrentUserId(data.user.id);
+        setUser(data.user);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.user));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Local login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     setLoading(true);
     try {
@@ -270,6 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         loginWithGoogle,
         loginWithPhone,
+        loginWithLocal,
         logout,
         updateRole,
         clearError

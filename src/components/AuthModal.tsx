@@ -30,11 +30,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSelectLanguage,
   onLoginSuccess
 }) => {
-  const { user, loginWithGoogle, loginWithPhone, logout, loading: authLoading, error: authError, clearError } = useAuth();
+  const { user, loginWithGoogle, loginWithPhone, loginWithLocal, logout, loading: authLoading, error: authError, clearError } = useAuth();
   const [showPhoneLogin, setShowPhoneLogin] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
+
+  // Local dev login state
+  const isLocalhost = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const [showLocalLogin, setShowLocalLogin] = useState(false);
+  const [localEmail, setLocalEmail] = useState('');
+  const [localPassword, setLocalPassword] = useState('');
+  const [localError, setLocalError] = useState('');
+  const [localLoading, setLocalLoading] = useState(false);
+
+  const handleLocalLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError('');
+    setLocalLoading(true);
+    try {
+      await loginWithLocal(localEmail, localPassword);
+      onLoginSuccess('Shanmukha A', '');
+      onClose();
+    } catch (err: any) {
+      setLocalError(err.message || 'Login failed');
+    } finally {
+      setLocalLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -281,6 +305,65 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         Verify & Sign In
                       </button>
                     </form>
+                  )}
+                </div>
+              )}
+
+              {/* ── Local Dev Login (localhost only) ──────────────── */}
+              {isLocalhost && (
+                <div className="mt-1">
+                  {!showLocalLogin ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowLocalLogin(true)}
+                      className="w-full py-2 px-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center gap-2 transition-all hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-indigo-500" />
+                      <span>🛠️ Admin Login (Localhost Dev)</span>
+                    </button>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-300 dark:border-indigo-700 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          Admin Local Login
+                        </span>
+                        <button onClick={() => setShowLocalLogin(false)} className="text-slate-400 hover:text-slate-700">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <form onSubmit={handleLocalLogin} className="space-y-2.5">
+                        <input
+                          type="email"
+                          required
+                          value={localEmail}
+                          onChange={e => setLocalEmail(e.target.value)}
+                          placeholder="admin@email.com"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                        <input
+                          type="password"
+                          required
+                          value={localPassword}
+                          onChange={e => setLocalPassword(e.target.value)}
+                          placeholder="Password"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                        {localError && (
+                          <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            {localError}
+                          </p>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={localLoading}
+                          className="w-full py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-xl shadow transition-all"
+                        >
+                          {localLoading ? 'Signing in...' : '🔐 Sign In as Admin'}
+                        </button>
+                      </form>
+                    </div>
                   )}
                 </div>
               )}
