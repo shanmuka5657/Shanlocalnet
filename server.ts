@@ -191,8 +191,18 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Support Vercel serverless rewrites where req.url might have /api stripped or preserved
+  // Exclude Vite dev server paths so they reach the Vite middleware unchanged
   app.use((req: Request, _res: Response, next) => {
-    if (!req.url.startsWith('/api') && !req.url.startsWith('/favicon')) {
+    if (
+      !req.url.startsWith('/api') &&
+      !req.url.startsWith('/favicon') &&
+      !req.url.startsWith('/@') &&           // Vite internal: /@vite/client, /@react-refresh
+      !req.url.startsWith('/src') &&         // Vite source modules: /src/main.tsx
+      !req.url.startsWith('/node_modules') && // npm packages served by Vite
+      !req.url.startsWith('/__vite') &&      // Vite HMR WebSocket
+      !req.url.startsWith('/public') &&      // Public static assets
+      !req.url.match(/\.(svg|png|jpg|jpeg|ico|css|js|ts|tsx|woff|woff2)$/) // static files
+    ) {
       req.url = '/api' + req.url;
     }
     next();
