@@ -4,12 +4,12 @@ import App from './App.tsx';
 import './index.css';
 
 // Automatically bridge relative /api/ requests to the live production server when running inside Native Android/iOS
+// Do NOT apply on localhost dev server — it has its own Express backend
 const isNativePlatform =
   Capacitor.isNativePlatform() ||
   window.location.protocol === 'capacitor:' ||
-  window.location.protocol === 'file:' ||
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1';
+  window.location.protocol === 'file:';
+  // Note: 'localhost' intentionally excluded — dev server handles /api/ directly
 
 if (isNativePlatform) {
   // Pre-seed status bar safe area height for edge-to-edge Android/iOS viewports
