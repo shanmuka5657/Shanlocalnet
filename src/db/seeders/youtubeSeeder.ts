@@ -139,7 +139,8 @@ function downloadQuery(
   ytdlp: string,
   query: string,
   count: number,
-  outDir: string
+  outDir: string,
+  archivePath: string  // ← topic-specific archive path
 ): Promise<{ id: string; filepath: string; title: string; duration: number; thumbnail: string }[]> {
   return new Promise((resolve) => {
     const nodePath = findNodePath();
@@ -153,7 +154,7 @@ function downloadQuery(
       existingFiles = new Set();
     }
 
-    const archiveFile = join(outDir, 'yt-archive.txt'); // prevents re-downloading same videos
+    const archiveFile = archivePath; // use the topic-specific archive passed in
 
     const args = [
       `ytsearch${count}:${query}`,
@@ -298,8 +299,16 @@ export async function seedFromYouTube(
       ON CONFLICT (id) DO NOTHING;
     `);
 
-    // Pre-populate yt-dlp download archive from DB to skip already-seeded videos
-    const archivePath = join(outDir, 'yt-archive.txt');
+    // Archive strategy:
+    // - Default categories: use shared archive (yt-archive.txt) to avoid re-downloading same videos
+    // - Custom queries (e.g. "bigboss"): use topic-specific archive so fresh content is always available
+    const isCustomSearch = customQueries && customQueries.length > 0;
+    const archiveKey = isCustomSearch
+      ? customQueries!.slice(0, 2).join('_').replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 30)
+      : 'default';
+    const archivePath = join(outDir, `yt-archive-${archiveKey}.txt`);
+
+    // Pre-populate archive from DB to skip videos already uploaded for this topic
     try {
       const seededRows = await db.query(
         `SELECT id FROM posts WHERE id LIKE 'yt_%' AND creator_id = 'seed_youtube'`
@@ -308,21 +317,22 @@ export async function seedFromYouTube(
         const { appendFileSync } = await import('fs');
         const archiveLines = seededRows.rows.map((r: any) => `youtube ${r.id.replace('yt_', '')}`).join('\n') + '\n';
         appendFileSync(archivePath, archiveLines);
-        console.log(`[YT Seeder] Pre-populated archive with ${seededRows.rows.length} already-seeded IDs`);
+        console.log(`[YT Seeder] Pre-populated archive (${archiveKey}) with ${seededRows.rows.length} already-seeded IDs`);
       }
     } catch (archiveErr) {
       console.warn('[YT Seeder] Could not pre-populate archive:', archiveErr);
     }
 
     // Use custom queries if provided, otherwise use default Telugu categories
-    const queriesToRun = (customQueries && customQueries.length > 0)
-      ? customQueries
-      : TELUGU_QUERIES;
+    const queriesToRun = isCustomSearch ? customQueries! : TELUGU_QUERIES;
 
-    console.log(`[YT Seeder] Using ${queriesToRun.length} queries: ${queriesToRun.slice(0,3).join(', ')}...`);
+    console.log(`[YT Seeder] ${isCustomSearch ? 'CUSTOM' : 'default'} search: ${queriesToRun.join(', ')} | archive: ${archiveKey}`);
 
-    // More videos per query to get fresh results
-    const videosPerQuery = Math.max(5, Math.ceil(targetCount / queriesToRun.length));
+    // Custom: fetch more per query to get enough results for specific topics
+    // Default: balanced across 25 categories
+    const videosPerQuery = isCustomSearch
+      ? Math.max(15, targetCount + 5)  // fetch more than needed to allow for format filtering
+      : Math.max(5, Math.ceil(targetCount / queriesToRun.length));
 
     outer:
     for (const query of queriesToRun) {
@@ -331,7 +341,7 @@ export async function seedFromYouTube(
       _ytProgress.currentQuery = query;
       emit();
 
-      const videos = await downloadQuery(ytdlp, query, videosPerQuery, outDir);
+      const videos = await downloadQuery(ytdlp, query, videosPerQuery, outDir, archivePath);
       _ytProgress.downloaded += videos.length;
 
       for (const video of videos) {

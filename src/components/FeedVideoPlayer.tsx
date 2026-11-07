@@ -61,6 +61,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const [hoverPositionPx, setHoverPositionPx] = useState<number | null>(null);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTouchTimeRef = useRef<number>(0); // track last touch to suppress fake mouseenter
   const lastTapRef = useRef<number>(0);
   const singleTapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -506,15 +507,23 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onMouseMove={resetControlsTimer}
+      onTouchStart={() => {
+        // Record that a real touch happened — used to ignore the
+        // synthesized mouseenter that fires on every mobile tap
+        lastTouchTimeRef.current = Date.now();
+        setShowControls(true);
+      }}
       onMouseEnter={() => {
         setShowControls(true);
-        // Only trigger preview on real mouse hover (not touch-synthesized events)
-        // Touch devices fire mouseenter before click, which would reset currentTime
-        const isTouchEvent = window.matchMedia('(hover: none)').matches;
-        if (!isTouchEvent && !isCurrentlyPlaying && videoRef.current && videoRef.current.paused) {
+        // If a touch happened within the last 500ms this is a synthesized
+        // mouseenter from a tap, NOT a real desktop hover — skip preview
+        const touchRecently = Date.now() - lastTouchTimeRef.current < 500;
+        if (touchRecently) return;
+
+        if (!isCurrentlyPlaying && videoRef.current && videoRef.current.paused) {
           videoRef.current.muted = true;
           setIsMuted(true);
-          // Only auto-preview if at the very start (cold start), not mid-watch
+          // Only reset to start on cold start (not after user has been watching)
           if (videoRef.current.currentTime < 0.5) {
             videoRef.current.currentTime = 0;
           }
