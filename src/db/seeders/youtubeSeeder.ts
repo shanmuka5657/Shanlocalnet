@@ -156,6 +156,7 @@ function downloadQuery(
     const args = [
       `ytsearch${count}:${query}`,
       '--js-runtimes', jsRuntimeArg,
+      '--remote-components', 'ejs:github',   // solve YouTube n-challenge (required)
       '--format', 'mp4[height<=480][ext=mp4]/best[height<=480]/best[ext=mp4]/best',
       '--output', join(outDir, 'yt_%(id)s.%(ext)s'),
       '--match-filter', 'duration<=180',
