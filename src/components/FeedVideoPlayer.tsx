@@ -209,7 +209,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     if (d && !isNaN(d) && isFinite(d) && d > 0) {
       setDuration(d);
     }
-    // If no poster is present, seek to 0.5s so Chrome/Safari renders the video screen instead of an empty black box
+    // Seek to 0.5s so browsers render a real frame thumbnail instead of a black box
+    // Only do this on cold-start (not mid-watch) and only if no poster is available
     if (!post.mediaThumbnail && !isCurrentlyPlaying && videoRef.current.currentTime === 0) {
       try {
         videoRef.current.currentTime = 0.5;
@@ -376,7 +377,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     const timeDiff = now - lastTapRef.current;
     lastTapRef.current = now;
 
-    if (timeDiff < 320) {
+    if (timeDiff < 400) {
       // Double tap detected! Cancel pending single tap
       if (singleTapTimeoutRef.current) {
         clearTimeout(singleTapTimeoutRef.current);
@@ -400,10 +401,10 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         }
       }
     } else {
-      // Single tap: queue play/pause
+      // Single tap: queue play/pause after short delay (wait to see if double-tap follows)
       singleTapTimeoutRef.current = setTimeout(() => {
         togglePlayPause();
-      }, 280);
+      }, 220);
     }
     resetControlsTimer();
   };
@@ -507,10 +508,16 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       onMouseMove={resetControlsTimer}
       onMouseEnter={() => {
         setShowControls(true);
-        if (!isCurrentlyPlaying && videoRef.current && videoRef.current.paused) {
+        // Only trigger preview on real mouse hover (not touch-synthesized events)
+        // Touch devices fire mouseenter before click, which would reset currentTime
+        const isTouchEvent = window.matchMedia('(hover: none)').matches;
+        if (!isTouchEvent && !isCurrentlyPlaying && videoRef.current && videoRef.current.paused) {
           videoRef.current.muted = true;
           setIsMuted(true);
-          videoRef.current.currentTime = 0;
+          // Only auto-preview if at the very start (cold start), not mid-watch
+          if (videoRef.current.currentTime < 0.5) {
+            videoRef.current.currentTime = 0;
+          }
           videoRef.current.play().then(() => {
             setIsPreviewPlaying(true);
             isPreviewRef.current = true;
@@ -539,13 +546,12 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         ref={videoRef}
         id={`feed-video-${post.id}`}
         src={
-          post.mediaThumbnail
-            ? (post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
-              ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
-              : post.mediaUrl)
-            : `${post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
-              ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
-              : post.mediaUrl}#t=0.5`
+          // Normalize S3 region in URL — always use the explicit regional endpoint
+          (post.mediaUrl?.includes('.s3.amazonaws.com') && !post.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com'))
+            ? post.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+            : post.mediaUrl
+          // Removed #t=0.5 fragment — it caused seek resets on some mobile browsers
+          // Instead we seek to 0.5s in onLoadedMetadata below
         }
         poster={post.mediaThumbnail || undefined}
         onPlay={() => {
@@ -695,7 +701,10 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         <div
           ref={progressBarRef}
           onMouseDown={handleScrubStart}
-          onTouchStart={handleScrubStart}
+          onTouchStart={(e) => {
+            e.stopPropagation(); // prevent touch bubbling to parent mouseenter
+            handleScrubStart(e);
+          }}
           onMouseMove={handleScrubberMouseMove}
           onMouseLeave={handleScrubberMouseLeave}
           className="group/scrub relative w-full py-2.5 -my-1 cursor-pointer flex items-center select-none"
