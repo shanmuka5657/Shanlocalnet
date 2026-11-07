@@ -638,17 +638,28 @@ export async function seedTeluguBulk(
   // ── Shared in-memory ID set: prevents any two workers uploading the same video
   const processedIds = new Set<string>();
 
-  // ── Shared archive file for all workers (prevents re-downloading same YouTube ID)
+  // ── Shared archive file for ALL workers — yt-dlp never re-downloads the same YouTube ID
   const sharedArchivePath = join(baseDir, 'archive_shared.txt');
   try { appendFileSync(sharedArchivePath, ''); } catch { }
 
-  // ── Shared archive file for all workers (prevents ALL workers re-downloading same YouTube ID)
-  const sharedArchivePath = join(baseDir, 'archive_shared.txt');
-  try {
-    appendFileSync(sharedArchivePath, ''); // Create/truncate archive file once at start
-  } catch (e: any) {
-    console.warn('[BulkSeed] Could not create archive file:', e.message);
-  }
+  // ── DB query wrapper with reconnection on ECONNRESET ─────────────────────
+  const safeQuery = async (text: string, params?: any[]) => {
+    try {
+      return await db.query(text, params);
+    } catch (e: any) {
+      if (e.code === 'ECONNRESET' || e.code === 'EPIPE') {
+        console.warn('[BulkSeed] DB connection lost, reconnecting...');
+        try {
+          await new Promise(r => setTimeout(r, 2000));
+          return await db.query(text, params);
+        } catch (e2: any) {
+          console.error('[BulkSeed] Reconnect failed:', e2.message);
+          throw e2;
+        }
+      }
+      throw e;
+    }
+  };
 
   // ── Resume: load already-seeded IDs from DB so restarts skip them
   try {
@@ -676,26 +687,6 @@ export async function seedTeluguBulk(
       ? Math.ceil(((target - _progress.totalUploaded) / rate) / 60)
       : 999;
     onProgress?.({ ..._progress, workers: _progress.workers.map(w => ({ ...w })) });
-  };
-
-  // ── DB query wrapper with reconnection on ECONNRESET ─────────────────────
-  const safeQuery = async (text: string, params?: any[]) => {
-    try {
-      return await db.query(text, params);
-    } catch (e: any) {
-      if (e.code === 'ECONNRESET' || e.code === 'EPIPE') {
-        console.warn('[BulkSeed] DB connection lost, reconnecting...');
-        // Try one more time
-        try {
-          await new Promise(r => setTimeout(r, 2000));
-          return await db.query(text, params);
-        } catch (e2: any) {
-          console.error('[BulkSeed] Reconnect failed:', e2.message);
-          throw e2;
-        }
-      }
-      throw e;
-    }
   };
 
   // ── Shared query queue (refilled on cycle completion) ─────────────────────
