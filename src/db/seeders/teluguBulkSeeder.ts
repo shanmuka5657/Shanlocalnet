@@ -574,6 +574,7 @@ async function uploadVideo(
     Key: s3Key,
     Body: readFileSync(filepath),
     ContentType: mime,
+      CacheControl: 'public, max-age=31536000, immutable',
     Metadata: { source: 'telugu-bulk-seed' },
   }));
 

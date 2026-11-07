@@ -369,6 +369,7 @@ export async function seedFromYouTube(
             Key: s3Key,
             Body: videoBuffer,
             ContentType: mime,
+            CacheControl: 'public, max-age=31536000, immutable',
             Metadata: {
               'source': 'youtube',
               'original-id': video.id,
