@@ -93,6 +93,7 @@ interface HomeFeedProps {
   onOpenShortStudio?: () => void;
   language: SupportedLanguage;
   onRefreshFeed?: () => Promise<void> | void;
+  isLoading?: boolean;
 }
 
 export const HomeFeed: React.FC<HomeFeedProps> = ({
@@ -106,7 +107,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onOpenReels,
   onOpenShortStudio,
   language,
-  onRefreshFeed
+  onRefreshFeed,
+  isLoading = false
 }) => {
   const { viewerLocation } = useLocation();
   const { user } = useAuth();
@@ -688,6 +690,27 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
       {/* Feed Stream */}
       <div className="w-full space-y-4 sm:space-y-6">
+        {/* Skeleton cards shown while loading */}
+        {isLoading && combinedFeed.length === 0 && (
+          <>
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center gap-2.5 p-3">
+                  <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 animate-skeleton" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-28 bg-slate-200 dark:bg-slate-700 rounded animate-skeleton" />
+                    <div className="h-2.5 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-skeleton" />
+                  </div>
+                </div>
+                <div className="w-full aspect-[4/3] bg-slate-200 dark:bg-slate-800 animate-skeleton" />
+                <div className="p-3 space-y-2">
+                  <div className="h-3 w-3/4 bg-slate-200 dark:bg-slate-700 rounded animate-skeleton" />
+                  <div className="h-3 w-1/2 bg-slate-200 dark:bg-slate-700 rounded animate-skeleton" />
+                </div>
+              </div>
+            ))}
+          </>
+        )}
         {combinedFeed.map(entry => {
           if (entry.type === 'post') {
             const post = entry.item as Post;

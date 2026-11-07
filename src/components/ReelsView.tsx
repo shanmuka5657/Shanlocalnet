@@ -166,6 +166,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const [newCommentInput, setNewCommentInput] = useState('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const preloadRef = useRef<HTMLVideoElement>(null); // preloads the NEXT reel while current plays
   const backgroundAudioRef = useRef<HTMLAudioElement>(null);
   const touchStartY = useRef<number | null>(null);
   const touchStartTime = useRef<number>(0);
@@ -241,6 +242,19 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
       }
     }
   }, [currentIndex]);
+
+  // Preload the NEXT reel in a hidden element so swipe is instant
+  useEffect(() => {
+    const next = reels[currentIndex + 1];
+    if (!next || !preloadRef.current) return;
+    const nextUrl = next.reel.mediaUrl?.includes('.s3.amazonaws.com') && !next.reel.mediaUrl.includes('.s3.ap-southeast-2.amazonaws.com')
+      ? next.reel.mediaUrl.replace('.s3.amazonaws.com', '.s3.ap-southeast-2.amazonaws.com')
+      : next.reel.mediaUrl;
+    if (nextUrl && preloadRef.current.src !== nextUrl) {
+      preloadRef.current.src = nextUrl;
+      preloadRef.current.load();
+    }
+  }, [currentIndex, reels]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < reels.length - 1) {
@@ -494,7 +508,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
                 : activeReel.mediaUrl
             }
             poster={activeReel.mediaThumbnail || (activeReel as any).thumbnailUrl || undefined}
-            preload="metadata"
+            preload="auto"
             loop
             playsInline
             muted={isMuted}
@@ -512,6 +526,15 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             }}
             onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
             className="w-full h-full object-cover cursor-pointer"
+          />
+          {/* Hidden element preloads the NEXT reel so swipe feels instant */}
+          <video
+            ref={preloadRef}
+            preload="auto"
+            muted
+            playsInline
+            aria-hidden="true"
+            className="absolute w-px h-px opacity-0 pointer-events-none"
           />
           {activeReel?.audioTrack?.audioUrl && (
             <audio

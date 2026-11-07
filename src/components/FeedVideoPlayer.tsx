@@ -170,7 +170,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           isPreviewRef.current = false;
         }
       },
-      { threshold: 0.75 }
+      { threshold: 0.4 }
     );
 
     observer.observe(containerRef.current);
@@ -690,7 +690,7 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         loop
         muted={isMuted}
         playsInline
-        preload={isCurrentlyPlaying ? 'auto' : (post.mediaThumbnail ? 'none' : 'metadata')}
+        preload={isCurrentlyPlaying ? 'auto' : 'metadata'}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onDurationChange={handleLoadedMetadata}
@@ -753,9 +753,13 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Buffering Indicator */}
+      {/* Buffering Indicator — shimmer bar at top + spinner */}
       {isBuffering && isCurrentlyPlaying && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none bg-black/20 backdrop-blur-xs">
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          {/* Top loading bar shimmer */}
+          <div className="absolute top-0 left-0 right-0 h-0.5 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-transparent via-amber-400 to-transparent animate-shimmer" />
+          </div>
           <div className="p-3 rounded-full bg-black/60 backdrop-blur-md">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
           </div>

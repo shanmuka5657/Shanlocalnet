@@ -108,3 +108,25 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.18s ease-out forwards;
 }
+
+/* Shimmer — loading bar sweep for video buffering indicator */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.2s ease-in-out infinite;
+  width: 60%;
+}
+
+/* Skeleton pulse — used for feed card placeholders */
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+.animate-skeleton {
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+}

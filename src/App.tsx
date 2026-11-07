@@ -476,6 +476,7 @@ function LocalNetContent() {
             posts={feedPosts}
             ads={feedAds}
             reels={reelsList}
+            isLoading={isLoading}
             activeFeedTab={activeFeedTab}
             onChangeFeedTab={setActiveFeedTab}
             onOpenCreate={() => setIsCreateModalOpen(true)}
