@@ -8,7 +8,7 @@
 
 import { IDatabaseClient } from '../postgresPool.ts';
 import { spawn, execSync } from 'child_process';
-import { existsSync, unlinkSync, readFileSync, mkdirSync } from 'fs';
+import { existsSync, unlinkSync, readFileSync, mkdirSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -142,11 +142,16 @@ function downloadQuery(
   outDir: string
 ): Promise<{ id: string; filepath: string; title: string; duration: number; thumbnail: string }[]> {
   return new Promise((resolve) => {
-    const results: any[] = [];
-    let jsonBuf = '';
-
     const nodePath = findNodePath();
     const jsRuntimeArg = nodePath ? `node:${nodePath}` : 'node';
+
+    // Snapshot existing files before download
+    let existingFiles: Set<string>;
+    try {
+      existingFiles = new Set(readdirSync(outDir).map((f: string) => join(outDir, f)));
+    } catch {
+      existingFiles = new Set();
+    }
 
     const args = [
       `ytsearch${count}:${query}`,
@@ -155,74 +160,69 @@ function downloadQuery(
       '--output', join(outDir, 'yt_%(id)s.%(ext)s'),
       '--match-filter', 'duration<=180',
       '--no-playlist',
-      '--print-json',   // one JSON object per video on stdout after download
+      '--write-info-json',   // writes yt_ID.info.json alongside video file
       '--no-warnings',
+      '--quiet',
     ];
 
-    console.log(`[YT Seeder] Searching: "${query}" (${count} videos) with js-runtime: ${jsRuntimeArg}`);
-    // shell: false avoids Windows path-with-spaces issues — pass binary directly
+    console.log(`[YT Seeder] Searching: "${query}" (${count} videos)`);
     const proc = spawn(ytdlp, args, { shell: false, windowsHide: true });
-
-    proc.stdout?.on('data', (chunk: Buffer) => {
-      jsonBuf += chunk.toString();
-      // Parse complete JSON objects line by line
-      const lines = jsonBuf.split('\n');
-      jsonBuf = lines.pop() || ''; // keep incomplete line in buffer
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('{')) continue;
-        try {
-          const info = JSON.parse(trimmed);
-          const id = info.id;
-          const ext = info.ext || 'mp4';
-          const filename = info._filename || info.filename || join(outDir, `yt_${id}.${ext}`);
-          if (id && existsSync(filename)) {
-            results.push({
-              id,
-              filepath: filename,
-              title: info.fulltitle || info.title || query,
-              duration: parseFloat(info.duration) || 30,
-              thumbnail: info.thumbnail || ''
-            });
-            console.log(`[YT Seeder] ✅ Downloaded: ${info.fulltitle || id} (${info.duration}s)`);
-          }
-        } catch { /* incomplete JSON, wait for more chunks */ }
-      }
-    });
 
     proc.stderr?.on('data', (d: Buffer) => {
       const line = d.toString().trim();
-      if (line && !line.startsWith('[download]') && !line.startsWith('[youtube]') && !line.startsWith('WARNING')) {
+      if (line && !line.startsWith('[download]') && !line.startsWith('[youtube]')) {
         console.warn('[yt-dlp]', line.substring(0, 100));
       }
     });
 
     proc.on('close', (code) => {
-      // Parse any remaining JSON in buffer
-      if (jsonBuf.trim().startsWith('{')) {
-        try {
-          const info = JSON.parse(jsonBuf.trim());
-          const id = info.id;
-          const ext = info.ext || 'mp4';
-          const filename = info._filename || info.filename || join(outDir, `yt_${id}.${ext}`);
-          if (id && existsSync(filename)) {
-            results.push({
-              id,
-              filepath: filename,
-              title: info.fulltitle || info.title || query,
-              duration: parseFloat(info.duration) || 30,
-              thumbnail: info.thumbnail || ''
-            });
+      // Scan directory for NEW video files created during this download
+      const results: any[] = [];
+
+      try {
+        const allFiles = readdirSync(outDir) as string[];
+        const newVideoFiles = allFiles
+          .filter((f: string) => (f.endsWith('.mp4') || f.endsWith('.webm')) && !existingFiles.has(join(outDir, f)));
+
+        for (const filename of newVideoFiles) {
+          const filepath = join(outDir, filename);
+          // Extract video ID from filename: yt_VIDEOID.ext
+          const idMatch = filename.match(/^yt_([^.]+)\.(mp4|webm)$/);
+          if (!idMatch) continue;
+
+          const id = idMatch[1];
+
+          // Read .info.json for metadata if available
+          const infoJsonPath = join(outDir, `yt_${id}.info.json`);
+          let title = query;
+          let duration = 30;
+          let thumbnail = '';
+
+          if (existsSync(infoJsonPath)) {
+            try {
+              const info = JSON.parse(readFileSync(infoJsonPath, 'utf8'));
+              title = info.fulltitle || info.title || query;
+              duration = parseFloat(info.duration) || 30;
+              thumbnail = info.thumbnail || '';
+              // Clean up info.json
+              unlinkSafe(infoJsonPath);
+            } catch {}
           }
-        } catch {}
+
+          results.push({ id, filepath, title, duration, thumbnail });
+          console.log(`[YT Seeder] ✅ Found: ${title.slice(0, 60)} (${duration}s)`);
+        }
+      } catch (err: any) {
+        console.error('[YT Seeder] Dir scan error:', err.message);
       }
-      console.log(`[YT Seeder] Query "${query}": ${results.length} videos downloaded (exit: ${code})`);
+
+      console.log(`[YT Seeder] Query "${query}": ${results.length} videos found (exit: ${code})`);
       resolve(results);
     });
 
     proc.on('error', (err: Error) => {
       console.error('[YT Seeder] Spawn error:', err.message);
-      resolve(results);
+      resolve([]);
     });
   });
 }
