@@ -261,7 +261,7 @@ async function startServer() {
       const [eligiblePosts, eligibleAds, eligibleReels, rawBusinesses, rawMarketplace, rawCommunities] = await Promise.all([
         postsRepo.getFeed(viewer, tab, 30, 0, radiusKm, excludeIds),
         campRepo.getCommercialFeed(viewer),
-        postsRepo.getReels(viewer, 30),
+        postsRepo.getReels(viewer, 30, excludeIds),
         bizRepo.listAll().catch(() => INITIAL_BUSINESSES),
         mktRepo.listListings(viewer?.coords.longitude, viewer?.coords.latitude).catch(() => []),
         commRepo.listCommunities().catch(() => INITIAL_COMMUNITIES)

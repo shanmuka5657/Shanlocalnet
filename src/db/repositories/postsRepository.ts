@@ -199,10 +199,22 @@ export class PostsRepository {
 
   public async getReels(
     viewer: ViewerLocation | null,
-    limit = 30
+    limit = 30,
+    excludeIds: string[] = []   // ← reels already shown in the carousel
   ): Promise<{ reel: Post; eligibility: EligibilityResult }[]> {
     const lon = viewer?.coords.longitude ?? 78.0373;
     const lat = viewer?.coords.latitude ?? 15.8281;
+
+    const params: any[] = [lon, lat];
+    let excludeClause = '';
+
+    const safeExclude = excludeIds.slice(0, 200).filter(id => typeof id === 'string' && id.length > 0);
+    if (safeExclude.length > 0) {
+      const placeholders = safeExclude.map((_, i) => `$${3 + i}`).join(',');
+      excludeClause = `AND p.id NOT IN (${placeholders})`;
+      params.push(...safeExclude);
+    }
+    params.push(limit);
 
     const res = await this.client.query(`
       SELECT
@@ -223,9 +235,10 @@ export class PostsRepository {
       WHERE p.deleted_at IS NULL
         AND p.moderation_status = 'approved'
         AND p.content_type IN ('video', 'reel')
-      ORDER BY p.published_at DESC
-      LIMIT $3;
-    `, [lon, lat, limit]);
+        ${excludeClause}
+      ORDER BY RANDOM()
+      LIMIT $${params.length};
+    `, params);
 
     return res.rows.map((r: any) => {
       const post = this.mapRowToPost(r);
