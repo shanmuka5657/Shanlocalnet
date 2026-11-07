@@ -125,6 +125,12 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   const unseenCount = useMemo(() => countUnseenPosts(posts.map(p => p.post)), [posts]);
 
+  const handleTabChange = (tab: 'global' | 'around_me' | 'following') => {
+    refreshSessionSeed();
+    setShuffleKey(n => n + 1);
+    onChangeFeedTab(tab);
+  };
+
   // Mobile Pull-to-Refresh State
   const [pullDistance, setPullDistance] = useState(0);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
@@ -161,9 +167,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       setIsPullRefreshing(true);
       setPullDistance(56);
       triggerHaptic('success');
-      // Refresh session seed so the feed shows a different order each pull
       refreshSessionSeed();
-      setShuffleKey(k => k + 1);
+      setShuffleKey(n => n + 1);
       try {
         if (onRefreshFeed) {
           await onRefreshFeed();
@@ -473,7 +478,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         <div className="grid grid-cols-4 gap-1 w-full">
           {/* 1. Global / For You Feed */}
           <button
-            onClick={() => { refreshSessionSeed(); setShuffleKey(k => k + 1); onChangeFeedTab('global'); }}
+            onClick={() => handleTabChange('global')}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'global'
               ? 'bg-amber-500 text-slate-950 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -495,7 +500,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
           {/* 3. Around Me (Hyperlocal <= 40km) */}
           <button
-            onClick={() => { refreshSessionSeed(); setShuffleKey(k => k + 1); onChangeFeedTab('around_me'); }}
+            onClick={() => handleTabChange('around_me')}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'around_me'
               ? 'bg-amber-500 text-slate-950 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -507,7 +512,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
           {/* 4. Following */}
           <button
-            onClick={() => { refreshSessionSeed(); setShuffleKey(k => k + 1); onChangeFeedTab('following'); }}
+            onClick={() => handleTabChange('following')}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'following'
               ? 'bg-amber-500 text-slate-950 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
