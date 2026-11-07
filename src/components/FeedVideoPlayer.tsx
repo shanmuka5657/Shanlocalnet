@@ -766,6 +766,16 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         </div>
       )}
 
+      {/* Always-visible playback progress bar at the bottom (YouTube-style red line) */}
+      {isCurrentlyPlaying && effectiveDuration > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 h-[3px] z-10 pointer-events-none bg-white/20">
+          <div
+            className="h-full bg-rose-500"
+            style={{ width: `${progressPercent}%`, transition: 'width 0.25s linear' }}
+          />
+        </div>
+      )}
+
       {/* Large Centre Play Button when Paused and not previewing */}
       {!isCurrentlyPlaying && !isBuffering && !isPreviewPlaying && (
         <div

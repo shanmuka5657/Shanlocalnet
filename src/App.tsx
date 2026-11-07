@@ -416,34 +416,41 @@ function LocalNetContent() {
     loadData();
   };
 
-  // Deep link handler: ?post=xxx or ?reel=xxx + OpenGraph dynamic title updates
+  // Deep link: capture the post ID immediately on mount into a ref,
+  // then open it once posts/reels have loaded (fixes timing race)
+  const pendingDeepLinkRef = useRef<string | null>(null);
+
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const deepPostId = params.get('post') || params.get('reel');
-      if (deepPostId) {
-        const reelIdx = reelsList.findIndex(r => r.reel.id === deepPostId);
-        if (reelIdx !== -1) {
-          setSelectedReelIndex(reelIdx);
-          setIsFullScreenReelsOpen(true);
-          const matchedReel = reelsList[reelIdx]?.reel;
-          if (matchedReel) {
-            document.title = `${matchedReel.title} — LocalNet`;
-          }
-        } else {
-          const feedMatch = feedPosts.find(p => p.post.id === deepPostId);
-          if (feedMatch) {
-            document.title = `${feedMatch.post.title} — LocalNet`;
-            setTimeout(() => {
-              const el = document.getElementById(`feed-post-${deepPostId}`);
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }, 500);
-          }
-        }
-      }
+      const id = params.get('post') || params.get('reel');
+      if (id) pendingDeepLinkRef.current = id;
     } catch {}
+  }, []); // runs once on mount — captures ID before posts arrive
+
+  useEffect(() => {
+    const deepPostId = pendingDeepLinkRef.current;
+    if (!deepPostId) return;
+
+    const reelIdx = reelsList.findIndex(r => r.reel.id === deepPostId);
+    if (reelIdx !== -1) {
+      pendingDeepLinkRef.current = null;
+      setSelectedReelIndex(reelIdx);
+      setIsFullScreenReelsOpen(true);
+      const matchedReel = reelsList[reelIdx]?.reel;
+      if (matchedReel) document.title = `${matchedReel.title} — LocalNet`;
+      return;
+    }
+
+    const feedMatch = feedPosts.find(p => p.post.id === deepPostId);
+    if (feedMatch) {
+      pendingDeepLinkRef.current = null;
+      document.title = `${feedMatch.post.title} — LocalNet`;
+      setTimeout(() => {
+        const el = document.getElementById(`feed-post-${deepPostId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 600);
+    }
   }, [reelsList, feedPosts]);
 
   return (
