@@ -1922,10 +1922,9 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
 
     const ytdlp = findYtDlp();
     if (!ytdlp) {
-      return res.status(503).json({
-        error: 'yt-dlp not available on this server. Stream proxy only works on localhost.',
-        fallback: true
-      });
+      // On Vercel / servers without yt-dlp: redirect to YouTube embed
+      // FeedVideoPlayer will switch to iframe mode automatically on error
+      return res.redirect(302, `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1`);
     }
 
     const nodePath = findNodePath();

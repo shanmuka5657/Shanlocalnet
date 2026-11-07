@@ -49,6 +49,9 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const [showControls, setShowControls] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
   const [hasError, setHasError] = useState(false);
+  // When the proxy stream fails (Vercel/no yt-dlp), fall back to YouTube iframe
+  const [useYouTubeIframe, setUseYouTubeIframe] = useState(false);
+  const [youtubeSrc, setYoutubeSrc] = useState('');
   const [doubleTapHeart, setDoubleTapHeart] = useState<{ x: number; y: number } | null>(null);
   const [centerIconFlash, setCenterIconFlash] = useState<'play' | 'pause' | null>(null);
   const [skipAnimation, setSkipAnimation] = useState<'backward' | 'forward' | null>(null);
@@ -539,6 +542,26 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   const effectiveDuration = duration || post.videoDurationSeconds || 0;
   const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
 
+  // ── YouTube iframe fallback (proxy failed on Vercel / no yt-dlp) ─────────
+  if (useYouTubeIframe && youtubeSrc) {
+    return (
+      <div className={`relative w-full aspect-[4/3] max-h-[560px] bg-black overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50 h-screen w-screen max-h-none aspect-auto' : ''}`}>
+        <iframe
+          src={youtubeSrc}
+          allow="autoplay; encrypted-media; fullscreen"
+          allowFullScreen
+          className="w-full h-full border-0"
+          title={post.title}
+        />
+        {/* Small badge showing YouTube fallback mode */}
+        <div className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-bold flex items-center gap-1 pointer-events-none">
+          <svg className="w-3 h-3 fill-red-500" viewBox="0 0 24 24"><path d="M21.582 7.186a2.506 2.506 0 0 0-1.762-1.774C18.254 5 12 5 12 5s-6.254 0-7.82.412A2.506 2.506 0 0 0 2.418 7.186 26.26 26.26 0 0 0 2 12a26.26 26.26 0 0 0 .418 4.814 2.506 2.506 0 0 0 1.762 1.774C5.746 19 12 19 12 19s6.254 0 7.82-.412a2.506 2.506 0 0 0 1.762-1.774A26.26 26.26 0 0 0 22 12a26.26 26.26 0 0 0-.418-4.814zM10 15V9l5.2 3-5.2 3z"/></svg>
+          YouTube
+        </div>
+      </div>
+    );
+  }
+
   if (hasError || !post.mediaUrl) {
     return (
       <div
@@ -649,7 +672,19 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => setIsBuffering(false)}
         onCanPlay={() => setIsBuffering(false)}
-        onError={() => setHasError(true)}
+        onError={() => {
+          // If this is a proxy-stream URL that failed (e.g. on Vercel without yt-dlp),
+          // extract the YouTube ID and fall back to an iframe embed automatically.
+          const url = post.mediaUrl || '';
+          const proxyMatch = url.match(/[?&]id=([a-zA-Z0-9_-]{8,15})/);
+          if (url.includes('/api/proxy-stream') && proxyMatch?.[1]) {
+            const ytId = proxyMatch[1];
+            setYoutubeSrc(`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`);
+            setUseYouTubeIframe(true);
+          } else {
+            setHasError(true);
+          }
+        }}
         onClick={handleStageClick}
         className={`w-full h-full cursor-pointer ${isFullscreen ? 'max-h-screen object-contain' : 'object-cover'
           }`}
