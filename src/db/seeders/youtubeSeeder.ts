@@ -22,6 +22,15 @@ const YTDLP_PATHS = [
   '/usr/bin/yt-dlp',
 ];
 
+// Common Node.js locations for --js-runtimes flag
+const NODE_PATHS = [
+  'C:\\Program Files\\nodejs\\node.exe',
+  'C:\\Program Files (x86)\\nodejs\\node.exe',
+  '/usr/local/bin/node',
+  '/usr/bin/node',
+  'node',
+];
+
 // ── Telugu / Indian Entertainment search queries ──────────────────────────
 export const TELUGU_QUERIES = [
   // Telugu dance
@@ -114,6 +123,17 @@ export function findYtDlp(): string | null {
   return null;
 }
 
+// ── Find Node.js binary for yt-dlp --js-runtimes ─────────────────────────
+function findNodePath(): string | null {
+  for (const p of NODE_PATHS) {
+    try {
+      execSync(`"${p}" --version`, { stdio: 'ignore' });
+      return p;
+    } catch {}
+  }
+  return null;
+}
+
 // ── Download a batch of videos for a search query ─────────────────────────
 function downloadQuery(
   ytdlp: string,
@@ -125,52 +145,81 @@ function downloadQuery(
     const results: any[] = [];
     let jsonBuf = '';
 
+    const nodePath = findNodePath();
+    const jsRuntimeArg = nodePath ? `node:${nodePath}` : 'node';
+
     const args = [
       `ytsearch${count}:${query}`,
-      '--format', 'mp4[height<=720][ext=mp4]/mp4[height<=480]/best[ext=mp4]/best',
+      '--js-runtimes', jsRuntimeArg,
+      '--format', 'mp4[height<=480][ext=mp4]/best[height<=480]/best[ext=mp4]/best',
       '--output', `${outDir}\\yt_%(id)s.%(ext)s`,
-      '--match-filter', 'duration<=180',   // max 3 min
+      '--match-filter', 'duration<=180',
       '--no-playlist',
-      '--print', 'id,title,duration,thumbnail',
-      '--no-write-info-json',
-      '--quiet',
+      '--print-json',   // one JSON object per video on stdout after download
       '--no-warnings',
-      '--concurrent-fragments', '4',
     ];
 
-    console.log(`[YT Seeder] Downloading: "${query}" (${count} videos)...`);
-    const proc = spawn(`"${ytdlp}"`, args, { shell: true });
+    console.log(`[YT Seeder] Searching: "${query}" (${count} videos) with js-runtime: ${jsRuntimeArg}`);
+    const proc = spawn(`"${ytdlp}"`, args, { shell: true, windowsHide: true });
 
-    proc.stdout?.on('data', (chunk) => {
+    proc.stdout?.on('data', (chunk: Buffer) => {
       jsonBuf += chunk.toString();
+      // Parse complete JSON objects line by line
+      const lines = jsonBuf.split('\n');
+      jsonBuf = lines.pop() || ''; // keep incomplete line in buffer
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('{')) continue;
+        try {
+          const info = JSON.parse(trimmed);
+          const id = info.id;
+          const ext = info.ext || 'mp4';
+          const filename = info._filename || info.filename || join(outDir, `yt_${id}.${ext}`);
+          if (id && existsSync(filename)) {
+            results.push({
+              id,
+              filepath: filename,
+              title: info.fulltitle || info.title || query,
+              duration: parseFloat(info.duration) || 30,
+              thumbnail: info.thumbnail || ''
+            });
+            console.log(`[YT Seeder] ✅ Downloaded: ${info.fulltitle || id} (${info.duration}s)`);
+          }
+        } catch { /* incomplete JSON, wait for more chunks */ }
+      }
     });
 
-    proc.stderr?.on('data', (d) => {
+    proc.stderr?.on('data', (d: Buffer) => {
       const line = d.toString().trim();
-      if (line && !line.startsWith('[') && !line.includes('WARNING')) {
-        console.warn('[yt-dlp stderr]', line.substring(0, 120));
+      if (line && !line.startsWith('[download]') && !line.startsWith('[youtube]') && !line.startsWith('WARNING')) {
+        console.warn('[yt-dlp]', line.substring(0, 100));
       }
     });
 
-    proc.on('close', () => {
-      // Parse the printed info (4 lines per video: id, title, duration, thumbnail)
-      const lines = jsonBuf.trim().split('\n').map(l => l.trim()).filter(Boolean);
-      for (let i = 0; i + 3 < lines.length; i += 4) {
-        const id = lines[i];
-        const title = lines[i + 1];
-        const duration = parseFloat(lines[i + 2]) || 30;
-        const thumbnail = lines[i + 3];
-        const mp4 = join(outDir, `yt_${id}.mp4`);
-        const webm = join(outDir, `yt_${id}.webm`);
-        const filepath = existsSync(mp4) ? mp4 : existsSync(webm) ? webm : null;
-        if (filepath) {
-          results.push({ id, filepath, title: title || query, duration, thumbnail });
-        }
+    proc.on('close', (code) => {
+      // Parse any remaining JSON in buffer
+      if (jsonBuf.trim().startsWith('{')) {
+        try {
+          const info = JSON.parse(jsonBuf.trim());
+          const id = info.id;
+          const ext = info.ext || 'mp4';
+          const filename = info._filename || info.filename || join(outDir, `yt_${id}.${ext}`);
+          if (id && existsSync(filename)) {
+            results.push({
+              id,
+              filepath: filename,
+              title: info.fulltitle || info.title || query,
+              duration: parseFloat(info.duration) || 30,
+              thumbnail: info.thumbnail || ''
+            });
+          }
+        } catch {}
       }
+      console.log(`[YT Seeder] Query "${query}": ${results.length} videos downloaded (exit: ${code})`);
       resolve(results);
     });
 
-    proc.on('error', (err) => {
+    proc.on('error', (err: Error) => {
       console.error('[YT Seeder] Spawn error:', err.message);
       resolve(results);
     });
