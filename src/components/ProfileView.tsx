@@ -40,7 +40,166 @@ interface ProfileViewProps {
   onOpenLab: () => void;
 }
 
-// ── YouTube Seeder Admin Panel ─────────────────────────────────────────────
+// ── Stream Mode Seeder Panel (Option B — Instant, no download) ────────────
+const StreamSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
+  const [customSearch, setCustomSearch] = useState('');
+  const [targetCount, setTargetCount] = useState(50);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [progress, setProgress] = useState<any>(null);
+  const [message, setMessage] = useState('');
+  const [ytdlpOk, setYtdlpOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/stream-status')
+      .then(r => r.json())
+      .then(d => setYtdlpOk(d.ytdlpInstalled))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!isPolling) return;
+    const iv = setInterval(async () => {
+      try {
+        const d = await fetch('/api/admin/stream-status').then(r => r.json());
+        setProgress(d.progress);
+        if (d.progress?.isComplete) {
+          setIsPolling(false);
+          setMessage(`✅ Done! ${d.progress.inserted?.toLocaleString()} videos added. They stream on-demand — no S3 needed.`);
+        }
+      } catch {}
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [isPolling]);
+
+  const handleStart = async () => {
+    setIsStarting(true);
+    setMessage('');
+    try {
+      const customQueries = customSearch.trim()
+        ? customSearch.split(',').map(q => q.trim()).filter(Boolean)
+        : undefined;
+      const res = await fetch('/api/admin/seed-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ targetCount, customQueries })
+      });
+      const data = await res.json();
+      if (!res.ok) { setMessage(`❌ ${data.error}`); return; }
+      setMessage(`🚀 ${data.message}`);
+      setIsPolling(true);
+    } catch (err: any) {
+      setMessage(`❌ ${err.message}`);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border-2 border-emerald-400/60 dark:border-emerald-600/40 shadow-sm space-y-4">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 shadow">
+          <Zap className="w-4 h-4 text-white fill-white" />
+        </div>
+        <div>
+          <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+            Stream Mode
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">INSTANT • NO DOWNLOAD</span>
+          </h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+            Saves only metadata — videos stream live via /api/proxy-stream on play
+          </p>
+        </div>
+      </div>
+
+      {/* How it works */}
+      <div className="grid grid-cols-3 gap-2 text-center">
+        {[
+          { icon: '🔍', label: 'Search', desc: 'yt-dlp finds videos' },
+          { icon: '💾', label: 'Save metadata', desc: 'Title + thumbnail only' },
+          { icon: '▶️', label: 'Stream', desc: 'Live proxy on play' },
+        ].map(s => (
+          <div key={s.label} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-2 space-y-0.5">
+            <p className="text-lg">{s.icon}</p>
+            <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{s.label}</p>
+            <p className="text-[9px] text-slate-400">{s.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* yt-dlp status */}
+      {ytdlpOk !== null && (
+        <div className={`text-xs px-3 py-2 rounded-xl flex items-center gap-2 ${ytdlpOk ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'}`}>
+          {ytdlpOk ? '✅ yt-dlp ready — stream mode available' : '❌ yt-dlp not found. Run: pip install yt-dlp'}
+        </div>
+      )}
+
+      {/* Custom search */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          🔍 Custom Search <span className="font-normal text-slate-400">(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={customSearch}
+          onChange={e => setCustomSearch(e.target.value)}
+          placeholder="e.g. BigBoss Telugu, Allu Arjun, Pawan Kalyan..."
+          className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+        />
+      </div>
+
+      {/* Count */}
+      <div className="space-y-2">
+        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Videos to index:</span>
+        <div className="flex flex-wrap gap-1.5">
+          {[25, 50, 100, 200, 500].map(n => (
+            <button key={n} onClick={() => setTargetCount(n)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${targetCount === n ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}>
+              {n}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-400">⚡ ~{Math.ceil(targetCount / 8 * 0.5)}s — instant vs {Math.ceil(targetCount * 0.5)} min for download mode</p>
+      </div>
+
+      {/* Progress */}
+      {progress && !progress.isComplete && (
+        <div className="space-y-1.5 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+          <div className="flex justify-between text-[11px] font-mono">
+            <span>{progress.inserted?.toLocaleString()} / {progress.totalTarget?.toLocaleString()}</span>
+            <span>{progress.percentDone}%</span>
+          </div>
+          <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div style={{ width: `${progress.percentDone || 0}%` }} className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all" />
+          </div>
+          <p className="text-[10px] text-slate-400 truncate">📺 {progress.currentQuery}</p>
+        </div>
+      )}
+
+      {/* Message */}
+      {message && (
+        <p className={`text-xs font-semibold rounded-xl p-3 ${message.startsWith('✅') ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : message.startsWith('❌') ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'}`}>
+          {message}
+        </p>
+      )}
+
+      <button
+        onClick={handleStart}
+        disabled={isStarting || isPolling || !ytdlpOk}
+        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-black text-sm rounded-xl shadow flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+      >
+        {isPolling ? (
+          <><span className="animate-spin">⚙️</span> Indexing {targetCount} videos...</>
+        ) : isStarting ? 'Starting...' : (
+          <><Zap className="w-4 h-4 fill-white" /> Index {targetCount} Videos (Stream Mode)</>
+        )}
+      </button>
+    </div>
+  );
+};
+
+// ── YouTube Download Seeder Panel ──────────────────────────────────────────
 const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
   const [targetCount, setTargetCount] = useState(50);
   const [customSearch, setCustomSearch] = useState('');   // ← new: custom search input
@@ -1114,7 +1273,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {activeTab === 'admin_audit' && isAdmin && (
         <div className="space-y-4">
 
-          {/* ── YouTube Seeder Panel (Primary — Real Telugu content) ─────── */}
+          {/* ── Stream Mode Seeder (NEW — Instant, No Download) ──────────── */}
+          <StreamSeederPanel userId={user?.id || ''} />
+
+          {/* ── YouTube Seeder Panel (Download to S3) ────────────────────── */}
           <YouTubeSeederPanel userId={user?.id || ''} />
 
           {/* ── Pixabay Seeder Panel (Backup — fast bulk seeding) ────────── */}

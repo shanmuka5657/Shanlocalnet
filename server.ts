@@ -117,6 +117,7 @@ import { AuditRepository, GeoDecisionRecord } from './src/db/repositories/auditR
 import { RidesRepository } from './src/db/repositories/ridesRepository.ts';
 import { seedVideos, getSeedProgress, isSeederRunning } from './src/db/seeders/pexelsVideoSeeder.ts';
 import { seedFromYouTube, getYTProgress, isYTRunning, findYtDlp, findNodePath, TELUGU_QUERIES } from './src/db/seeders/youtubeSeeder.ts';
+import { seedStreamMetadata, getStreamProgress, isStreamRunning } from './src/db/seeders/youtubeStreamSeeder.ts';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import {
@@ -2156,6 +2157,58 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
       ytdlpPath,
       queries: parsedQueries || 'default Telugu categories',
       estimatedMinutes: Math.ceil(count * 0.5),
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // STREAM SEEDER API — metadata-only seeding via proxy stream
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // GET /api/admin/stream-status — check stream seeder status
+  app.get('/api/admin/stream-status', (_req: Request, res: Response) => {
+    res.json({
+      running: isStreamRunning(),
+      progress: getStreamProgress(),
+      ytdlpInstalled: !!findYtDlp(),
+    });
+  });
+
+  // POST /api/admin/seed-stream — seed metadata only, no download/S3
+  // Body: { targetCount: 50, customQueries: ['biryani', 'bigboss Telugu'] }
+  app.post('/api/admin/seed-stream', async (req: Request, res: Response) => {
+    const requestingUserId = req.headers['x-user-id'] as string;
+    const isAdmin = requestingUserId ? await usersRepo.isAdmin(requestingUserId).catch(() => false) : false;
+    if (!isAdmin) return res.status(403).json({ error: 'Admin only' });
+
+    if (!findYtDlp()) {
+      return res.status(500).json({ error: 'yt-dlp not installed. Run: pip install yt-dlp' });
+    }
+    if (isStreamRunning()) {
+      return res.status(409).json({ error: 'Stream seeder already running.', progress: getStreamProgress() });
+    }
+
+    const { targetCount = 50, customQueries } = req.body;
+    const count = Math.min(500, Math.max(1, parseInt(targetCount as any, 10) || 50));
+
+    let parsedQueries: string[] | undefined;
+    if (customQueries) {
+      parsedQueries = Array.isArray(customQueries)
+        ? customQueries.map((q: string) => q.trim()).filter(Boolean)
+        : String(customQueries).split(',').map((q: string) => q.trim()).filter(Boolean);
+    }
+
+    // Run in background — instant response
+    seedStreamMetadata(db, count, parsedQueries).catch(err => {
+      console.error('[Admin] Stream seed error:', err.message);
+    });
+
+    const label = parsedQueries?.join(', ') || 'default Telugu categories';
+    res.json({
+      success: true,
+      mode: 'stream-proxy',
+      message: `Seeding metadata for ${count} videos (${label}). Videos stream on-demand via /api/proxy-stream.`,
+      estimatedSeconds: Math.ceil(count / 8 * 0.5),
+      note: 'No download or S3 upload — instant seeding!'
     });
   });
 
