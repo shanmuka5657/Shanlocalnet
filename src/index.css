@@ -95,6 +95,23 @@ body {
   animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Small slide-up — for toasts */
+@keyframes slideUpSm {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up-sm {
+  animation: slideUpSm 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -118,6 +135,27 @@ body {
 .animate-shimmer {
   animation: shimmer 1.2s ease-in-out infinite;
   width: 60%;
+}
+
+/* Slow spin — for toast refresh icon */
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Ripple/blink for double-tap like animation */
+.animate-ping {
+  animation: ping 0.65s cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 
 /* Skeleton pulse — used for feed card placeholders */

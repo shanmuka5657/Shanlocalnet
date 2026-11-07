@@ -212,6 +212,26 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const [isMuted, setIsMuted] = useState(true);
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
 
+  // Auto-advance to next video when current ends
+  const handleVideoEnded = (postId: string) => {
+    const idx = personalizedPosts.findIndex(p => p.post.id === postId);
+    if (idx !== -1 && idx < personalizedPosts.length - 1) {
+      const nextId = personalizedPosts[idx + 1].post.id;
+      setPlayingVideoId(nextId);
+    }
+  };
+
+  // "New content available" toast
+  const [showNewContentToast, setShowNewContentToast] = useState(false);
+  const prevUnseenCount = React.useRef(unseenCount);
+  React.useEffect(() => {
+    if (unseenCount > prevUnseenCount.current && unseenCount > 0) {
+      setShowNewContentToast(true);
+      setTimeout(() => setShowNewContentToast(false), 4000);
+    }
+    prevUnseenCount.current = unseenCount;
+  }, [unseenCount]);
+
   // Dynamically update audio muted state across all playing HTML5 video elements
   React.useEffect(() => {
     document.querySelectorAll('video').forEach((v) => {
@@ -471,6 +491,29 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   ? 'Release to refresh'
                   : 'Pull down to refresh'}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* New Content Available Toast */}
+      {showNewContentToast && unseenCount > 0 && (
+        <div className="w-full animate-slide-up-sm">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-3 shadow-lg text-white flex items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-md">
+                <RefreshCw className="w-4 h-4 animate-spin-slow" />
+              </div>
+              <div>
+                <p className="text-xs font-bold">New content available!</p>
+                <p className="text-[10px] text-white/90">{unseenCount} new video{unseenCount > 1 ? 's' : ''} just posted</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { refreshSessionSeed(); setShuffleKey(n => n + 1); setShowNewContentToast(false); }}
+              className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md transition-colors"
+            >
+              Refresh feed
+            </button>
           </div>
         </div>
       )}
@@ -841,6 +884,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                       onWatch50={(id) => {
                         updateInterests(post, 'watch50');
                       }}
+                      onVideoEnded={handleVideoEnded}
                     />
                   ) : post.mediaUrl ? (
                     <div

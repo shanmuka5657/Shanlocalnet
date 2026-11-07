@@ -29,6 +29,8 @@ interface FeedVideoPlayerProps {
   onVideoSeen?: (postId: string) => void;
   /** Called once when ≥ 50% of the video has been watched */
   onWatch50?: (postId: string) => void;
+  /** Called when the video completes playback */
+  onVideoEnded?: (postId: string) => void;
 }
 
 export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
@@ -40,7 +42,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   onDoubleTapLike,
   isLiked,
   onVideoSeen,
-  onWatch50
+  onWatch50,
+  onVideoEnded
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -709,6 +712,10 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           } else {
             setHasError(true);
           }
+        }}
+        onEnded={() => {
+          // Auto-advance to next video if available
+          if (onVideoEnded) onVideoEnded(post.id);
         }}
         onClick={handleStageClick}
         className={`w-full h-full cursor-pointer ${isFullscreen ? 'max-h-screen object-contain' : 'object-cover'
