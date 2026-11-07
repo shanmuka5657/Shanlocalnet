@@ -179,14 +179,14 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     };
   }, []);
 
-  // Controls auto-hide timer
-  const resetControlsTimer = useCallback(() => {
+  // Controls auto-hide timer (3.5 seconds so user has comfortable time to use controls)
+  const resetControlsTimer = useCallback((delayMs = 3500) => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     if (isCurrentlyPlaying) {
       controlsTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
-      }, 3000);
+      }, delayMs);
     }
   }, [isCurrentlyPlaying]);
 
@@ -460,13 +460,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           setTimeout(() => setCenterIconFlash(null), 600);
           resetControlsTimer();
         } else {
-          // In full-play mode: tap toggles control visibility. Never reset or restart video.
-          if (showControlsRef.current) {
-            setShowControls(false);
-            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-          } else {
-            resetControlsTimer();
-          }
+          // In full-play mode: tap shows controls for 3.5s so user can use skip, pause, volume, etc.
+          resetControlsTimer();
         }
       }, 220);
     }
@@ -570,19 +565,13 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       onKeyDown={handleKeyDown}
       onMouseMove={resetControlsTimer}
       onTouchStart={() => {
-        // FIX: record the timestamp of every real touch event.
-        // onMouseEnter checks this and skips the preview-reset logic
-        // if a touch happened within the last 500 ms (synthesized event).
         lastTouchTimeRef.current = Date.now();
-        setShowControls(true);
+        resetControlsTimer();
       }}
       onMouseEnter={() => {
-        setShowControls(true);
-        // FIX: if a touch happened within the last 500 ms, this is a
-        // synthesized mouseenter fired by the browser after a tap — not a
-        // real desktop hover. Skip the preview-restart logic entirely.
-        const touchedRecently = Date.now() - lastTouchTimeRef.current < 500;
+        const touchedRecently = Date.now() - lastTouchTimeRef.current < 4000;
         if (touchedRecently) return;
+        setShowControls(true);
 
         // Real desktop mouse hover → start muted 5 s preview from the
         // beginning ONLY if the video hasn't been watched yet.
@@ -600,6 +589,10 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         }
       }}
       onMouseLeave={() => {
+        // Skip synthetic mouseleave fired on touch devices
+        const touchedRecently = Date.now() - lastTouchTimeRef.current < 4000;
+        if (touchedRecently) return;
+
         if (isCurrentlyPlaying) {
           setShowControls(false);
         } else if (isPreviewPlaying || isPreviewRef.current) {
@@ -777,6 +770,14 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
 
       {/* Bottom Controls Bar (YouTube/Instagram Frosted Glass) */}
       <div
+        onClick={(e) => {
+          e.stopPropagation();
+          resetControlsTimer();
+        }}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          resetControlsTimer();
+        }}
         className={`absolute bottom-0 left-0 right-0 z-20 pt-8 pb-2.5 px-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
       >
