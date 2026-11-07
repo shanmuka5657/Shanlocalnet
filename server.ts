@@ -118,6 +118,7 @@ import { RidesRepository } from './src/db/repositories/ridesRepository.ts';
 import { seedVideos, getSeedProgress, isSeederRunning } from './src/db/seeders/pexelsVideoSeeder.ts';
 import { seedFromYouTube, getYTProgress, isYTRunning, findYtDlp, findNodePath, TELUGU_QUERIES } from './src/db/seeders/youtubeSeeder.ts';
 import { seedStreamMetadata, getStreamProgress, isStreamRunning } from './src/db/seeders/youtubeStreamSeeder.ts';
+import { seedTeluguBulk, getBulkProgress, isBulkRunning, stopBulkSeed } from './src/db/seeders/teluguBulkSeeder.ts';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import {
@@ -2236,6 +2237,89 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
       queries: parsedQueries || 'default Telugu categories',
       estimatedMinutes: Math.ceil(count * 0.5),
     });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // TELUGU BULK SEEDER — parallel worker pool, 10,000 video target
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // POST /api/admin/telugu-bulk-seed  { target, workers }
+  app.post('/api/admin/telugu-bulk-seed', async (req: Request, res: Response) => {
+    const requestingUserId = req.headers['x-user-id'] as string;
+    if (!requestingUserId) {
+      return res.status(401).json({ error: 'Authentication required. Send x-user-id header.' });
+    }
+    const isAdmin = await usersRepo.isAdmin(requestingUserId).catch(() => false);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Only platform_admin users can run the bulk seeder.' });
+    }
+
+    if (isBulkRunning()) {
+      return res.status(409).json({
+        error: 'Bulk seeder already running.',
+        progress: getBulkProgress(),
+      });
+    }
+
+    const ytdlpPath = findYtDlp();
+    if (!ytdlpPath) {
+      return res.status(500).json({
+        error: 'yt-dlp not installed.',
+        fix: 'Run: pip install yt-dlp  then restart the server.',
+      });
+    }
+
+    const s3Config = {
+      bucket:          process.env.AWS_S3_BUCKET || '',
+      region:          process.env.AWS_REGION || 'ap-southeast-2',
+      accessKeyId:     process.env.AWS_ACCESS_KEY_ID || '',
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+    };
+
+    if (!s3Config.bucket || !s3Config.accessKeyId) {
+      return res.status(500).json({
+        error: 'AWS S3 not configured.',
+        fix: 'Check AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY in .env',
+      });
+    }
+
+    const target    = Math.min(50000, Math.max(100, parseInt(req.body?.target  ?? 10000, 10) || 10000));
+    const workers   = Math.min(15,    Math.max(1,   parseInt(req.body?.workers ?? 10,    10) || 10));
+
+    // Run fully in background — long-running process
+    seedTeluguBulk(db, s3Config, target, workers).catch(err => {
+      console.error('[Admin] Telugu bulk seed error:', err.message);
+    });
+
+    // Rough estimate: ~25 s/video with N workers in parallel
+    const estHours = ((target * 25) / workers / 3600).toFixed(1);
+
+    res.json({
+      success: true,
+      message: `Telugu bulk seeder started: ${target} videos, ${workers} parallel workers.`,
+      target,
+      workers,
+      estimatedHours: estHours,
+      queries: 260,
+      durationFilter: '90–210 seconds (≈2–3.5 min)',
+      progressEndpoint: '/api/admin/telugu-bulk-progress',
+      stopEndpoint:     'POST /api/admin/telugu-bulk-stop',
+    });
+  });
+
+  // GET /api/admin/telugu-bulk-progress — live progress polling
+  app.get('/api/admin/telugu-bulk-progress', (req: Request, res: Response) => {
+    res.json(getBulkProgress());
+  });
+
+  // POST /api/admin/telugu-bulk-stop — graceful shutdown
+  app.post('/api/admin/telugu-bulk-stop', async (req: Request, res: Response) => {
+    const requestingUserId = req.headers['x-user-id'] as string;
+    const isAdmin = await usersRepo.isAdmin(requestingUserId).catch(() => false);
+    if (!isAdmin) return res.status(403).json({ error: 'Admins only.' });
+
+    stopBulkSeed();
+    res.json({ success: true, message: 'Stop requested. Workers will finish their current video.' });
   });
 
   // ═══════════════════════════════════════════════════════════════════════
