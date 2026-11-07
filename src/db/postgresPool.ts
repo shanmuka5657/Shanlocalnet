@@ -267,6 +267,11 @@ export async function initDatabase(options?: { forceMemory?: boolean; customData
         max: 20,
       });
 
+      // Prevent ECONNRESET on idle connections from crashing the entire process
+      pool.on('error', (err: Error) => {
+        console.warn('[DB Pool] Idle client error (safe to ignore):', err.message);
+      });
+
       // Probe connection with timeout
       const probeRes = await pool.query('SELECT 1 as connected;');
       if (probeRes.rows[0]?.connected === 1) {

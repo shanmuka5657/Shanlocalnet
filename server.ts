@@ -2322,6 +2322,13 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     res.json({ success: true, message: 'Stop requested. Workers will finish their current video.' });
   });
 
+  // GET /seeder — live seeder dashboard (served before Vite so it is never intercepted)
+  app.get('/seeder', (_req: Request, res: Response) => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'seeder-dashboard.html'), 'utf8');
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  });
+
   // ═══════════════════════════════════════════════════════════════════════
   // STREAM SEEDER API — metadata-only seeding via proxy stream
   // ═══════════════════════════════════════════════════════════════════════
@@ -2500,6 +2507,11 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
   // VITE DEV MIDDLEWARE / STATIC FILES (Local / Non-Vercel environment)
   // -------------------------------------------------------------------------
   if (!process.env.VERCEL) {
+    // Explicit route for seeder dashboard — must be before Vite middleware
+    app.get('/seeder-dashboard', (_req: Request, res: Response) => {
+      res.sendFile(path.join(__dirname, 'public', 'seeder-dashboard.html'));
+    });
+
     if (process.env.NODE_ENV !== 'production') {
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
