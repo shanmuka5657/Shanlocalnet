@@ -2322,11 +2322,95 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     res.json({ success: true, message: 'Stop requested. Workers will finish their current video.' });
   });
 
-  // GET /seeder — live seeder dashboard (served before Vite so it is never intercepted)
-  app.get('/seeder', (_req: Request, res: Response) => {
-    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'seeder-dashboard.html'), 'utf8');
+  // GET /api/seeder — live seeder dashboard (under /api prefix, never intercepted by Vite SPA)
+  app.get('/api/seeder', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/html');
-    res.send(html);
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LocalNet Seeder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f0f0f;color:#e5e5e5;padding:20px}
+h1{font-size:1.3rem;font-weight:800;color:#f97316;display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.dot{width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite}
+.dot.off{background:#ef4444;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:14px;text-align:center}
+.card .v{font-size:1.9rem;font-weight:900;line-height:1;margin-bottom:3px}
+.card .l{font-size:.65rem;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.green .v{color:#22c55e}.amber .v{color:#f59e0b}.blue .v{color:#60a5fa}.red .v{color:#f87171}.purple .v{color:#a78bfa}
+.box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:18px;margin-bottom:18px}
+.box h2{font-size:.7rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+.ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.ph .pct{font-size:1.2rem;font-weight:900;color:#f97316}
+.track{background:#2a2a2a;border-radius:99px;height:12px;overflow:hidden}
+.fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#f97316,#ef4444);transition:width .6s ease;min-width:4px}
+.worker{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #222}
+.worker:last-child{border-bottom:none}
+.wid{width:26px;height:26px;border-radius:7px;background:#2a2a2a;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;color:#f97316;flex-shrink:0}
+.wi{flex:1;min-width:0}
+.wq{font-size:.75rem;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws{font-size:.65rem;color:#666;margin-top:2px}
+.wst{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:99px;flex-shrink:0}
+.searching{background:#1d4ed8;color:#bfdbfe}.uploading{background:#065f46;color:#6ee7b7}.idle{background:#292524;color:#78716c}.done{background:#374151;color:#9ca3af}
+#ts{text-align:center;font-size:.65rem;color:#444;margin-top:8px}
+</style>
+</head>
+<body>
+<h1><div class="dot" id="dot"></div>LocalNet Seeder Dashboard</h1>
+<div class="cards">
+  <div class="card green"><div class="v" id="up">–</div><div class="l">Uploaded</div></div>
+  <div class="card amber"><div class="v" id="tgt">–</div><div class="l">Target</div></div>
+  <div class="card blue"><div class="v" id="sk">–</div><div class="l">Skipped</div></div>
+  <div class="card red"><div class="v" id="fl">–</div><div class="l">Failed</div></div>
+  <div class="card purple"><div class="v" id="eta">–</div><div class="l">ETA (min)</div></div>
+  <div class="card amber"><div class="v" id="el">–</div><div class="l">Elapsed (min)</div></div>
+</div>
+<div class="box">
+  <div class="ph"><span style="font-size:.85rem;font-weight:700;color:#ccc">Progress</span><span class="pct" id="pct">0%</span></div>
+  <div class="track"><div class="fill" id="bar" style="width:0%"></div></div>
+</div>
+<div class="box">
+  <h2>10 Workers</h2>
+  <div id="wlist">Loading…</div>
+</div>
+<div id="ts">Refreshing every 3 seconds…</div>
+<script>
+async function tick(){
+  try{
+    const p=await(await fetch('/api/admin/telugu-bulk-progress')).json();
+    document.getElementById('dot').className='dot'+(p.isRunning?'':' off');
+    document.getElementById('up').textContent=(p.totalUploaded||0).toLocaleString();
+    document.getElementById('tgt').textContent=(p.target||0).toLocaleString();
+    document.getElementById('sk').textContent=(p.totalSkipped||0).toLocaleString();
+    document.getElementById('fl').textContent=(p.totalFailed||0).toLocaleString();
+    document.getElementById('eta').textContent=p.estimatedMinutesLeft>998?'...': (p.estimatedMinutesLeft||0).toLocaleString();
+    document.getElementById('el').textContent=(p.elapsedMinutes||0).toLocaleString();
+    const pct=p.percentDone||0;
+    document.getElementById('pct').textContent=pct+'%';
+    document.getElementById('bar').style.width=Math.max(pct,.5)+'%';
+    if(p.workers&&p.workers.length){
+      document.getElementById('wlist').innerHTML=p.workers.map(w=>\`
+        <div class="worker">
+          <div class="wid">W\${w.id}</div>
+          <div class="wi">
+            <div class="wq">\${w.query||'(idle)'}</div>
+            <div class="ws">↑ \${w.uploaded} uploaded &nbsp; ✗ \${w.failed} failed</div>
+          </div>
+          <span class="wst \${w.status}">\${w.status}</span>
+        </div>\`).join('');
+    }
+    document.getElementById('ts').textContent='Updated: '+new Date().toLocaleTimeString();
+  }catch(e){document.getElementById('ts').textContent='Server unreachable — '+new Date().toLocaleTimeString();}
+}
+tick();setInterval(tick,3000);
+</script>
+</body>
+</html>`);
   });
 
   // ═══════════════════════════════════════════════════════════════════════
