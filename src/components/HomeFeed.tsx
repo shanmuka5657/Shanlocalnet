@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Post, AdCampaign, EligibilityResult, SupportedLanguage } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
 import { MediaCardThumbnail } from './common/MediaCardThumbnail.tsx';
 import { getTranslation } from '../lib/i18n.ts';
 import { getCurrentUserId } from '../lib/engagementStorage.ts';
+import {
+  markVideoSeen, isVideoSeen, updateInterests,
+  sortFeedByRelevance, countUnseenPosts, clearWatchHistory
+} from '../lib/watchHistory.ts';
 import {
   Heart,
   MessageCircle,
@@ -106,6 +110,17 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const { viewerLocation } = useLocation();
   const { user } = useAuth();
   const savedKey = () => `localnet_saved_posts_${getCurrentUserId()}`;
+
+  // ── Personalized feed: sort by relevance, unseen posts first ─────────────
+  // Re-sort every time posts prop changes (i.e. on refresh)
+  const personalizedPosts = useMemo(() => {
+    const rawPosts = posts.map(p => p.post);
+    const sorted = sortFeedByRelevance(rawPosts);
+    // Re-attach eligibility data
+    const eligMap = new Map(posts.map(p => [p.post.id, p.eligibility]));
+    return sorted.map(p => ({ post: p, eligibility: eligMap.get(p.id)! })).filter(p => p.eligibility);
+  }, [posts]);
+  const unseenCount = useMemo(() => countUnseenPosts(posts.map(p => p.post)), [posts]);
 
   // Mobile Pull-to-Refresh State
   const [pullDistance, setPullDistance] = useState(0);
@@ -315,6 +330,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     triggerHaptic(next ? 'medium' : 'light');
     setLikedPosts(prev => ({ ...prev, [postId]: next }));
     setStoredLike(postId, next);
+    // Track interest when user likes — biggest signal of preference
+    if (next) {
+      const post = posts.find(p => p.post.id === postId)?.post;
+      if (post) updateInterests(post, 'like');
+    }
     const res = await syncLikeWithServer(postId);
     if (res && typeof res.likesCount === 'number') {
       setLivePostStats(prev => ({
@@ -392,8 +412,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   }> = [];
 
   const filteredPosts = activeFeedTab === 'around_me'
-    ? posts.filter(p => p.eligibility.distanceKm <= aroundMeRadiusKm)
-    : posts;
+    ? personalizedPosts.filter(p => p.eligibility.distanceKm <= aroundMeRadiusKm)
+    : personalizedPosts;
 
   let adIndex = 0;
   filteredPosts.forEach((p, idx) => {
@@ -508,7 +528,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 </span>
               </div>
               <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate">
-                Showing {filteredPosts.length} video{filteredPosts.length === 1 ? '' : 's'} near {viewerLocation.cityName}
+                {unseenCount > 0 ? `${unseenCount} fresh` : 'All caught up!'} · {filteredPosts.length} video{filteredPosts.length === 1 ? '' : 's'} near {viewerLocation.cityName}
               </p>
             </div>
           </div>
@@ -769,6 +789,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                       onPlayRequest={() => {
                         setPlayingVideoId(post.id);
                         recordVideoPlayView(post.id);
+                        updateInterests(post, 'view');
                       }}
                       onPauseRequest={() => {
                         if (playingVideoId === post.id) setPlayingVideoId(null);
@@ -779,6 +800,13 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                       }}
                       onDoubleTapLike={() => toggleLike(post.id)}
                       isLiked={isLiked}
+                      onVideoSeen={(id) => {
+                        markVideoSeen(id);
+                        updateInterests(post, 'watch3');
+                      }}
+                      onWatch50={(id) => {
+                        updateInterests(post, 'watch50');
+                      }}
                     />
                   ) : post.mediaUrl ? (
                     <div

@@ -25,6 +25,10 @@ interface FeedVideoPlayerProps {
   onOpenReels?: () => void;
   onDoubleTapLike?: () => void;
   isLiked?: boolean;
+  /** Called once when the video has been watched for ≥ 3 seconds */
+  onVideoSeen?: (postId: string) => void;
+  /** Called once when ≥ 50% of the video has been watched */
+  onWatch50?: (postId: string) => void;
 }
 
 export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
@@ -34,10 +38,16 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   onPauseRequest,
   onOpenReels,
   onDoubleTapLike,
-  isLiked
+  isLiked,
+  onVideoSeen,
+  onWatch50
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Track watch milestones — fire each only once per video session
+  const seenFiredRef = useRef(false);
+  const watch50FiredRef = useRef(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
@@ -215,6 +225,21 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
     if (isPreviewRef.current && cur >= 5.0) {
       videoRef.current.currentTime = 0;
     }
+
+    const totalDur = videoRef.current.duration || duration || 1;
+
+    // ── Watch milestone tracking ─────────────────────────────────────────
+    // Mark as "seen" after 3 seconds of real (non-preview) playback
+    if (isCurrentlyPlaying && cur >= 3 && !seenFiredRef.current) {
+      seenFiredRef.current = true;
+      onVideoSeen?.(post.id);
+    }
+    // Track 50% completion
+    if (isCurrentlyPlaying && totalDur > 0 && cur / totalDur >= 0.5 && !watch50FiredRef.current) {
+      watch50FiredRef.current = true;
+      onWatch50?.(post.id);
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     if (!duration && videoRef.current.duration) {
       setDuration(videoRef.current.duration);
