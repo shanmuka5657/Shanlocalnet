@@ -4,7 +4,7 @@
  * Launch Market: Kurnool, Andhra Pradesh, India
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LocationProvider, useLocation } from './context/LocationContext.tsx';
 import { AuthProvider } from './context/AuthContext.tsx';
 import { TopNavigation, MainNavigationTab } from './components/TopNavigation.tsx';
@@ -91,6 +91,79 @@ function LocalNetContent() {
     window.addEventListener('localnet:open-auth', handleOpenAuth);
     return () => window.removeEventListener('localnet:open-auth', handleOpenAuth);
   }, []);
+
+  // ── Android / Browser Back Button Handling ────────────────────────────
+  // When any full-screen view or modal opens we push a history entry so
+  // the hardware back button fires `popstate` instead of exiting the app.
+  // A ref tracks closes initiated by the in-app X/back button so we don't
+  // double-close when our own history.back() call triggers popstate.
+  const backClosingRef = useRef(false);
+
+  // Push a history entry whenever a full-screen overlay opens
+  useEffect(() => {
+    if (isFullScreenReelsOpen)  window.history.pushState({ lnView: 'reels'   }, '');
+  }, [isFullScreenReelsOpen]);
+  useEffect(() => {
+    if (isShortStudioOpen)      window.history.pushState({ lnView: 'studio'  }, '');
+  }, [isShortStudioOpen]);
+  useEffect(() => {
+    if (isCreateModalOpen)      window.history.pushState({ lnView: 'create'  }, '');
+  }, [isCreateModalOpen]);
+  useEffect(() => {
+    if (isLocationModalOpen)    window.history.pushState({ lnView: 'location'}, '');
+  }, [isLocationModalOpen]);
+  useEffect(() => {
+    if (isNotificationsOpen)    window.history.pushState({ lnView: 'notifs'  }, '');
+  }, [isNotificationsOpen]);
+  useEffect(() => {
+    if (isSearchModalOpen)      window.history.pushState({ lnView: 'search'  }, '');
+  }, [isSearchModalOpen]);
+  useEffect(() => {
+    if (isAuthModalOpen)        window.history.pushState({ lnView: 'auth'    }, '');
+  }, [isAuthModalOpen]);
+
+  // popstate fires when the back button is pressed (or history.back() called)
+  useEffect(() => {
+    const onPopState = () => {
+      // If this popstate was triggered by our own closeWithBack() call, ignore it
+      if (backClosingRef.current) {
+        backClosingRef.current = false;
+        return;
+      }
+      // Close overlays in most-recently-opened order
+      if (isFullScreenReelsOpen) {
+        document.querySelectorAll('video').forEach(v => { if (!v.paused) v.pause(); });
+        setIsFullScreenReelsOpen(false);
+      } else if (isShortStudioOpen) {
+        setIsShortStudioOpen(false);
+      } else if (isCreateModalOpen) {
+        setIsCreateModalOpen(false);
+      } else if (isLocationModalOpen) {
+        setIsLocationModalOpen(false);
+      } else if (isNotificationsOpen) {
+        setIsNotificationsOpen(false);
+      } else if (isSearchModalOpen) {
+        setIsSearchModalOpen(false);
+      } else if (isAuthModalOpen) {
+        setIsAuthModalOpen(false);
+      }
+      // If nothing is open, let the browser handle back normally
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [
+    isFullScreenReelsOpen, isShortStudioOpen, isCreateModalOpen,
+    isLocationModalOpen, isNotificationsOpen, isSearchModalOpen, isAuthModalOpen
+  ]);
+
+  // Helper: close a view via X button AND sync the history entry we pushed
+  const closeWithBack = (setter: (v: boolean) => void) => {
+    setter(false);
+    // Remove the history entry we pushed on open so the back button
+    // doesn't hit it again (would do nothing, but cleaner UX)
+    backClosingRef.current = true;
+    window.history.back();
+  };
 
   // Pause any playing videos when switching navigation tabs
   useEffect(() => {
@@ -408,14 +481,14 @@ function LocalNetContent() {
           />
         )}
 
-        {/* REELS FULL-SCREEN VERTICAL SWIPE EXPERIENCE (Option B: 100vw x 100dvh, Touch Swipe, Sound, Controls) */}
+        {/* REELS FULL-SCREEN VERTICAL SWIPE EXPERIENCE */}
         {isFullScreenReelsOpen && (
           <ReelsView
             reels={reelsList}
             initialIndex={selectedReelIndex}
             onOpenCreate={() => setIsCreateModalOpen(true)}
             onOpenShortStudio={() => setIsShortStudioOpen(true)}
-            onClose={() => setIsFullScreenReelsOpen(false)}
+            onClose={() => closeWithBack(setIsFullScreenReelsOpen)}
           />
         )}
 
@@ -486,13 +559,13 @@ function LocalNetContent() {
       {/* Dynamic Viewer Location Switcher Modal */}
       <LocationModal
         isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
+        onClose={() => closeWithBack(setIsLocationModalOpen)}
       />
 
       {/* Content Creation Studio Modal */}
       <CreateModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => closeWithBack(setIsCreateModalOpen)}
         onPostCreated={handlePostCreated}
         onOpenShortStudio={() => setIsShortStudioOpen(true)}
       />
@@ -500,14 +573,14 @@ function LocalNetContent() {
       {/* Complete Short Video Creation Studio (Camera, Emojis, Pictures, Prices, Timeline) */}
       <ShortCreationStudio
         isOpen={isShortStudioOpen}
-        onClose={() => setIsShortStudioOpen(false)}
+        onClose={() => closeWithBack(setIsShortStudioOpen)}
         onPostPublished={handlePostCreated}
       />
 
       {/* Global & Hyperlocal Smart Search Modal */}
       <SearchModal
         isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
+        onClose={() => closeWithBack(setIsSearchModalOpen)}
         posts={feedPosts.map(p => p.post)}
         reels={reelsList.map(r => r.reel)}
         businesses={businesses}
@@ -541,7 +614,7 @@ function LocalNetContent() {
       {/* Notifications Drawer Modal */}
       <NotificationsModal
         isOpen={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
+        onClose={() => closeWithBack(setIsNotificationsOpen)}
         notifications={notifications}
         onMarkAllRead={handleMarkAllNotificationsRead}
       />
@@ -549,7 +622,7 @@ function LocalNetContent() {
       {/* Welcome & OTP Auth Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => closeWithBack(setIsAuthModalOpen)}
         language={language}
         onSelectLanguage={handleSelectLanguage}
         onLoginSuccess={() => loadData()}
@@ -570,3 +643,4 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
