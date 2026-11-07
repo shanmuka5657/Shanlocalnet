@@ -116,7 +116,9 @@ import { CommunityRepository } from './src/db/repositories/communityRepository.t
 import { AuditRepository, GeoDecisionRecord } from './src/db/repositories/auditRepository.ts';
 import { RidesRepository } from './src/db/repositories/ridesRepository.ts';
 import { seedVideos, getSeedProgress, isSeederRunning } from './src/db/seeders/pexelsVideoSeeder.ts';
-import { seedFromYouTube, getYTProgress, isYTRunning, findYtDlp, TELUGU_QUERIES } from './src/db/seeders/youtubeSeeder.ts';
+import { seedFromYouTube, getYTProgress, isYTRunning, findYtDlp, findNodePath, TELUGU_QUERIES } from './src/db/seeders/youtubeSeeder.ts';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import {
   defaultStorageService,
   validateMagicBytes,
@@ -1886,6 +1888,81 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
   });
 
   // ── YouTube Seeder API ─────────────────────────────────────────────────
+
+  // GET /api/admin/yt-preview — search YouTube and return video metadata WITHOUT downloading
+  // Query: ?query=biryani&count=15
+  app.get('/api/admin/yt-preview', async (req: Request, res: Response) => {
+    const requestingUserId = req.headers['x-user-id'] as string;
+    const isAdmin = requestingUserId ? await usersRepo.isAdmin(requestingUserId).catch(() => false) : false;
+    if (!isAdmin) return res.status(403).json({ error: 'Admin only' });
+
+    const ytdlp = findYtDlp();
+    if (!ytdlp) return res.status(500).json({ error: 'yt-dlp not installed' });
+
+    const query = (req.query.query as string || '').trim();
+    const count = Math.min(20, Math.max(1, parseInt(req.query.count as string, 10) || 10));
+    if (!query) return res.status(400).json({ error: 'query param required' });
+
+    const nodePath = findNodePath();
+    const jsRuntimeArg = nodePath ? `node:${nodePath}` : 'node';
+
+    try {
+      const execFileAsync = promisify(execFile);
+
+      const result = await execFileAsync(ytdlp, [
+        `ytsearch${count}:${query}`,
+        '--js-runtimes', jsRuntimeArg,
+        '--remote-components', 'ejs:github',
+        '--skip-download',
+        '--print-json',
+        '--no-warnings',
+        '--quiet'
+      ], {
+        maxBuffer: 30 * 1024 * 1024,
+        timeout: 60000,
+        windowsHide: true
+      } as any);
+
+      const videos: any[] = [];
+      const lines = String(result.stdout || '').split('\n');
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith('{')) continue;
+        try {
+          const info = JSON.parse(t);
+          if (info.id) {
+            videos.push({
+              id: info.id,
+              title: info.title || info.fulltitle || query,
+              duration: Math.round(info.duration || 0),
+              thumbnail: info.thumbnail || '',
+              channel: info.uploader || info.channel || '',
+              viewCount: info.view_count || 0,
+              uploadDate: info.upload_date || '',
+              url: `https://www.youtube.com/watch?v=${info.id}`,
+              alreadyInDb: false // will be filled below
+            });
+          }
+        } catch {}
+      }
+
+      // Mark which ones are already in DB
+      if (videos.length > 0) {
+        const ids = videos.map(v => `yt_${v.id}`);
+        const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+        const existing = await db.query(
+          `SELECT id FROM posts WHERE id IN (${placeholders})`, ids
+        );
+        const existingSet = new Set(existing.rows.map((r: any) => r.id));
+        videos.forEach(v => { v.alreadyInDb = existingSet.has(`yt_${v.id}`); });
+      }
+
+      res.json({ query, count: videos.length, videos });
+    } catch (err: any) {
+      const stderr = (err as any).stderr || '';
+      res.status(500).json({ error: err.message, stderr: stderr.substring(0, 300) });
+    }
+  });
 
   // GET /api/admin/yt-status — check YouTube seeder status + yt-dlp availability
   app.get('/api/admin/yt-status', (_req: Request, res: Response) => {

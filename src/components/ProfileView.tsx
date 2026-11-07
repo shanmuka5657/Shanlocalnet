@@ -73,11 +73,44 @@ const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
     return () => clearInterval(interval);
   }, [isPolling]);
 
+  // ── Preview state ─────────────────────────────────────────────────────────
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewVideos, setPreviewVideos] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [previewMessage, setPreviewMessage] = useState('');
+
+  const handlePreview = async () => {
+    if (!customSearch.trim()) {
+      setPreviewMessage('⚠️ Enter a search term first (e.g. biryani, bigboss Telugu)');
+      return;
+    }
+    setIsPreviewing(true);
+    setPreviewMessage('🔍 Searching YouTube...');
+    setPreviewVideos([]);
+    setSelectedIds(new Set());
+    try {
+      const query = encodeURIComponent(customSearch.split(',')[0].trim());
+      const r = await fetch(`/api/admin/yt-preview?query=${query}&count=15`, {
+        headers: { 'x-user-id': userId }
+      });
+      const data = await r.json();
+      if (!r.ok) { setPreviewMessage(`❌ ${data.error}`); return; }
+      if (!data.videos.length) { setPreviewMessage('❌ No videos found for that search.'); return; }
+      setPreviewVideos(data.videos);
+      // Pre-select all not already in DB
+      setSelectedIds(new Set(data.videos.filter((v: any) => !v.alreadyInDb).map((v: any) => v.id)));
+      setPreviewMessage(`✅ Found ${data.videos.length} videos — select the ones you want to download`);
+    } catch (err: any) {
+      setPreviewMessage(`❌ ${err.message}`);
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
   const handleStart = async () => {
     setIsStarting(true);
     setMessage('');
     try {
-      // Parse custom search: comma-separated terms
       const customQueries = customSearch.trim()
         ? customSearch.split(',').map(q => q.trim()).filter(Boolean)
         : undefined;
@@ -94,6 +127,7 @@ const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
       }
       setMessage(`🚀 ${data.message}`);
       setIsPolling(true);
+      setPreviewVideos([]); // Clear preview after starting
     } catch (err: any) {
       setMessage(`❌ ${err.message}`);
     } finally {
@@ -168,7 +202,110 @@ const YouTubeSeederPanel: React.FC<{ userId: string }> = ({ userId }) => {
             ))}
           </div>
         )}
+
+        {/* Preview Button — only for custom searches */}
+        {customSearch.trim() && (
+          <button
+            onClick={handlePreview}
+            disabled={isPreviewing}
+            className="w-full py-2 rounded-xl border-2 border-dashed border-slate-400 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-xs font-bold flex items-center justify-center gap-2 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all disabled:opacity-50"
+          >
+            {isPreviewing ? (
+              <><span className="animate-spin">⏳</span> Searching YouTube...</>
+            ) : (
+              <>👁️ Preview Videos Before Downloading</>
+            )}
+          </button>
+        )}
       </div>
+
+      {/* ── Video Preview Grid ──────────────────────────────────────────────── */}
+      {previewVideos.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              {selectedIds.size} of {previewVideos.length} selected to download
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setSelectedIds(new Set(previewVideos.filter(v => !v.alreadyInDb).map((v: any) => v.id)))}
+                className="text-[10px] text-amber-600 hover:underline font-semibold">Select all new</button>
+              <span className="text-slate-300">|</span>
+              <button onClick={() => setSelectedIds(new Set())}
+                className="text-[10px] text-slate-400 hover:underline">Clear</button>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            {previewVideos.map((v: any) => (
+              <div
+                key={v.id}
+                onClick={() => {
+                  if (v.alreadyInDb) return;
+                  setSelectedIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(v.id)) next.delete(v.id); else next.add(v.id);
+                    return next;
+                  });
+                }}
+                className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  v.alreadyInDb
+                    ? 'opacity-40 cursor-not-allowed bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800'
+                    : selectedIds.has(v.id)
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 ring-1 ring-emerald-400'
+                    : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-amber-400'
+                }`}
+              >
+                {/* Thumbnail */}
+                <div className="relative shrink-0">
+                  <img
+                    src={v.thumbnail}
+                    alt={v.title}
+                    className="w-20 h-12 rounded-lg object-cover bg-slate-200 dark:bg-slate-700"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-white text-[9px] font-mono px-1 rounded">
+                    {Math.floor(v.duration / 60)}:{String(v.duration % 60).padStart(2, '0')}
+                  </span>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-slate-800 dark:text-white leading-tight line-clamp-2">
+                    {v.title}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">{v.channel}</p>
+                  {v.viewCount > 0 && (
+                    <p className="text-[9px] text-slate-400">{(v.viewCount / 1000).toFixed(0)}K views</p>
+                  )}
+                </div>
+
+                {/* Status badge */}
+                <div className="shrink-0 self-center">
+                  {v.alreadyInDb ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 font-semibold">In DB</span>
+                  ) : selectedIds.has(v.id) ? (
+                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <span className="text-white text-[10px]">✓</span>
+                    </div>
+                  ) : (
+                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {previewMessage && (
+            <p className={`text-[11px] font-semibold ${previewMessage.startsWith('✅') ? 'text-emerald-600' : previewMessage.startsWith('❌') ? 'text-rose-600' : 'text-amber-600'}`}>
+              {previewMessage}
+            </p>
+          )}
+        </div>
+      )}
+
+      {!previewVideos.length && previewMessage && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{previewMessage}</p>
+      )}
 
       {/* Count selector */}
       <div className="space-y-2">

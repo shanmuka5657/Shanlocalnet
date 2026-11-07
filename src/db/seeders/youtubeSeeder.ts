@@ -124,7 +124,7 @@ export function findYtDlp(): string | null {
 }
 
 // ── Find Node.js binary for yt-dlp --js-runtimes ─────────────────────────
-function findNodePath(): string | null {
+export function findNodePath(): string | null {
   for (const p of NODE_PATHS) {
     try {
       execSync(`"${p}" --version`, { stdio: 'ignore' });
