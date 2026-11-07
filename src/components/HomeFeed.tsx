@@ -7,7 +7,8 @@ import { getTranslation } from '../lib/i18n.ts';
 import { getCurrentUserId } from '../lib/engagementStorage.ts';
 import {
   markVideoSeen, isVideoSeen, updateInterests,
-  sortFeedByRelevance, countUnseenPosts, clearWatchHistory
+  sortFeedByRelevance, countUnseenPosts, clearWatchHistory,
+  refreshSessionSeed
 } from '../lib/watchHistory.ts';
 import {
   Heart,
@@ -112,14 +113,16 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const savedKey = () => `localnet_saved_posts_${getCurrentUserId()}`;
 
   // ── Personalized feed: sort by relevance, unseen posts first ─────────────
-  // Re-sort every time posts prop changes (i.e. on refresh)
+  // shuffleKey changes on every refresh/tab-switch, forcing a re-sort
+  const [shuffleKey, setShuffleKey] = useState(0);
+
   const personalizedPosts = useMemo(() => {
     const rawPosts = posts.map(p => p.post);
     const sorted = sortFeedByRelevance(rawPosts);
-    // Re-attach eligibility data
     const eligMap = new Map(posts.map(p => [p.post.id, p.eligibility]));
     return sorted.map(p => ({ post: p, eligibility: eligMap.get(p.id)! })).filter(p => p.eligibility);
-  }, [posts]);
+  }, [posts, shuffleKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const unseenCount = useMemo(() => countUnseenPosts(posts.map(p => p.post)), [posts]);
 
   // Mobile Pull-to-Refresh State
@@ -158,6 +161,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       setIsPullRefreshing(true);
       setPullDistance(56);
       triggerHaptic('success');
+      // Refresh session seed so the feed shows a different order each pull
+      refreshSessionSeed();
+      setShuffleKey(k => k + 1);
       try {
         if (onRefreshFeed) {
           await onRefreshFeed();
@@ -467,7 +473,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         <div className="grid grid-cols-4 gap-1 w-full">
           {/* 1. Global / For You Feed */}
           <button
-            onClick={() => onChangeFeedTab('global')}
+            onClick={() => { refreshSessionSeed(); setShuffleKey(k => k + 1); onChangeFeedTab('global'); }}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'global'
               ? 'bg-amber-500 text-slate-950 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -489,7 +495,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
           {/* 3. Around Me (Hyperlocal <= 40km) */}
           <button
-            onClick={() => onChangeFeedTab('around_me')}
+            onClick={() => { refreshSessionSeed(); setShuffleKey(k => k + 1); onChangeFeedTab('around_me'); }}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'around_me'
               ? 'bg-amber-500 text-slate-950 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -501,7 +507,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
           {/* 4. Following */}
           <button
-            onClick={() => onChangeFeedTab('following')}
+            onClick={() => { refreshSessionSeed(); setShuffleKey(k => k + 1); onChangeFeedTab('following'); }}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 text-[10px] min-[360px]:text-xs font-bold rounded-xl transition-all ${activeFeedTab === 'following'
               ? 'bg-amber-500 text-slate-950 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'

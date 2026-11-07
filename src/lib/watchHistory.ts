@@ -139,10 +139,25 @@ export function scorePost(post: Post): number {
   return score;
 }
 
+// ── Session Shuffle Seed ───────────────────────────────────────────────────
+// Changes on every feed refresh so unseen posts appear in a different order
+// while still respecting interest scores.
+let _sessionSeed = Math.random();
+
+/** Call this every time the feed is refreshed (pull-to-refresh or app open) */
+export function refreshSessionSeed(): void {
+  _sessionSeed = Math.random();
+}
+
+export function getSessionSeed(): number { return _sessionSeed; }
+
 /**
  * Sort posts for the feed:
- *   1. Unseen posts first, sorted by interest score (highest first)
+ *   1. Unseen posts first, sorted by interest score + random session jitter
  *   2. Already-seen posts last (in case user wants to rewatch)
+ *
+ * The random jitter means that on every refresh the order is different,
+ * even when interest scores are close — so the feed never feels stale.
  */
 export function sortFeedByRelevance(posts: Post[]): Post[] {
   const seen = getSeenVideoIds();
@@ -150,8 +165,18 @@ export function sortFeedByRelevance(posts: Post[]): Post[] {
   const unseen  = posts.filter(p => !seen.has(p.id));
   const watched = posts.filter(p =>  seen.has(p.id));
 
-  unseen.sort( (a, b) => scorePost(b) - scorePost(a));
-  watched.sort((a, b) => scorePost(b) - scorePost(a));
+  /** Combined score: interest + session-varied shuffle component */
+  const finalScore = (p: Post): number => {
+    const interest = scorePost(p);
+    // Deterministic jitter per (post, session): same post gets a different
+    // rank every session, but within a session the order is stable.
+    const postHash = p.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const jitter = ((postHash * _sessionSeed * 1000) % 8); // 0–8 range
+    return interest + jitter;
+  };
+
+  unseen.sort( (a, b) => finalScore(b) - finalScore(a));
+  watched.sort((a, b) => finalScore(b) - finalScore(a));
 
   return [...unseen, ...watched];
 }
