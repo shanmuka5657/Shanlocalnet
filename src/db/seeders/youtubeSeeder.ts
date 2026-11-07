@@ -152,7 +152,7 @@ function downloadQuery(
       `ytsearch${count}:${query}`,
       '--js-runtimes', jsRuntimeArg,
       '--format', 'mp4[height<=480][ext=mp4]/best[height<=480]/best[ext=mp4]/best',
-      '--output', `${outDir}\\yt_%(id)s.%(ext)s`,
+      '--output', join(outDir, 'yt_%(id)s.%(ext)s'),
       '--match-filter', 'duration<=180',
       '--no-playlist',
       '--print-json',   // one JSON object per video on stdout after download
@@ -160,7 +160,8 @@ function downloadQuery(
     ];
 
     console.log(`[YT Seeder] Searching: "${query}" (${count} videos) with js-runtime: ${jsRuntimeArg}`);
-    const proc = spawn(`"${ytdlp}"`, args, { shell: true, windowsHide: true });
+    // shell: false avoids Windows path-with-spaces issues — pass binary directly
+    const proc = spawn(ytdlp, args, { shell: false, windowsHide: true });
 
     proc.stdout?.on('data', (chunk: Buffer) => {
       jsonBuf += chunk.toString();
