@@ -153,15 +153,18 @@ function downloadQuery(
       existingFiles = new Set();
     }
 
+    const archiveFile = join(outDir, 'yt-archive.txt'); // prevents re-downloading same videos
+
     const args = [
       `ytsearch${count}:${query}`,
       '--js-runtimes', jsRuntimeArg,
-      '--remote-components', 'ejs:github',   // solve YouTube n-challenge (required)
-      '--format', 'mp4[height<=480][ext=mp4]/best[height<=480]/best[ext=mp4]/best',
+      '--remote-components', 'ejs:github',
+      '--format', 'mp4[height<=720][ext=mp4]/best[height<=720]/best[ext=mp4]/best',
       '--output', join(outDir, 'yt_%(id)s.%(ext)s'),
-      '--match-filter', 'duration<=180',
+      '--max-filesize', '80M',                           // skip huge files
       '--no-playlist',
-      '--write-info-json',   // writes yt_ID.info.json alongside video file
+      '--download-archive', archiveFile,                 // skip already-downloaded IDs
+      '--write-info-json',
       '--no-warnings',
       '--quiet',
     ];
@@ -294,7 +297,24 @@ export async function seedFromYouTube(
       ON CONFLICT (id) DO NOTHING;
     `);
 
-    const videosPerQuery = Math.max(2, Math.ceil(targetCount / TELUGU_QUERIES.length));
+    // Pre-populate yt-dlp download archive from DB to skip already-seeded videos
+    const archivePath = join(outDir, 'yt-archive.txt');
+    try {
+      const seededRows = await db.query(
+        `SELECT id FROM posts WHERE id LIKE 'yt_%' AND creator_id = 'seed_youtube'`
+      );
+      if (seededRows.rows.length > 0) {
+        const { appendFileSync } = await import('fs');
+        const archiveLines = seededRows.rows.map((r: any) => `youtube ${r.id.replace('yt_', '')}`).join('\n') + '\n';
+        appendFileSync(archivePath, archiveLines);
+        console.log(`[YT Seeder] Pre-populated archive with ${seededRows.rows.length} already-seeded IDs`);
+      }
+    } catch (archiveErr) {
+      console.warn('[YT Seeder] Could not pre-populate archive:', archiveErr);
+    }
+
+    // More videos per query to get fresh results across 25 categories
+    const videosPerQuery = Math.max(5, Math.ceil(targetCount / TELUGU_QUERIES.length));
 
     outer:
     for (const query of TELUGU_QUERIES) {
