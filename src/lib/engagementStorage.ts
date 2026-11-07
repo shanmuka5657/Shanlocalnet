@@ -310,11 +310,16 @@ export function saveStoredUserPost(newPost: Post): void {
 // 6. BACKEND API SYNC HELPERS (Optimistic + Fire-and-Forget / Sync)
 // ---------------------------------------------------------------------------
 
-export async function syncLikeWithServer(postId: string): Promise<{ liked: boolean; likesCount: number } | null> {
+export async function syncLikeWithServer(postId: string, userId?: string): Promise<{ liked: boolean; likesCount: number } | null> {
+  const uid = userId || _currentUserId;
   try {
     const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/like`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': uid
+      },
+      body: JSON.stringify({ userId: uid })
     });
     if (res.ok) {
       return await res.json();
@@ -326,13 +331,18 @@ export async function syncLikeWithServer(postId: string): Promise<{ liked: boole
 export async function syncCommentWithServer(
   postId: string,
   commentText: string,
-  replyTo?: string
+  replyTo?: string,
+  userId?: string
 ): Promise<FeedComment | null> {
+  const uid = userId || _currentUserId;
   try {
     const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comment`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: commentText, replyTo })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': uid
+      },
+      body: JSON.stringify({ text: commentText, replyTo, userId: uid })
     });
     if (res.ok) {
       const data = await res.json();
@@ -344,7 +354,9 @@ export async function syncCommentWithServer(
 
 export async function fetchCommentsFromServer(postId: string): Promise<{ comments: FeedComment[]; stats?: { likes: number; comments: number; views: number } } | null> {
   try {
-    const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments?_t=${Date.now()}`);
+    const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments?_t=${Date.now()}`, {
+      headers: { 'x-user-id': _currentUserId }
+    });
     if (res.ok) {
       const data = await res.json();
       return {
@@ -356,11 +368,16 @@ export async function fetchCommentsFromServer(postId: string): Promise<{ comment
   return null;
 }
 
-export async function syncViewWithServer(postId: string): Promise<number | null> {
+export async function syncViewWithServer(postId: string, userId?: string): Promise<number | null> {
+  const uid = userId || _currentUserId;
   try {
     const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/view`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': uid
+      },
+      body: JSON.stringify({ userId: uid })
     });
     if (res.ok) {
       const data = await res.json();
@@ -370,11 +387,16 @@ export async function syncViewWithServer(postId: string): Promise<number | null>
   return null;
 }
 
-export async function syncAdViewWithServer(adId: string): Promise<number | null> {
+export async function syncAdViewWithServer(adId: string, userId?: string): Promise<number | null> {
+  const uid = userId || _currentUserId;
   try {
     const res = await fetch(`/api/ads/${encodeURIComponent(adId)}/view`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': uid
+      },
+      body: JSON.stringify({ userId: uid })
     });
     if (res.ok) {
       const data = await res.json();

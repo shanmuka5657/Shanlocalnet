@@ -171,7 +171,13 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
   });
-  const [followingCreators, setFollowingCreators] = useState<Record<string, boolean>>({});
+  const followingKey = () => `localnet_following_${getCurrentUserId()}`;
+  const [followingCreators, setFollowingCreators] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(followingKey());
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
 
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [shareModalPost, setShareModalPost] = useState<Post | null>(null);
@@ -335,7 +341,13 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   const toggleFollow = (creatorId: string) => {
     triggerHaptic('light');
-    setFollowingCreators(prev => ({ ...prev, [creatorId]: !prev[creatorId] }));
+    setFollowingCreators(prev => {
+      const next = { ...prev, [creatorId]: !prev[creatorId] };
+      try {
+        localStorage.setItem(followingKey(), JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const handleShare = (post: Post) => {
@@ -748,12 +760,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
                 {/* Media Container: Full width, responsive aspect ratio */}
                 <div
-                  className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center cursor-pointer group"
-                  onClick={() => {
-                    if (isVideoPost(post)) {
-                      handleToggleVideo(post.id);
-                    }
-                  }}
+                  className="w-full relative aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center group"
                 >
                   {isVideoPost(post) ? (
                     <FeedVideoPlayer

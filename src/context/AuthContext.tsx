@@ -34,7 +34,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(() => {
     try {
       const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
-      return cached ? JSON.parse(cached) : null;
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.id) setCurrentUserId(parsed.id);
+        return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -66,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await res.json();
       if (data?.user) {
         setUser(data.user);
+        setCurrentUserId(data.user.id);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.user));
         return data.user;
       }
@@ -93,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         joinedCommunityIds: ['comm_kurnool_city']
       };
       setUser(fallbackProfile);
+      setCurrentUserId(fallbackProfile.id);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(fallbackProfile));
       return fallbackProfile;
     }

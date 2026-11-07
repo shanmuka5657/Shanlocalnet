@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import {
   FeedComment,
+  getCurrentUserId,
   getStoredLikes,
   setStoredLike,
   getAllStoredComments,
@@ -64,11 +65,24 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
   const [currentIndex, setCurrentIndex] = useState(
     initialIndex >= 0 && initialIndex < reels.length ? initialIndex : 0
   );
+  const followingKey = () => `localnet_following_${getCurrentUserId()}`;
+  const savedKey = () => `localnet_saved_posts_${getCurrentUserId()}`;
+
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [likedReels, setLikedReels] = useState<Record<string, boolean>>(() => getStoredLikes());
-  const [savedReels, setSavedReels] = useState<Record<string, boolean>>({});
-  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({ creator_arjun: true });
+  const [savedReels, setSavedReels] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(savedKey());
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(followingKey());
+      return raw ? JSON.parse(raw) : { creator_arjun: true };
+    } catch { return { creator_arjun: true }; }
+  });
   const [showShareToast, setShowShareToast] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -287,9 +301,9 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
     const deltaTime = Date.now() - touchStartTime.current;
     touchStartY.current = null;
 
-    // Fast flick or standard drag distance threshold
-    const isQuickFlick = deltaTime < 300 && Math.abs(deltaY) > 30;
-    const isLongDrag = Math.abs(deltaY) > 60;
+    // Fast flick or standard drag distance threshold (robust against accidental tap rolls)
+    const isQuickFlick = deltaTime < 300 && Math.abs(deltaY) > 55;
+    const isLongDrag = Math.abs(deltaY) > 85;
 
     if (isQuickFlick || isLongDrag) {
       if (deltaY < 0) {
@@ -377,11 +391,24 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
   const toggleSave = (id: string) => {
     triggerHaptic('light');
-    setSavedReels(prev => ({ ...prev, [id]: !prev[id] }));
+    setSavedReels(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem(savedKey(), JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const toggleFollow = (creatorId: string) => {
-    setFollowingMap(prev => ({ ...prev, [creatorId]: !prev[creatorId] }));
+    triggerHaptic('light');
+    setFollowingMap(prev => {
+      const next = { ...prev, [creatorId]: !prev[creatorId] };
+      try {
+        localStorage.setItem(followingKey(), JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const handleShare = () => {

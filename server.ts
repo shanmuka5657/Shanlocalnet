@@ -1889,6 +1889,123 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
 
   // ── YouTube Seeder API ─────────────────────────────────────────────────
 
+  // ── In-memory stream URL cache (signed YouTube CDN URLs expire ~6h) ───
+  const streamCache = new Map<string, { url: string; cachedAt: number }>();
+  const STREAM_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+  function getCachedStream(id: string): string | null {
+    const entry = streamCache.get(id);
+    if (!entry) return null;
+    if (Date.now() - entry.cachedAt > STREAM_CACHE_TTL_MS) {
+      streamCache.delete(id);
+      return null;
+    }
+    return entry.url;
+  }
+
+  // GET /api/proxy-stream?id=VIDEO_ID
+  // Fetches a fresh signed YouTube CDN URL via yt-dlp and redirects the
+  // browser to it. The URL is cached for 4 hours so subsequent plays are instant.
+  app.get('/api/proxy-stream', async (req: Request, res: Response) => {
+    const id = (req.query.id as string || '').trim();
+    if (!id || !/^[a-zA-Z0-9_-]{8,15}$/.test(id)) {
+      return res.status(400).json({ error: 'Invalid YouTube video ID' });
+    }
+
+    // Serve from cache if still valid
+    const cached = getCachedStream(id);
+    if (cached) {
+      res.setHeader('X-Stream-Source', 'cache');
+      return res.redirect(302, cached);
+    }
+
+    const ytdlp = findYtDlp();
+    if (!ytdlp) {
+      return res.status(503).json({
+        error: 'yt-dlp not available on this server. Stream proxy only works on localhost.',
+        fallback: true
+      });
+    }
+
+    const nodePath = findNodePath();
+    const jsRuntimeArg = nodePath ? `node:${nodePath}` : 'node';
+
+    try {
+      const execFileAsync = promisify(execFile);
+      const result = await execFileAsync(ytdlp, [
+        `https://www.youtube.com/watch?v=${id}`,
+        '--js-runtimes', jsRuntimeArg,
+        '--remote-components', 'ejs:github',
+        '--get-url',
+        '--format', 'mp4[height<=720][ext=mp4]/best[height<=720]/best[ext=mp4]/best',
+        '--no-warnings',
+        '--quiet'
+      ], { timeout: 35000, maxBuffer: 2 * 1024 * 1024, windowsHide: true } as any);
+
+      const streamUrl = String(result.stdout || '').trim().split('\n')[0];
+      if (!streamUrl || !streamUrl.startsWith('http')) {
+        return res.status(404).json({ error: 'Could not get stream URL for this video.' });
+      }
+
+      // Cache and redirect
+      streamCache.set(id, { url: streamUrl, cachedAt: Date.now() });
+      res.setHeader('X-Stream-Source', 'fresh');
+      return res.redirect(302, streamUrl);
+    } catch (err: any) {
+      console.error('[ProxyStream] yt-dlp error for', id, ':', err.message?.substring(0, 200));
+      return res.status(500).json({ error: 'Failed to fetch stream URL. Try again.' });
+    }
+  });
+
+  // GET /api/proxy-stream/status?id=VIDEO_ID — check if URL is cached (for pre-warm)
+  app.get('/api/proxy-stream/status', (req: Request, res: Response) => {
+    const id = (req.query.id as string || '').trim();
+    const cached = getCachedStream(id);
+    res.json({ id, cached: !!cached, cacheSize: streamCache.size });
+  });
+
+  // POST /api/proxy-stream/prefetch — pre-warm cache for a list of IDs
+  // Called when the feed loads so videos start instantly when tapped
+  app.post('/api/proxy-stream/prefetch', async (req: Request, res: Response) => {
+    const { ids } = req.body as { ids: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids[] required' });
+    }
+
+    const ytdlp = findYtDlp();
+    if (!ytdlp) return res.json({ prefetched: 0, reason: 'yt-dlp not available' });
+
+    const uncached = ids.slice(0, 5).filter(id => !getCachedStream(id)); // max 5 at a time
+    if (uncached.length === 0) return res.json({ prefetched: 0, reason: 'all cached' });
+
+    res.json({ prefetching: uncached.length, message: 'Pre-warming cache in background...' });
+
+    // Pre-warm asynchronously (don't block the response)
+    const nodePath = findNodePath();
+    const jsRuntimeArg = nodePath ? `node:${nodePath}` : 'node';
+    const execFileAsync = promisify(execFile);
+
+    for (const id of uncached) {
+      try {
+        const result = await execFileAsync(ytdlp, [
+          `https://www.youtube.com/watch?v=${id}`,
+          '--js-runtimes', jsRuntimeArg,
+          '--remote-components', 'ejs:github',
+          '--get-url',
+          '--format', 'mp4[height<=720][ext=mp4]/best[height<=720]/best[ext=mp4]/best',
+          '--no-warnings', '--quiet'
+        ], { timeout: 35000, maxBuffer: 2 * 1024 * 1024, windowsHide: true } as any);
+        const url = String(result.stdout || '').trim().split('\n')[0];
+        if (url?.startsWith('http')) {
+          streamCache.set(id, { url, cachedAt: Date.now() });
+          console.log(`[ProxyStream] Pre-warmed cache for ${id}`);
+        }
+      } catch (e: any) {
+        console.warn(`[ProxyStream] Pre-warm failed for ${id}:`, e.message?.substring(0, 80));
+      }
+    }
+  });
+
   // GET /api/admin/yt-preview — search YouTube and return video metadata WITHOUT downloading
   // Query: ?query=biryani&count=15
   app.get('/api/admin/yt-preview', async (req: Request, res: Response) => {

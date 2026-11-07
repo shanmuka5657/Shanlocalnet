@@ -132,7 +132,11 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
           );
           if (anyPlaying) return;
 
+          // Never restart preview if the user has already watched past 0.3s
           if (videoRef.current && videoRef.current.paused) {
+            if (videoRef.current.currentTime > 0.3) {
+              return;
+            }
             videoRef.current.muted = true;
             setIsMuted(true);
             videoRef.current.currentTime = 0;
@@ -148,7 +152,6 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         } else if (!entry.isIntersecting && isPreviewRef.current) {
           if (videoRef.current && !videoRef.current.paused) {
             videoRef.current.pause();
-            videoRef.current.currentTime = 0;
           }
           setIsPreviewPlaying(false);
           isPreviewRef.current = false;
@@ -409,18 +412,8 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
   };
 
   // FIX: Video stage click handler.
-  //
-  // OLD behaviour: single tap → togglePlayPause() → could restart video.
-  // NEW behaviour:
-  //   • Double-tap left (< 35% width) → rewind 10 s
-  //   • Double-tap right (> 65% width) → forward 10 s
-  //   • Double-tap centre              → like animation
-  //   • Single tap, in preview mode   → exit preview & start full play
-  //   • Single tap, controls hidden   → show controls (never play/pause)
-  //   • Single tap, controls visible  → hide controls  (never play/pause)
-  //
-  // Play/Pause is ONLY triggered by the explicit ▶/⏸ button in the controls bar.
   const handleStageClick = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickWidth = rect.width;
@@ -454,20 +447,24 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
       // ── Single tap ──────────────────────────────────────────────────────
       singleTapTimeoutRef.current = setTimeout(() => {
         if (isPreviewPlaying || isPreviewRef.current) {
-          // In preview mode: tap exits preview and starts full play.
+          // In preview mode: tap exits preview and starts full play from current position
           exitPreviewAndPlay();
           setCenterIconFlash('play');
           setTimeout(() => setCenterIconFlash(null), 600);
           resetControlsTimer();
+        } else if (videoRef.current && videoRef.current.paused) {
+          // If paused: resume playing from current position (never restart from 0)
+          onPlayRequest();
+          videoRef.current.play().catch(() => {});
+          setCenterIconFlash('play');
+          setTimeout(() => setCenterIconFlash(null), 600);
+          resetControlsTimer();
         } else {
-          // In full-play / paused mode: tap ONLY toggles control visibility.
-          // It must never reset, reload, or restart the video.
+          // In full-play mode: tap toggles control visibility. Never reset or restart video.
           if (showControlsRef.current) {
-            // Controls are visible → hide them.
             setShowControls(false);
             if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
           } else {
-            // Controls are hidden → show them and start auto-hide timer.
             resetControlsTimer();
           }
         }
@@ -608,7 +605,6 @@ export const FeedVideoPlayer: React.FC<FeedVideoPlayerProps> = ({
         } else if (isPreviewPlaying || isPreviewRef.current) {
           if (videoRef.current) {
             videoRef.current.pause();
-            videoRef.current.currentTime = 0;
           }
           setIsPreviewPlaying(false);
           isPreviewRef.current = false;
