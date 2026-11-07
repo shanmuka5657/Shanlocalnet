@@ -638,6 +638,10 @@ export async function seedTeluguBulk(
   // ── Shared in-memory ID set: prevents any two workers uploading the same video
   const processedIds = new Set<string>();
 
+  // ── Shared archive file for all workers (prevents re-downloading same YouTube ID)
+  const sharedArchivePath = join(baseDir, 'archive_shared.txt');
+  try { appendFileSync(sharedArchivePath, ''); } catch { }
+
   // ── Resume: load already-seeded IDs from DB so restarts skip them
   try {
     await safeQuery(`
@@ -707,8 +711,11 @@ export async function seedTeluguBulk(
   // ── Worker function ───────────────────────────────────────────────────────
   const runWorker = async (workerId: number): Promise<void> => {
     const workerDir  = join(baseDir, `w${workerId}`);
-    const archivePath = join(baseDir, `archive_w${workerId}.txt`);
+    // SINGLE shared archive for all workers — prevents ANY worker re-downloading同一个 video
+    const archivePath = join(baseDir, `archive_shared.txt`);
     mkdirSync(workerDir, { recursive: true });
+    // Ensure archive file exists
+    try { appendFileSync(archivePath, ''); } catch { }
 
     while (!_stopRequested && _progress.totalUploaded < target) {
       // Pull next query (queue may be exhausted; refill for another cycle)
