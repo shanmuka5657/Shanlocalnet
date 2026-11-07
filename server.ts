@@ -1320,9 +1320,17 @@ Return ONLY a valid JSON object matching this exact format, with no markdown cod
     }
 
     try {
-      // Upsert the admin user and ensure platform_admin role
+      // Look up existing user by email first, then upsert
+      const existing = await db.query(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+        [expectedEmail]
+      );
+      const userId = existing.rows.length > 0
+        ? existing.rows[0].id
+        : `local_${expectedEmail.replace(/[^a-z0-9]/g, '_')}`;
+
       let user = await usersRepo.upsertGoogleUser({
-        id: `local_${expectedEmail.replace(/[^a-z0-9]/g, '_')}`,
+        id: userId,
         email: expectedEmail,
         name: 'Shanmukha A',
         avatar: '',
